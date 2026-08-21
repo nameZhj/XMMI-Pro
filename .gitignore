@@ -58,5 +58,8 @@ ENV/
 # Release outputs
 *.zip
 *.msi
+*.exe
+*.spec
+/XMMI-Pro-Release/
 *.exe.spec
 XMMI-Pro-Release/

@@ -126,9 +126,14 @@ def build(tag: str = "v1.0.0"):
         if res.returncode == 0 and installer_exe.exists():
             print(f"[SUCCESS] Chinese Setup Installer generated: {installer_exe}")
         else:
-            print(f"[WARNING] Inno Setup compiler exited with code: {res.returncode}")
+            print(f"[FAILED] Inno Setup compiler failed with exit code: {res.returncode}")
+            sys.exit(res.returncode if res.returncode != 0 else 1)
     else:
-        print("[INFO] Inno Setup compiler (ISCC.exe) not found or installer.iss missing, skipping setup exe build.")
+        if "GITHUB_ACTIONS" in os.environ:
+            print("[FAILED] Inno Setup compiler (ISCC.exe) not found in CI environment!")
+            sys.exit(1)
+        else:
+            print("[INFO] Inno Setup compiler (ISCC.exe) not found, skipping setup exe build.")
 
     # Export environment variables for GitHub Actions CI
     if "GITHUB_ENV" in os.environ:
