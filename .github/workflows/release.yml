@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   build:
-    name: Build & Package Windows Release
+    name: Build & Package Windows Installer and Portable Release
     runs-on: windows-latest
 
     steps:
@@ -31,26 +31,40 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: Install Dependencies
+      - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Build & Package XMMI-Pro
+      - name: Set up Inno Setup (for Chinese Setup Installer)
+        shell: pwsh
+        run: |
+          $InnoPath = "C:\Program Files (x86)\Inno Setup 6"
+          if (-not (Test-Path "$InnoPath\ISCC.exe")) {
+            Write-Host "Installing Inno Setup via Chocolatey..."
+            choco install innosetup -y
+          }
+          if (Test-Path $InnoPath) {
+            echo "$InnoPath" >> $env:GITHUB_PATH
+          }
+
+      - name: Build & Package XMMI-Pro (Setup Installer & Portable Zip)
         shell: pwsh
         run: |
           $Tag = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { "${{ github.event.inputs.version }}" }
           if (-not $Tag) { $Tag = "v1.0.0" }
           python build_release.py --tag $Tag
 
-      - name: Create GitHub Release & Upload Asset
+      - name: Create GitHub Release & Upload Assets
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           name: XMMI-Pro ${{ env.RELEASE_TAG }}
-          files: ${{ env.ZIP_NAME }}
+          files: |
+            *.exe
+            *.zip
           draft: false
           prerelease: false
           generate_release_notes: true

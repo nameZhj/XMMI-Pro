@@ -55,9 +55,9 @@
 ### 🚀 快速开始
 
 #### 方法一：下载 Release 发行版（推荐）
-1. 进入本仓库 [Releases 页面](https://github.com/nameZhj/XMMI-Pro/releases) 下载最新的 `XMMI-Pro-vX.X.X-Windows-x64.zip`。
-2. 解压到任意非系统保护目录（避免放在 `C:\Program Files`）。
-3. 双击运行 `XMMI-Pro.bat` 或 `Resources\Bin\XXMI Launcher.exe` 即可启动。
+进入本仓库 [Releases 页面](https://github.com/nameZhj/XMMI-Pro/releases) 下载适合的版本：
+- 🌟 **全中文安装包（推荐）**：下载 `XMMI-Pro-Setup-vX.X.X.exe`，双击启动中文安装向导，自动配置运行环境并创建桌面与开始菜单快捷方式。
+- 📦 **免安装便携版**：下载 `XMMI-Pro-vX.X.X-Windows-x64.zip`，解压后双击运行 `XMMI-Pro.bat` 即可使用。
 
 #### 方法二：源码运行与本地开发
 ```bash
@@ -75,7 +75,7 @@ pip install -r requirements.txt
 # 4. 运行启动器
 python src/xxmi_launcher/app.py
 
-# 5. 本地一键打包发布
+# 5. 本地一键编译与打包（自动生成安装包与绿色压缩包）
 python build_release.py
 ```
 
@@ -106,9 +106,9 @@ python build_release.py
 ### 🚀 Getting Started
 
 #### Option 1: Download Release (Recommended)
-1. Download `XMMI-Pro-vX.X.X-Windows-x64.zip` from [Releases](https://github.com/nameZhj/XMMI-Pro/releases).
-2. Extract to any directory (avoid protected system directories).
-3. Run `XMMI-Pro.bat` or `Resources\Bin\XXMI Launcher.exe`.
+Download the preferred distribution from [Releases](https://github.com/nameZhj/XMMI-Pro/releases):
+- 🌟 **Windows Setup Installer**: Download `XMMI-Pro-Setup-vX.X.X.exe` for a guided installation wizard in Chinese with automatic desktop/start menu shortcuts.
+- 📦 **Portable Package**: Download `XMMI-Pro-vX.X.X-Windows-x64.zip`, extract and run `XMMI-Pro.bat`.
 
 #### Option 2: Run from Source
 ```bash

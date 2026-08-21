@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
 XMMI-Pro Build Script
-Compiles and packages XMMI-Pro into a portable distribution.
+Compiles and packages XMMI-Pro into:
+1. Portable Windows ZIP Archive
+2. Windows Setup Installer EXE with Chinese Installation Wizard (Inno Setup)
 """
 import os
 import sys
@@ -22,6 +24,24 @@ SRC_DIR = ROOT_DIR / "src" / "xxmi_launcher"
 DIST_DIR = ROOT_DIR / "dist"
 BUILD_DIR = ROOT_DIR / "build"
 RELEASE_DIR = ROOT_DIR / "XMMI-Pro-Release"
+
+
+def find_iscc():
+    """Locates Inno Setup command-line compiler (ISCC.exe)."""
+    iscc_path = shutil.which("iscc")
+    if iscc_path:
+        return iscc_path
+
+    candidates = [
+        Path(os.environ.get("ProgramFiles(x86)", "C:/Program Files (x86)")) / "Inno Setup 6" / "ISCC.exe",
+        Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Inno Setup 6" / "ISCC.exe",
+        Path("C:/Program Files (x86)/Inno Setup 6/ISCC.exe"),
+        Path("C:/Program Files/Inno Setup 6/ISCC.exe"),
+    ]
+    for p in candidates:
+        if p.exists():
+            return str(p)
+    return None
 
 
 def build(tag: str = "v1.0.0"):
@@ -82,11 +102,11 @@ def build(tag: str = "v1.0.0"):
         if f_path.exists():
             shutil.copy2(f_path, RELEASE_DIR / file_name)
 
-    # Launcher batch script
+    # Launcher batch script for portable use
     launcher_bat = RELEASE_DIR / "XMMI-Pro.bat"
     launcher_bat.write_text('@echo off\nstart "" "%~dp0Resources\\Bin\\XXMI Launcher.exe"\n', encoding="utf-8")
 
-    # 4. Zip output
+    # 4. Zip output (Portable distribution)
     zip_base_name = f"XMMI-Pro-{tag}-Windows-x64"
     zip_path = ROOT_DIR / f"{zip_base_name}.zip"
     if zip_path.exists():
@@ -94,15 +114,32 @@ def build(tag: str = "v1.0.0"):
 
     print(f"Compressing into {zip_path.name}...")
     shutil.make_archive(str(ROOT_DIR / zip_base_name), 'zip', RELEASE_DIR)
+    print(f"[SUCCESS] Portable package created: {zip_path}")
 
-    # Export variables for GitHub Actions if running in CI
+    # 5. Compile Inno Setup Windows Installer EXE (with Chinese wizard)
+    installer_exe = ROOT_DIR / f"XMMI-Pro-Setup-{tag}.exe"
+    iscc = find_iscc()
+    if iscc and (ROOT_DIR / "installer.iss").exists():
+        print(f"Compiling Chinese Setup Installer via Inno Setup ({iscc})...")
+        iss_cmd = [iscc, f"/DMyAppVersion={tag}", str(ROOT_DIR / "installer.iss")]
+        res = subprocess.run(iss_cmd, cwd=ROOT_DIR)
+        if res.returncode == 0 and installer_exe.exists():
+            print(f"[SUCCESS] Chinese Setup Installer generated: {installer_exe}")
+        else:
+            print(f"[WARNING] Inno Setup compiler exited with code: {res.returncode}")
+    else:
+        print("[INFO] Inno Setup compiler (ISCC.exe) not found or installer.iss missing, skipping setup exe build.")
+
+    # Export environment variables for GitHub Actions CI
     if "GITHUB_ENV" in os.environ:
         with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as f:
             f.write(f"ZIP_NAME={zip_path.name}\n")
             f.write(f"RELEASE_TAG={tag}\n")
+            if installer_exe.exists():
+                f.write(f"SETUP_EXE={installer_exe.name}\n")
 
     print("=" * 60)
-    print(f"[SUCCESS] Build completed successfully! Package: {zip_path}")
+    print(f"[SUCCESS] Build process completed successfully for {tag}!")
     print("=" * 60)
 
 
