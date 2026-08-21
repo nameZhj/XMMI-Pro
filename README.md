@@ -1,7 +1,7 @@
 # XMMI-Pro
 
 <p align="center">
-  <strong>现代化可视化模组管理与启动器增强版 · Next-Gen Visual Mod Manager & Launcher</strong>
+  <strong>模组管理与启动器增强版 · Visual Mod Manager & Launcher</strong>
 </p>
 
 <p align="center">
@@ -49,8 +49,6 @@
 - 🎮 **实时快捷键面板与游戏状态同步**：
   - 右侧详情面板自动解析并结构化呈现 Mod 包含的所有快捷键与控制指令。
   - 模组启用/禁用/修复时，自动向运行中的游戏进程发送重载信号（F10），实现游戏内状态秒级热更新。
-- 🪟 **自由独立浮动窗口**：
-  - 现代无边框暗黑设计，支持标题栏拖拽移动、双击最大化/还原、最小化至任务栏以及右下角自由拉伸缩放。
 - 🔄 **完善的格式导入支持**：
   - 支持 `.zip`、`.7z`、`.rar` 压缩包批量解压导入以及本地文件夹一键导入。
 
@@ -102,8 +100,6 @@ python build_release.py
 - 🎮 **Hotkey Inspector & Live Game Synchronization**:
   - Live hotkey parsing displaying all key bindings and control triggers in the inspector panel.
   - Automatically sends live reload notifications (F10) to active game processes when toggling/repairing mods.
-- 🪟 **Independent Frameless Window**:
-  - Sleek modern dark mode with smooth title bar dragging, maximize/restore, minimize, and custom corner resize grip.
 - 🔄 **Universal Archive Importer**:
   - Supports `.zip`, `.7z`, and `.rar` archive extraction and direct folder importing.
 

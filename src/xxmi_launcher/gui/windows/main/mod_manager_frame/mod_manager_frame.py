@@ -477,7 +477,7 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
         self.on_close_callback = on_close if callable(on_close) else None
         self.image_cache: Dict[str, CTkImage] = {}
 
-        self.title("可视化模组管理 - XXMI Launcher")
+        self.title("模组管理 - XXMI Launcher")
         self.overrideredirect(True)
         self.geometry("1240x740")
         self.configure(fg_color="#0f1117")
@@ -527,7 +527,7 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
 
         self.title_label = CTkLabel(
             self.title_bar,
-            text="可视化模组管理",
+            text="模组管理",
             font=("Microsoft YaHei", 15, "bold"),
             text_color="#ffffff"
         )
