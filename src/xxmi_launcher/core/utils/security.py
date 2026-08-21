@@ -12,10 +12,10 @@ class Security:
         self.private_key = None
         self.public_key = None
 
-        if private_key is not None:
+        if private_key:
             self.load_private_key(private_key)
 
-        if public_key is not None:
+        if public_key:
             self.load_public_key(public_key)
 
     def sign(self, data, encoding='utf-8'):

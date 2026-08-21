@@ -25,7 +25,7 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class LauncherManagerConfig:
-    auto_update: bool = True
+    auto_update: bool = False
     pre_release: bool = False
     update_channel: str = 'Auto'
     auto_close: bool = True
@@ -61,12 +61,12 @@ class LauncherPackage(Package):
         super().__init__(PackageMetadata(
             package_name='Launcher',
             auto_load=True,
-            github_repo_owner='SpectrumQT',
-            github_repo_name='XXMI-Launcher',
+            github_repo_owner='nameZhj',
+            github_repo_name='XMMI-Pro',
             asset_version_pattern=r'.*(\d\.\d\.\d).*',
-            asset_name_format='XXMI-Launcher-Installer-Online-v%s.msi',
+            asset_name_format='XMMI-Pro-v%s-Windows-x64.zip',
             signature_pattern=r'^## Signature[\r\n]+- ((?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{4}|[A-Za-z0-9+\/]{3}=|[A-Za-z0-9+\/]{2}={2})$)',
-            signature_public_key='MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEYac352uRGKZh6LOwK0fVDW/TpyECEfnRtUp+bP2PJPP63SWOkJ3a/d9pAnPfYezRVJ1hWjZtpRTT8HEAN/b4mWpJvqO43SAEV/1Q6vz9Rk/VvRV3jZ6B/tmqVnIeHKEb',
+            signature_public_key='',
             exit_after_update=True,
         ))
         self.subscribe(Events.LauncherManager.CreateShortcut, lambda event: self.create_shortcut())
@@ -83,10 +83,8 @@ class LauncherPackage(Package):
         return self.get_installed_version()
 
     def update_available(self):
-        # Don't auto-update if running directly from source code in development
-        if not (getattr(sys, 'frozen', False) or '__compiled__' in globals()):
-            return False
-        return self.cfg.latest_version != '' and self.cfg.latest_version > self.get_installed_version()
+        # Do not push or trigger automatic launcher updates
+        return False
 
     def install_latest_version(self, clean):
         Events.Fire(Events.PackageManager.InitializeInstallation())

@@ -340,7 +340,8 @@ class Application:
 
         Events.Fire(Events.PackageManager.NotifyPackageVersions(detect_installed=True))
 
-        self.gui.after(100, self.run_as_thread, self.auto_update)
+        if Config.Launcher.auto_update or self.args.update:
+            self.gui.after(100, self.run_as_thread, self.auto_update)
 
         if open_settings:
             Events.Fire(Events.Application.OpenSettings())
@@ -468,10 +469,12 @@ class Application:
         return active_importer
 
     def auto_update(self):
+        # Exit early if auto-update is disabled and not forced via command line argument
+        if not (Config.Launcher.auto_update or self.args.update):
+            return
         # Exit early if current active model importer is not installed
         importer_package = self.package_manager.packages.get(Config.Launcher.active_importer, None)
         if importer_package is None or importer_package.get_installed_version() == '':
-            self.package_manager.update_packages(packages=['Launcher'], no_install=True, silent=True)
             Events.Fire(Events.Application.Ready())
             return
         # Query GitHub for updates and skip installation, force query and lock GUI if --update argument is supplied
@@ -525,11 +528,13 @@ class Application:
         self.package_manager.notify_package_versions()
         Config.ConfigSecurity.validate_config()
         Events.Fire(Events.Application.ConfigUpdate())
-        # Check for updates
-        if update and self.package_manager.get_package(importer_id).installed_version:
+        # Check for updates only if auto_update is explicitly enabled
+        if update and Config.Launcher.auto_update and self.package_manager.get_package(importer_id).installed_version:
             self.run_as_thread(self.package_manager.update_packages, no_install=True, silent=True)
 
     def update_scheduled(self) -> bool:
+        if not (Config.Launcher.auto_update or self.args.update):
+            return False
         if not self.package_manager.update_available():
             return False
 
