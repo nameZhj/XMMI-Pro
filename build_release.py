@@ -10,6 +10,13 @@ import argparse
 import subprocess
 from pathlib import Path
 
+# Ensure UTF-8 output encoding on Windows consoles
+if hasattr(sys.stdout, 'reconfigure'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 ROOT_DIR = Path(__file__).resolve().parent
 SRC_DIR = ROOT_DIR / "src" / "xxmi_launcher"
 DIST_DIR = ROOT_DIR / "dist"
@@ -40,7 +47,7 @@ def build(tag: str = "v1.0.0"):
         "--collect-all", "tkinterweb",
         "--collect-all", "PIL",
         "--collect-all", "py7zr",
-        "--collect-all", "rarfile",
+        "--hidden-import", "rarfile",
         "--hidden-import", "core.mod_service",
         "--hidden-import", "gui.windows.main.mod_manager_frame.mod_manager_frame",
         str(SRC_DIR / "app.py")
@@ -48,7 +55,7 @@ def build(tag: str = "v1.0.0"):
     print(f"Executing: {' '.join(cmd)}")
     result = subprocess.run(cmd, cwd=ROOT_DIR)
     if result.returncode != 0:
-        print("❌ Build failed!")
+        print("[FAILED] PyInstaller build failed with exit code:", result.returncode)
         sys.exit(result.returncode)
 
     # 3. Assemble Release Directory Structure
@@ -95,7 +102,7 @@ def build(tag: str = "v1.0.0"):
             f.write(f"RELEASE_TAG={tag}\n")
 
     print("=" * 60)
-    print(f"✅ Build completed successfully! Package: {zip_path}")
+    print(f"[SUCCESS] Build completed successfully! Package: {zip_path}")
     print("=" * 60)
 
 

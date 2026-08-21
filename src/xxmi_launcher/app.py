@@ -224,6 +224,6 @@ if __name__ == '__main__':
 
             from tkinter.messagebox import showerror
             showerror(
-                title=f'XXMI Launcher - {L('message_title_fatal_error', 'Fatal Error')}',
+                title=f"XXMI Launcher - {L('message_title_fatal_error', 'Fatal Error')}",
                 message=error,
             )
