@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """
-XMMI-Pro Local Build Script
+XMMI-Pro Build Script
 Compiles and packages XMMI-Pro into a portable distribution.
 """
 import os
 import sys
 import shutil
+import argparse
 import subprocess
 from pathlib import Path
 
@@ -15,9 +16,10 @@ DIST_DIR = ROOT_DIR / "dist"
 BUILD_DIR = ROOT_DIR / "build"
 RELEASE_DIR = ROOT_DIR / "XMMI-Pro-Release"
 
-def build():
+
+def build(tag: str = "v1.0.0"):
     print("=" * 60)
-    print("Building XMMI-Pro...")
+    print(f"Building XMMI-Pro ({tag})...")
     print("=" * 60)
 
     # 1. Clean previous build artifacts
@@ -78,13 +80,31 @@ def build():
     launcher_bat.write_text('@echo off\nstart "" "%~dp0Resources\\Bin\\XXMI Launcher.exe"\n', encoding="utf-8")
 
     # 4. Zip output
-    zip_path = ROOT_DIR / "XMMI-Pro-Portable-Windows.zip"
+    zip_base_name = f"XMMI-Pro-{tag}-Windows-x64"
+    zip_path = ROOT_DIR / f"{zip_base_name}.zip"
+    if zip_path.exists():
+        zip_path.unlink()
+
     print(f"Compressing into {zip_path.name}...")
-    shutil.make_archive(str(ROOT_DIR / "XMMI-Pro-Portable-Windows"), 'zip', RELEASE_DIR)
+    shutil.make_archive(str(ROOT_DIR / zip_base_name), 'zip', RELEASE_DIR)
+
+    # Export variables for GitHub Actions if running in CI
+    if "GITHUB_ENV" in os.environ:
+        with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as f:
+            f.write(f"ZIP_NAME={zip_path.name}\n")
+            f.write(f"RELEASE_TAG={tag}\n")
 
     print("=" * 60)
     print(f"✅ Build completed successfully! Package: {zip_path}")
     print("=" * 60)
 
+
 if __name__ == "__main__":
-    build()
+    parser = argparse.ArgumentParser(description="Build XMMI-Pro Distribution")
+    parser.add_argument("--tag", default=os.environ.get("GITHUB_REF_NAME", "v1.0.0"), help="Release version tag")
+    args = parser.parse_args()
+
+    tag_value = args.tag if args.tag else "v1.0.0"
+    if tag_value.startswith("refs/tags/"):
+        tag_value = tag_value.replace("refs/tags/", "")
+    build(tag=tag_value)
