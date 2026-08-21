@@ -1,0 +1,1 @@
+from gui.windows.main.mod_manager_frame.mod_manager_frame import ModManagerFrame

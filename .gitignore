@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments
+.venv/
+env/
+venv/
+ENV/
+
+# IDE / Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+.system_generated/
+.gemini/
+
+# Temporary / Cache / Game Data / Logs
+/XXMI Launcher Log.txt
+/XXMI-Launcher Log.txt
+/fps_config.json
+/Locale/active_locale.cfg
+/Backups/
+/Downloads/
+/!BUILD/
+/!MEDIA/
+/!RELEASES/
+/!TRASH/
+/Assets/
+/WWMI/
+/ZZMI/
+/SRMI/
+/GIMI/
+/HIMI/
+/EFMI/
+/ReShade/
+/XXMI Launcher Config.json
+
+# Release outputs
+*.zip
+*.msi
+*.exe.spec
+XMMI-Pro-Release/

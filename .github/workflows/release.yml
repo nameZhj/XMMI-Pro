@@ -1,0 +1,96 @@
+name: Build and Release XMMI-Pro
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version tag (e.g. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Package Windows Release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build Binary with PyInstaller
+        shell: pwsh
+        run: |
+          Write-Host "Compiling XMMI-Pro with PyInstaller..."
+          pyinstaller --noconfirm --onedir --windowed `
+            --name "XXMI Launcher" `
+            --paths "src/xxmi_launcher" `
+            --collect-all "customtkinter" `
+            --collect-all "tkinterweb" `
+            --collect-all "PIL" `
+            --collect-all "py7zr" `
+            --collect-all "rarfile" `
+            --hidden-import "core.mod_service" `
+            --hidden-import "gui.windows.main.mod_manager_frame.mod_manager_frame" `
+            "src/xxmi_launcher/app.py"
+
+          # Assemble clean portable release folder
+          $ReleaseDir = "XMMI-Pro-Release"
+          New-Item -ItemType Directory -Path "$ReleaseDir/Resources/Bin" -Force | Out-Null
+          
+          # Copy compiled binaries into Resources/Bin
+          Copy-Item -Path "dist/XXMI Launcher/*" -Destination "$ReleaseDir/Resources/Bin" -Recurse -Force
+          
+          # Copy auxiliary assets and locales
+          if (Test-Path "Locale") { Copy-Item -Path "Locale" -Destination "$ReleaseDir/Locale" -Recurse -Force }
+          if (Test-Path "Themes") { Copy-Item -Path "Themes" -Destination "$ReleaseDir/Themes" -Recurse -Force }
+          if (Test-Path "LICENSE") { Copy-Item -Path "LICENSE" -Destination "$ReleaseDir/LICENSE" -Force }
+          if (Test-Path "README.md") { Copy-Item -Path "README.md" -Destination "$ReleaseDir/README.md" -Force }
+
+          # Add one-click launcher script in the root directory
+          $LauncherScript = @"
+@echo off
+start "" "%~dp0Resources\Bin\XXMI Launcher.exe"
+"@
+          Set-Content -Path "$ReleaseDir/XMMI-Pro.bat" -Value $LauncherScript
+
+          # Determine Tag & Name
+          $Tag = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { "${{ github.event.inputs.version }}" }
+          if (-not $Tag) { $Tag = "v1.0.0" }
+          $ZipName = "XMMI-Pro-$Tag-Windows-x64.zip"
+
+          Compress-Archive -Path "$ReleaseDir/*" -DestinationPath $ZipName -Force
+          Write-Host "Release archive created: $ZipName"
+          
+          echo "ZIP_NAME=$ZipName" >> $env:GITHUB_ENV
+          echo "RELEASE_TAG=$Tag" >> $env:GITHUB_ENV
+
+      - name: Create GitHub Release & Upload Asset
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: XMMI-Pro ${{ env.RELEASE_TAG }}
+          files: ${{ env.ZIP_NAME }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
