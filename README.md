@@ -1,3 +1,7 @@
+> **本说明由AI生成**
+> 
+> *This documentation is AI-generated.*
+
 # XMMI-Pro
 
 <p align="center">
