@@ -57,8 +57,9 @@
 
 #### 方法一：下载 Release 发行版（推荐）
 进入本仓库 [Releases 页面](https://github.com/nameZhj/XMMI-Pro/releases) 下载适合的版本：
-- 🌟 **Windows Installer MSI 安装包（推荐）**：下载 `XMMI-Pro-Setup-vX.X.X.msi`，双击启动中文安装向导，自动安装并创建桌面与开始菜单快捷方式。
-- 📦 **免安装便携版**：下载 `XMMI-Pro-vX.X.X-Windows-x64.zip`，解压后双击运行 `XMMI-Pro.bat` 即可使用。
+- 🌟 **现代极速中文安装包（推荐）**：下载 `XMMI-Pro-Setup-vX.X.X.exe`，现代 Fluent 暗黑安装向导，一键极速安装并自动创建桌面快捷方式。
+- 🛠️ **Windows Installer MSI 安装包**：下载 `XMMI-Pro-Setup-vX.X.X.msi`，标准 Windows Installer 安装包。
+- 💼 **免安装绿色便携版**：下载 `XMMI-Pro-vX.X.X-Windows-x64.zip`，解压后双击运行 `XMMI-Pro.bat` 即可直接使用。
 
 #### 方法二：源码运行与本地开发
 ```bash

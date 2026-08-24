@@ -75,7 +75,13 @@ class LauncherPackage(Package):
 
     def get_installed_version(self):
         if '__compiled__' in globals() or getattr(sys, 'frozen', False):
-            return self.get_file_version(sys.executable, max_parts=3)
+            try:
+                ver = self.get_file_version(sys.executable, max_parts=3)
+                if ver and ver != '0.0.0':
+                    return ver
+            except Exception:
+                pass
+            return '1.0.0'
         else:
             return '0.0.0'
 

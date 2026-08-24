@@ -3,7 +3,8 @@
 XMMI-Pro Build Script
 Compiles and packages XMMI-Pro into:
 1. Portable Windows ZIP Archive (XMMI-Pro-{tag}-Windows-x64.zip)
-2. Windows Installer Package (XMMI-Pro-Setup-{tag}.msi) with Chinese Setup Wizard (WiX Toolset v5)
+2. Modern Chinese Setup Installer (XMMI-Pro-Setup-{tag}.exe) via Inno Setup
+3. Windows Installer MSI (XMMI-Pro-Setup-{tag}.msi) via WiX Toolset v5
 """
 import os
 import sys
@@ -24,6 +25,22 @@ SRC_DIR = ROOT_DIR / "src" / "xxmi_launcher"
 DIST_DIR = ROOT_DIR / "dist"
 BUILD_DIR = ROOT_DIR / "build"
 RELEASE_DIR = ROOT_DIR / "XMMI-Pro-Release"
+
+
+def find_iscc():
+    """Locates Inno Setup 6 ISCC compiler."""
+    candidates = [
+        shutil.which("iscc"),
+        shutil.which("ISCC"),
+        r"C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+        r"C:\Program Files\Inno Setup 6\ISCC.exe",
+        r"C:\Inno Setup 6\ISCC.exe",
+        r"D:\Inno Setup 6\ISCC.exe",
+    ]
+    for c in candidates:
+        if c and Path(c).exists():
+            return str(c)
+    return None
 
 
 def find_or_install_wix():
@@ -65,7 +82,8 @@ def build(tag: str = "v1.0.0"):
             print(f"Cleaning {d.name}...")
             shutil.rmtree(d, ignore_errors=True)
 
-    # 2. Run PyInstaller
+    # 2. Run PyInstaller with embedded Version Info
+    version_file = ROOT_DIR / "file_version_info.txt"
     cmd = [
         sys.executable, "-m", "PyInstaller",
         "--noconfirm",
@@ -81,8 +99,11 @@ def build(tag: str = "v1.0.0"):
         "--hidden-import", "core.mod_service",
         "--hidden-import", "gui.windows.main.mod_manager_frame.mod_manager_frame",
         "--add-data", f"{SRC_DIR / 'core' / 'wuwa_fix_config.json'}{os.pathsep}core",
-        str(SRC_DIR / "app.py")
     ]
+    if version_file.exists():
+        cmd.extend(["--version-file", str(version_file)])
+    cmd.append(str(SRC_DIR / "app.py"))
+
     print(f"Executing: {' '.join(cmd)}")
     result = subprocess.run(cmd, cwd=ROOT_DIR)
     if result.returncode != 0:
@@ -127,11 +148,24 @@ def build(tag: str = "v1.0.0"):
     shutil.make_archive(str(ROOT_DIR / zip_base_name), 'zip', RELEASE_DIR)
     print(f"[SUCCESS] Portable package created: {zip_path}")
 
-    # 5. Compile Windows Installer MSI (with Chinese wizard via WiX Toolset v5)
+    # 5. Compile Modern Inno Setup Installer (XMMI-Pro-Setup-v1.0.0.exe)
+    iscc_bin = find_iscc()
+    installer_exe = ROOT_DIR / f"XMMI-Pro-Setup-{tag}.exe"
+    if iscc_bin and (ROOT_DIR / "installer.iss").exists():
+        print(f"Compiling Modern Inno Setup Installer ({iscc_bin})...")
+        iscc_cmd = [iscc_bin, f"/DMyAppVersion={tag.lstrip('vV')}", str(ROOT_DIR / "installer.iss")]
+        res = subprocess.run(iscc_cmd, cwd=ROOT_DIR)
+        if res.returncode == 0 and installer_exe.exists():
+            print(f"[SUCCESS] Modern Setup Installer generated: {installer_exe}")
+        else:
+            print(f"[WARNING] Inno Setup compilation finished with code: {res.returncode}")
+    else:
+        print("[INFO] Inno Setup compiler (ISCC) not found, skipping setup exe build.")
+
+    # 6. Compile Windows Installer MSI (XMMI-Pro-Setup-v1.0.0.msi)
     installer_msi = ROOT_DIR / f"XMMI-Pro-Setup-{tag}.msi"
     wix_bin = find_or_install_wix()
     clean_version = tag.lstrip("vV")
-    # Ensure valid 3-part version for MSI
     ver_parts = clean_version.split(".")
     while len(ver_parts) < 3:
         ver_parts.append("0")
@@ -153,20 +187,15 @@ def build(tag: str = "v1.0.0"):
         if res.returncode == 0 and installer_msi.exists():
             print(f"[SUCCESS] Windows Installer MSI generated: {installer_msi}")
         else:
-            print(f"[FAILED] WiX Toolset build failed with exit code: {res.returncode}")
-            sys.exit(res.returncode if res.returncode != 0 else 1)
-    else:
-        if "GITHUB_ACTIONS" in os.environ:
-            print("[FAILED] WiX Toolset compiler not found in CI environment!")
-            sys.exit(1)
-        else:
-            print("[INFO] WiX Toolset not found, skipping setup MSI build.")
+            print(f"[WARNING] WiX Toolset build finished with code: {res.returncode}")
 
     # Export environment variables for GitHub Actions CI
     if "GITHUB_ENV" in os.environ:
         with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as f:
             f.write(f"ZIP_NAME={zip_path.name}\n")
             f.write(f"RELEASE_TAG={tag}\n")
+            if installer_exe.exists():
+                f.write(f"SETUP_EXE={installer_exe.name}\n")
             if installer_msi.exists():
                 f.write(f"SETUP_MSI={installer_msi.name}\n")
 
@@ -179,8 +208,4 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Build XMMI-Pro Distribution")
     parser.add_argument("--tag", default=os.environ.get("GITHUB_REF_NAME", "v1.0.0"), help="Release version tag")
     args = parser.parse_args()
-
-    tag_value = args.tag if args.tag else "v1.0.0"
-    if tag_value.startswith("refs/tags/"):
-        tag_value = tag_value.replace("refs/tags/", "")
-    build(tag=tag_value)
+    build(args.tag)

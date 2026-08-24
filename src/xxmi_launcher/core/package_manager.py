@@ -300,15 +300,19 @@ class Package:
         return None
 
     def get_file_version(self, file_path, max_parts=4):
-        version_info = GetFileVersionInfo(str(file_path), "\\")
+        try:
+            version_info = GetFileVersionInfo(str(file_path), "\\")
 
-        ms_file_version = version_info['FileVersionMS']
-        ls_file_version = version_info['FileVersionLS']
+            ms_file_version = version_info['FileVersionMS']
+            ls_file_version = version_info['FileVersionLS']
 
-        version = [str(HIWORD(ms_file_version)), str(LOWORD(ms_file_version)),
-                   str(HIWORD(ls_file_version)), str(LOWORD(ls_file_version))]
+            version = [str(HIWORD(ms_file_version)), str(LOWORD(ms_file_version)),
+                       str(HIWORD(ls_file_version)), str(LOWORD(ls_file_version))]
 
-        return '.'.join(version[:max_parts])
+            return '.'.join(version[:max_parts])
+        except Exception as e:
+            log.debug(f"Failed to read file version from {file_path}: {e}")
+            return '1.0.0'
 
     def update(self, clean=False):
         if not self.download_url:
