@@ -13,7 +13,7 @@
   <a href="#english">English</a> •
   <a href="#免责声明--disclaimers">免责声明 / Disclaimers</a> •
   <a href="#开源许可--license">开源许可 / License</a> •
-  <a href="#鸣谢--upstream-acknowledgments">鸣谢 / Acknowledgments</a>
+  <a href="#致谢与开源引用--acknowledgments--credits">致谢与引用 / Acknowledgments & Credits</a>
 </p>
 
 ---
@@ -44,7 +44,7 @@
 - 📦 **沉浸式可视化模组卡片**：
   - 支持高清 Contain 等比完整展示模组预览图，不拉伸、不裁剪。
   - 动态响应式卡片网格布局，根据窗口尺寸自适应 2~5 列排版。
-- 🔧 **深度模组修复与版本适配引擎 (基于 Wuwa_Mod_Fixer)**：
+- 🔧 **深度模组修复与版本适配引擎 (基于 [Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer))**：
   - 覆盖 115+ 角色与武器数据库，一键自动修复游戏版本更新 Hash、骨骼与顶点组重映射 (`vg_remap`)、衍生贴图与 LOD 远景防黑材质补全、绘制索引与 Shapekey 规则。
   - **可视化多维度修复选项**：提供 8 大独立修复开关（Hash、顶点组、衍生贴图、规则、主角/风主专属、状态贴图、Engine.ini 等），支持单个修复与全库批量一键修复。
   - **一键回滚备份**：修复前自动创建安全快照，随时一键撤销并还原至初始文件。
@@ -97,7 +97,7 @@ python build_release.py
 - 📦 **Visual Mod Grid with Aspect-Fit Previews**:
   - Displays mod thumbnails with exact aspect containment (no distortion or cropping).
   - Responsive column auto-layout (2 to 5 columns) based on viewport width.
-- 🔧 **Deep Mod Repair Engine & Options (Powered by Wuwa_Mod_Fixer)**:
+- 🔧 **Deep Mod Repair Engine & Options (Powered by [Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer))**：
   - Supports 115+ characters and weapons with automated version hash replacement, vertex group remapping (`vg_remap`), derivative/LOD texture completion, and rule/index adjustments.
   - **Interactive Repair Options**: Modular toggles for hash fix, bone remap, LOD textures, special character fixes, and Engine.ini optimizations.
   - **Backup & Instant Rollback**: Automatic snapshots before repairs with 1-click restore.
@@ -139,14 +139,14 @@ python build_release.py
 
 ---
 
-## 鸣谢 / Upstream Acknowledgments
+## 开源引用 / Credits
 
 XMMI-Pro is built upon and inspired by the remarkable contributions of the open-source modding community:
 
 - **Upstream Launcher Project**: [SpectrumQT/XXMI-Launcher](https://github.com/SpectrumQT/XXMI-Launcher) by [SpectrumQT](https://github.com/SpectrumQT)
 - **Mod Repair & Compatibility Engine**:
-  - **Wuwa_Mod_Fixer**: 本项目内置的鸣潮 Mod 深度修复与版本更新适配算法（Hash 更新规则、顶点组权重修复 `vg_remap`、衍生贴图/LOD 防黑补全、Shapekey 与索引重构等）参考并整合了社区开源项目 **Wuwa_Mod_Fixer** 的算法架构与规则逻辑。特此向其开发者表示衷心感谢与致敬！
-  - *The deep mod repair algorithms, hash database, vertex group remapping, texture LOD fixes, and rule parsing mechanisms integrated in this project are based upon and derived from the open-source community project **Wuwa_Mod_Fixer**.*
+  - **[Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer)** by [Moonholder](https://github.com/Moonholder): 本项目内置的鸣潮 Mod 深度修复与版本更新适配算法（Hash 更新规则、顶点组权重修复 `vg_remap`、衍生贴图/LOD 防黑补全、Shapekey 与索引重构等）参考并整合了社区开源项目 [Moonholder/Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer) 的算法架构与规则逻辑。特此向其开发者表示衷心感谢与致敬！
+  - *The deep mod repair algorithms, hash database, vertex group remapping, texture LOD fixes, and rule parsing mechanisms integrated in this project are based upon and derived from the open-source community project [Moonholder/Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer).*
 - **Model Importers & Community Developers**:
   - **WWMI / EFMI**: [SpectrumQT](https://github.com/SpectrumQT)
   - **ZZMI**: [LeoTorrez](https://github.com/leotorrez), [Scyll](https://gamebanana.com/members/2644630), [SilentNightSound](https://github.com/SilentNightSound), [SinsOfSeven](https://github.com/SinsOfSeven), [Gustav0](https://github.com/Seris0), [Satan1c](https://gamebanana.com/members/2789093)
