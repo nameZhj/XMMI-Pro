@@ -13,7 +13,11 @@ def log_system_info():
         process = SystemInfoProcess()
         process.start()
         process.join()
-        logging.info(f'System: {process.data.raw.decode('utf-8')[:process.data.raw.find(b'\0')]}')
+        raw_text = process.data.raw.decode('utf-8', errors='ignore')
+        null_idx = raw_text.find('\0')
+        if null_idx != -1:
+            raw_text = raw_text[:null_idx]
+        logging.info(f"System: {raw_text}")
     except Exception as e:
         logging.exception(e)
 
@@ -27,7 +31,8 @@ class SystemInfoProcess(Process):
         result = {}
 
         try:
-            result['Platform'] = f'{os.name.upper()}{'+WINE' if is_wine() else ''}'
+            wine_suffix = '+WINE' if is_wine() else ''
+            result['Platform'] = f"{os.name.upper()}{wine_suffix}"
         except Exception:
             result['Platform'] = 'Unknown'
 
@@ -36,7 +41,8 @@ class SystemInfoProcess(Process):
             pc = wmi.WMI()
         except Exception as e:
             import traceback
-            error = f'WMI initialization failed on {result['Platform']} platform: {e}\n\n{traceback.format_exc()}'
+            platform_str = result.get('Platform', 'Unknown')
+            error = f"WMI initialization failed on {platform_str} platform: {e}\n\n{traceback.format_exc()}"
             self.data.raw = error.encode('utf-8')
             return
 
@@ -46,7 +52,8 @@ class SystemInfoProcess(Process):
             pass
 
         try:
-            result['OS'] = f'{os_info.Name.encode('utf-8').split(b'|')[0].decode('utf-8')} {os_info.Version}'
+            os_clean_name = os_info.Name.encode('utf-8').split(b'|')[0].decode('utf-8')
+            result['OS'] = f"{os_clean_name} {os_info.Version}"
         except Exception:
             result['OS'] = 'Unknown'
 
