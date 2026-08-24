@@ -40,6 +40,12 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
+
+class PasswordRequiredException(Exception):
+    """Raised when an archive requires a password or provided password was invalid."""
+    pass
+
+
 IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.webp', '.bmp', '.gif'}
 PREFERRED_PREVIEW_NAMES = {
     'preview', 'thumbnail', 'cover', 'screenshot', 'image', 'icon', 'main', 'mod', 'card', '0'
@@ -1579,23 +1585,148 @@ class ModService:
         return count
 
     @classmethod
-    def import_mod_from_path(cls, src_path: Path, progress_callback: Optional[Callable[[str, float], None]] = None) -> Tuple[bool, str]:
+    def _extract_archive_internal(cls, src_path: Path, temp_dir: Path, password: Optional[str] = None):
         """
-        Imports a mod folder or archive (.zip, .7z, .rar, etc.) into the active Mods directory.
-        Properly unpacks archives and flattens nested single root folders.
-        Automatically checks for conflict and disables the new mod if another mod of the same character is already enabled.
+        Internal extractor supporting .zip, .7z, .rar, .tar, .tar.gz, .tgz, .tar.bz2, .tbz2, .tar.xz, .txz, .zst, .tar.zst.
+        Raises PasswordRequiredException if encrypted and password missing/wrong.
+        """
+        suffix = src_path.suffix.lower()
+        full_name = src_path.name.lower()
+
+        # 1. ZIP Archive
+        if suffix == '.zip':
+            with zipfile.ZipFile(src_path, 'r') as zf:
+                pwd_bytes = password.encode('utf-8') if password else None
+                try:
+                    zf.extractall(temp_dir, pwd=pwd_bytes)
+                except RuntimeError as re_err:
+                    err_msg = str(re_err).lower()
+                    if 'password' in err_msg or 'encrypted' in err_msg or 'bad password' in err_msg:
+                        raise PasswordRequiredException(str(re_err))
+                    raise
+                except zipfile.BadZipFile as bz_err:
+                    err_msg = str(bz_err).lower()
+                    if 'password' in err_msg or 'encrypted' in err_msg:
+                        raise PasswordRequiredException(str(bz_err))
+                    raise
+
+        # 2. 7Z Archive
+        elif suffix == '.7z':
+            extracted = False
+            if py7zr is not None:
+                try:
+                    with py7zr.SevenZipFile(src_path, mode='r', password=password) as archive:
+                        archive.extractall(path=temp_dir)
+                    extracted = True
+                except Exception as e:
+                    # In py7zr, missing or incorrect password raises PasswordRequired, LZMAError, Bad7zFile, or CRC error
+                    raise PasswordRequiredException(str(e))
+
+            if not extracted:
+                # System unpacker fallback
+                for tool in [
+                    r'C:\Program Files\7-Zip\7z.exe',
+                    r'C:\Program Files (x86)\7-Zip\7z.exe',
+                    r'C:\Program Files\WinRAR\WinRAR.exe',
+                    r'C:\Program Files (x86)\WinRAR\WinRAR.exe'
+                ]:
+                    if Path(tool).exists():
+                        pwd_arg = f"-p{password}" if password else "-p-"
+                        res = subprocess.run([tool, 'x', '-y', pwd_arg, f"-o{temp_dir}" if '7z' in tool.lower() else str(temp_dir), str(src_path)], capture_output=True)
+                        if res.returncode == 0:
+                            extracted = True
+                            break
+                        elif b'password' in res.stderr.lower() or b'password' in res.stdout.lower() or res.returncode in (2, 3):
+                            raise PasswordRequiredException("7z tool reports password required or wrong password")
+
+            if not extracted:
+                res = subprocess.run(['tar.exe', '-xf', str(src_path), '-C', str(temp_dir)], capture_output=True)
+                if res.returncode != 0:
+                    shutil.unpack_archive(str(src_path), str(temp_dir))
+
+        # 3. RAR Archive
+        elif suffix == '.rar':
+            extracted = False
+            if rarfile is not None and getattr(rarfile, 'UNRAR_TOOL', None):
+                try:
+                    with rarfile.RarFile(src_path) as rf:
+                        rf.extractall(temp_dir, pwd=password)
+                    extracted = True
+                except (rarfile.PasswordRequired, rarfile.BadRarFile, Exception) as e:
+                    err_str = str(e).lower()
+                    if isinstance(e, rarfile.PasswordRequired) or 'password' in err_str or 'encrypted' in err_str or 'bad' in err_str:
+                        raise PasswordRequiredException(str(e))
+                    raise
+
+            if not extracted:
+                for winrar_path in [
+                    r'C:\Program Files\WinRAR\WinRAR.exe',
+                    r'C:\Program Files (x86)\WinRAR\WinRAR.exe',
+                    r'C:\Program Files\WinRAR\UnRAR.exe',
+                    r'C:\Program Files (x86)\WinRAR\UnRAR.exe'
+                ]:
+                    if Path(winrar_path).exists():
+                        pwd_arg = f"-p{password}" if password else "-p-"
+                        res = subprocess.run([winrar_path, 'x', '-ibck', '-y', pwd_arg, str(src_path), str(temp_dir)], capture_output=True)
+                        if res.returncode == 0:
+                            extracted = True
+                            break
+                        elif res.returncode in (3, 11) or b'password' in res.stderr.lower() or b'password' in res.stdout.lower():
+                            raise PasswordRequiredException("WinRAR reports password required or wrong password")
+
+            if not extracted:
+                res = subprocess.run(['tar.exe', '-xf', str(src_path), '-C', str(temp_dir)], capture_output=True)
+                if res.returncode != 0:
+                    shutil.unpack_archive(str(src_path), str(temp_dir))
+
+        # 4. Zstandard Archive (.zst / .tar.zst)
+        elif suffix == '.zst' or full_name.endswith('.tar.zst'):
+            import zstandard
+            dctx = zstandard.ZstdDecompressor()
+            decompressed_tar = temp_dir / '_inner.tar'
+            with open(src_path, 'rb') as ifh, open(decompressed_tar, 'wb') as ofh:
+                dctx.copy_stream(ifh, ofh)
+            with tarfile.open(decompressed_tar, 'r:*') as tf:
+                tf.extractall(temp_dir)
+            decompressed_tar.unlink(missing_ok=True)
+
+        # 5. Standard Tarballs (.tar, .tar.gz, .tgz, .tar.bz2, .tbz2, .tar.xz, .txz, etc.)
+        else:
+            try:
+                with tarfile.open(src_path, 'r:*') as tf:
+                    tf.extractall(temp_dir)
+            except Exception:
+                shutil.unpack_archive(str(src_path), str(temp_dir))
+
+    @classmethod
+    def import_mod_from_path(
+        cls,
+        src_path: Path,
+        password: Optional[str] = None,
+        password_callback: Optional[Callable[[Path, str], Optional[str]]] = None,
+        progress_callback: Optional[Callable[[str, float], None]] = None
+    ) -> Tuple[bool, str]:
+        """
+        Imports a mod folder or archive (.zip, .7z, .rar, .tar.gz, etc.) into the active Mods directory.
+        Features:
+        - Smart Password Strategy: Automatically tries default password "huihui" for encrypted archives;
+          if decryption fails, calls password_callback(src_path, filename) to interactively prompt the user.
+        - Structure Flattening: Automatically flattens single nested root folder.
+        - Conflict Management: Automatically disables newly imported mod if character conflict exists.
+        - Instant In-Game Reload: Sends F10 reload signal to running game.
         """
         mods_folder = cls.get_active_mods_folder()
         if not mods_folder:
             return False, "未找到当前游戏的 Mods 目录"
 
+        src_path = Path(src_path)
         if not src_path.exists():
             return False, f"源路径不存在: {src_path}"
 
         try:
             target_dest = None
 
-            # 1. If it's a directory, copy directly
+            # 1. Directory Import
             if src_path.is_dir():
                 if progress_callback:
                     progress_callback(f"正在导入文件夹: {src_path.name}...", 0.3)
@@ -1610,13 +1741,14 @@ class ModService:
                 shutil.copytree(src_path, dest_path)
                 target_dest = dest_path
 
-            # 2. If it's an archive (.zip, .7z, .rar, etc.)
+            # 2. Archive Import
             elif src_path.is_file():
                 suffix = src_path.suffix.lower()
                 stem = src_path.stem
-                valid_archive_exts = {'.zip', '.7z', '.rar', '.tar', '.gz', '.tgz', '.bz2', '.xz'}
+                valid_archive_exts = {'.zip', '.7z', '.rar', '.tar', '.gz', '.tgz', '.bz2', '.tbz2', '.xz', '.txz', '.zst'}
 
-                if suffix not in valid_archive_exts:
+                is_valid = suffix in valid_archive_exts or '.tar.' in src_path.name.lower() or src_path.name.lower().endswith('.tar.zst')
+                if not is_valid:
                     return False, f"不支持的文件类型: {suffix}"
 
                 if progress_callback:
@@ -1625,77 +1757,66 @@ class ModService:
                 temp_dir = mods_folder / f"_tmp_extract_{int(time.time()*1000)}"
                 temp_dir.mkdir(parents=True, exist_ok=True)
 
+                def _do_extract(pwd: Optional[str] = None):
+                    # Clean temp_dir contents before extraction attempt
+                    for item in temp_dir.iterdir():
+                        if item.is_dir():
+                            shutil.rmtree(item, ignore_errors=True)
+                        else:
+                            item.unlink(missing_ok=True)
+                    cls._extract_archive_internal(src_path, temp_dir, password=pwd)
+
                 try:
-                    # A. ZIP files
-                    if suffix == '.zip':
+                    # Step A: If password is provided explicitly, try it first
+                    if password:
                         if progress_callback:
-                            progress_callback("正在解压 ZIP 压缩包...", 0.3)
-                        with zipfile.ZipFile(src_path, 'r') as zf:
-                            zf.extractall(temp_dir)
-
-                    # B. 7Z files
-                    elif suffix == '.7z':
-                        if progress_callback:
-                            progress_callback("正在解压 7Z 压缩包...", 0.3)
-                        extracted = False
-                        if py7zr is not None:
-                            try:
-                                with py7zr.SevenZipFile(src_path, mode='r') as archive:
-                                    archive.extractall(path=temp_dir)
-                                extracted = True
-                            except Exception as e:
-                                log.debug(f"py7zr extraction fallback: {e}")
-
-                        if not extracted:
-                            res = subprocess.run(
-                                ['tar.exe', '-xf', str(src_path), '-C', str(temp_dir)],
-                                capture_output=True
-                            )
-                            if res.returncode != 0:
-                                shutil.unpack_archive(str(src_path), str(temp_dir))
-
-                    # C. RAR files
-                    elif suffix == '.rar':
-                        if progress_callback:
-                            progress_callback("正在解压 RAR 压缩包...", 0.3)
-                        extracted = False
-                        if rarfile is not None and getattr(rarfile, 'UNRAR_TOOL', None):
-                            try:
-                                with rarfile.RarFile(src_path) as rf:
-                                    rf.extractall(temp_dir)
-                                extracted = True
-                            except Exception as e:
-                                log.debug(f"rarfile extraction fallback: {e}")
-
-                        if not extracted:
-                            for winrar_path in [
-                                r'C:\Program Files\WinRAR\WinRAR.exe',
-                                r'C:\Program Files (x86)\WinRAR\WinRAR.exe',
-                                r'C:\Program Files\WinRAR\UnRAR.exe'
-                            ]:
-                                if Path(winrar_path).exists():
-                                    res = subprocess.run([winrar_path, 'x', '-ibck', '-y', str(src_path), str(temp_dir)])
-                                    if res.returncode == 0:
-                                        extracted = True
-                                        break
-
-                        if not extracted:
-                            res = subprocess.run(['tar.exe', '-xf', str(src_path), '-C', str(temp_dir)], capture_output=True)
-                            if res.returncode != 0:
-                                shutil.unpack_archive(str(src_path), str(temp_dir))
-
-                    # D. TAR / GZ / Other archives
+                            progress_callback(f"正在使用指定密码解压: {src_path.name}...", 0.3)
+                        _do_extract(password)
                     else:
-                        if progress_callback:
-                            progress_callback("正在解压压缩文件...", 0.3)
+                        # Step B: Try extraction without password
                         try:
-                            with tarfile.open(src_path, 'r:*') as tf:
-                                tf.extractall(temp_dir)
-                        except Exception:
-                            shutil.unpack_archive(str(src_path), str(temp_dir))
+                            if progress_callback:
+                                progress_callback(f"正在解压压缩包: {src_path.name}...", 0.3)
+                            _do_extract(None)
+                        except PasswordRequiredException:
+                            # Step C: Encrypted archive detected! Try default password "huihui"
+                            DEFAULT_PWD = "huihui"
+                            log.info(f"Archive {src_path.name} is encrypted. Trying default password '{DEFAULT_PWD}'...")
+                            if progress_callback:
+                                progress_callback(f"检测到加密，正在尝试默认密码 '{DEFAULT_PWD}': {src_path.name}...", 0.4)
+
+                            try:
+                                _do_extract(DEFAULT_PWD)
+                                log.info(f"Successfully decrypted {src_path.name} using default password '{DEFAULT_PWD}'.")
+                            except PasswordRequiredException:
+                                # Step D: Default password "huihui" failed! Prompt user via password_callback
+                                log.warning(f"Default password '{DEFAULT_PWD}' failed for {src_path.name}.")
+                                if not password_callback:
+                                    shutil.rmtree(temp_dir, ignore_errors=True)
+                                    return False, f"压缩包【{src_path.name}】已加密，默认密码 '{DEFAULT_PWD}' 解压失败，请提供解压密码"
+
+                                while True:
+                                    user_pwd = password_callback(src_path, src_path.name)
+                                    if user_pwd is None:
+                                        shutil.rmtree(temp_dir, ignore_errors=True)
+                                        return False, f"用户取消了解压密码输入，已跳过压缩包【{src_path.name}】"
+
+                                    if progress_callback:
+                                        progress_callback(f"正在使用输入的密码解压: {src_path.name}...", 0.4)
+
+                                    try:
+                                        _do_extract(user_pwd)
+                                        log.info(f"Successfully decrypted {src_path.name} with user-provided password.")
+                                        break
+                                    except PasswordRequiredException:
+                                        log.warning(f"User entered incorrect password for {src_path.name}. Prompting again...")
+                                        continue
+                                    except Exception as ex:
+                                        shutil.rmtree(temp_dir, ignore_errors=True)
+                                        return False, f"解压过程发生错误: {ex}"
 
                     if progress_callback:
-                        progress_callback("正在整理模组目录与解析特征...", 0.7)
+                        progress_callback(f"正在整理模组目录与解析特征: {src_path.name}...", 0.7)
 
                     # Analyze extracted items
                     extracted_items = [
@@ -1705,12 +1826,16 @@ class ModService:
 
                     if not extracted_items:
                         shutil.rmtree(temp_dir, ignore_errors=True)
-                        return False, "解压后的压缩包内容为空"
+                        return False, f"解压后的压缩包内容为空: {src_path.name}"
 
-                    dest = mods_folder / stem
+                    clean_stem = stem
+                    if clean_stem.lower().endswith('.tar'):
+                        clean_stem = clean_stem[:-4]
+
+                    dest = mods_folder / clean_stem
                     idx = 1
                     while dest.exists():
-                        dest = mods_folder / f"{stem} ({idx})"
+                        dest = mods_folder / f"{clean_stem} ({idx})"
                         idx += 1
 
                     # Flatten if single nested root folder
@@ -1757,3 +1882,4 @@ class ModService:
         except Exception as e:
             log.exception(f"Failed to import mod from {src_path}: {e}")
             return False, f"导入错误: {str(e)}"
+

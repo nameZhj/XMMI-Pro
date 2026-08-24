@@ -1,10 +1,12 @@
 import os
+import sys
+import ctypes
 import io
 import shutil
 import threading
 import logging
 from pathlib import Path
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Callable, Tuple, Set, Any
 
 import customtkinter as ctk
 from customtkinter import (
@@ -23,19 +25,257 @@ from customtkinter import (
 from PIL import Image, ImageDraw
 import tkinter as tk
 import tkinter.filedialog as filedialog
-import tkinter.messagebox as messagebox
-
 from gui.classes.element import UIElementBase
-from core.mod_service import ModService, ModItem, CharacterMenuItem, ModRepairOptions
+from core.mod_service import ModService, ModItem, CharacterMenuItem, ModRepairOptions, PasswordRequiredException
 from core.locale_manager import L
+from core.drag_drop import hook_drag_and_drop
+from gui.copyable_error_dialog import show_copyable_error
+from gui.modern_dialogs import show_info, show_warning, ask_confirm
 
 log = logging.getLogger(__name__)
+
+
+def apply_dwm_window_theme(window, caption_hex: str = "#161924", border_hex: str = "#232c3d"):
+    """
+    Applies Windows 11/10 DWM dark mode, custom titlebar background color,
+    and outer border color matching the application theme.
+    """
+    if sys.platform != "win32":
+        return
+    try:
+        window.update_idletasks()
+        child_hwnd = window.winfo_id()
+        parent_hwnd = ctypes.windll.user32.GetParent(child_hwnd)
+        hwnd = parent_hwnd if parent_hwnd != 0 else child_hwnd
+
+        def _hex_to_bgr(h: str) -> int:
+            h = h.lstrip('#')
+            if len(h) == 6:
+                r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+                return (b << 16) | (g << 8) | r
+            return 0
+
+        DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+        DWMWA_BORDER_COLOR = 34
+        DWMWA_CAPTION_COLOR = 35
+        DWMWA_TEXT_COLOR = 36
+
+        # 1. Dark Mode
+        dark_mode_val = ctypes.c_int(1)
+        ctypes.windll.dwmapi.DwmSetWindowAttribute(
+            hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, ctypes.byref(dark_mode_val), ctypes.sizeof(dark_mode_val)
+        )
+
+        # 2. Titlebar Caption Color
+        caption_val = ctypes.c_uint32(_hex_to_bgr(caption_hex))
+        ctypes.windll.dwmapi.DwmSetWindowAttribute(
+            hwnd, DWMWA_CAPTION_COLOR, ctypes.byref(caption_val), ctypes.sizeof(caption_val)
+        )
+
+        # 3. Titlebar Text Color (White)
+        text_val = ctypes.c_uint32(0x00FFFFFF)
+        ctypes.windll.dwmapi.DwmSetWindowAttribute(
+            hwnd, DWMWA_TEXT_COLOR, ctypes.byref(text_val), ctypes.sizeof(text_val)
+        )
+
+        # 4. Outermost Border Color matching theme
+        border_val = ctypes.c_uint32(_hex_to_bgr(border_hex))
+        ctypes.windll.dwmapi.DwmSetWindowAttribute(
+            hwnd, DWMWA_BORDER_COLOR, ctypes.byref(border_val), ctypes.sizeof(border_val)
+        )
+    except Exception as e:
+        log.debug(f"Failed to apply DWM window styling: {e}")
+
+
+
+class PasswordPromptDialog(ctk.CTkToplevel):
+    """
+    Sleek modal dialog prompting the user for an archive decryption password.
+    Clearly specifies which archive filename requires the password.
+    """
+    def __init__(self, parent, archive_name: str, on_submit: Callable[[str], None], on_cancel: Callable[[], None]):
+        super().__init__(parent)
+        self.parent_window = parent
+        self.title("模组解压密码确认")
+        self.geometry("490x300")
+        self.resizable(False, False)
+        self.configure(fg_color="#161924")
+
+        self.archive_name = archive_name
+        self.on_submit_cb = on_submit
+        self.on_cancel_cb = on_cancel
+        self.submitted = False
+
+        self.transient(parent)
+        self.grab_set()
+
+        # Center dialog on parent window
+        self.update_idletasks()
+        try:
+            px = parent.winfo_rootx()
+            py = parent.winfo_rooty()
+            pw = parent.winfo_width()
+            ph = parent.winfo_height()
+            x = px + (pw - 490) // 2
+            y = py + (ph - 300) // 2
+            self.geometry(f"+{x}+{y}")
+        except Exception:
+            pass
+
+        # Main Container
+        container = CTkFrame(self, fg_color="transparent")
+        container.pack(fill="both", expand=True, padx=22, pady=18)
+
+        # Header Badge with Key Icon & Target Filename
+        header_frame = CTkFrame(container, fg_color="#1e2433", corner_radius=8, border_width=1, border_color="#334155")
+        header_frame.pack(fill="x", pady=(0, 12))
+
+        icon_lbl = CTkLabel(header_frame, text="🔐", font=("Segoe UI Emoji", 20))
+        icon_lbl.pack(side="left", padx=(12, 6), pady=8)
+
+        title_lbl = CTkLabel(
+            header_frame,
+            text=f"加密压缩包: {archive_name}",
+            font=("Microsoft YaHei", 12, "bold"),
+            text_color="#60a5fa",
+            anchor="w",
+            wraplength=380,
+            justify="left"
+        )
+        title_lbl.pack(side="left", fill="x", expand=True, padx=(4, 12), pady=8)
+
+        # Message
+        msg_lbl = CTkLabel(
+            container,
+            text="此压缩包设置了解压密码保护。\n系统已自动尝试默认密码 \"huihui\" 失败，请输入该压缩包的正确密码：",
+            font=("Microsoft YaHei", 11),
+            text_color="#cbd5e1",
+            justify="left",
+            anchor="w"
+        )
+        msg_lbl.pack(fill="x", pady=(0, 10))
+
+        # Input Entry Row with show toggle
+        entry_frame = CTkFrame(container, fg_color="transparent")
+        entry_frame.pack(fill="x", pady=(0, 16))
+
+        self.show_pwd = False
+        self.pwd_entry = CTkEntry(
+            entry_frame,
+            placeholder_text="请输入解压密码...",
+            font=("Consolas", 12),
+            height=38,
+            corner_radius=8,
+            fg_color="#1a1e2b",
+            border_color="#3b82f6",
+            text_color="#ffffff",
+            placeholder_text_color="#64748b",
+            show="*"
+        )
+        self.pwd_entry.pack(side="left", fill="x", expand=True, padx=(0, 8))
+        self.pwd_entry.focus_set()
+
+        self.toggle_btn = CTkButton(
+            entry_frame,
+            text="👁️",
+            width=42,
+            height=38,
+            corner_radius=8,
+            font=("Segoe UI Emoji", 13),
+            fg_color="#242b3d",
+            hover_color="#333d54",
+            border_width=1,
+            border_color="#3b475f",
+            text_color="#ffffff",
+            command=self._toggle_show_pwd
+        )
+        self.toggle_btn.pack(side="right")
+
+        # Action Buttons Row
+        btn_row = CTkFrame(container, fg_color="transparent")
+        btn_row.pack(fill="x", pady=(4, 0))
+
+        self.btn_skip = CTkButton(
+            btn_row,
+            text="跳过此包",
+            width=110,
+            height=36,
+            corner_radius=8,
+            font=("Microsoft YaHei", 11),
+            fg_color="#242b3d",
+            hover_color="#333d54",
+            border_width=1,
+            border_color="#3b475f",
+            text_color="#94a3b8",
+            command=self._on_cancel
+        )
+        self.btn_skip.pack(side="left")
+
+        self.btn_ok = CTkButton(
+            btn_row,
+            text="确定解压",
+            width=130,
+            height=36,
+            corner_radius=8,
+            font=("Microsoft YaHei", 11, "bold"),
+            fg_color="#2563eb",
+            hover_color="#1d4ed8",
+            text_color="#ffffff",
+            command=self._on_submit
+        )
+        self.btn_ok.pack(side="right")
+
+        # Keybindings
+        self.bind("<Return>", lambda e: self._on_submit())
+        self.bind("<Escape>", lambda e: self._on_cancel())
+        self.protocol("WM_DELETE_WINDOW", self._on_cancel)
+
+    def _toggle_show_pwd(self):
+        self.show_pwd = not self.show_pwd
+        self.pwd_entry.configure(show="" if self.show_pwd else "*")
+        self.toggle_btn.configure(fg_color="#3b82f6" if self.show_pwd else "#242b3d")
+
+    def _on_submit(self):
+        pwd = self.pwd_entry.get().strip()
+        if not pwd:
+            return
+        self.submitted = True
+        try:
+            self.grab_release()
+            self.destroy()
+        except Exception:
+            pass
+        if self.parent_window is not None:
+            try:
+                self.parent_window.lift()
+                self.parent_window.focus_force()
+            except Exception:
+                pass
+        if self.on_submit_cb:
+            self.on_submit_cb(pwd)
+
+    def _on_cancel(self):
+        if not self.submitted:
+            try:
+                self.grab_release()
+                self.destroy()
+            except Exception:
+                pass
+            if self.parent_window is not None:
+                try:
+                    self.parent_window.lift()
+                    self.parent_window.focus_force()
+                except Exception:
+                    pass
+            if self.on_cancel_cb:
+                self.on_cancel_cb()
 
 
 class ImportProgressDialog(ctk.CTkToplevel):
     """Modern modal progress dialog during mod import & archive extraction."""
     def __init__(self, parent, title="正在导入模组"):
         super().__init__(parent)
+        self.parent_window = parent
         self.title(title)
         self.geometry("450x190")
         self.resizable(False, False)
@@ -101,6 +341,12 @@ class ImportProgressDialog(ctk.CTkToplevel):
             self.destroy()
         except Exception:
             pass
+        if self.parent_window is not None:
+            try:
+                self.parent_window.lift()
+                self.parent_window.focus_force()
+            except Exception:
+                pass
 
 
 class ModRepairDialog(ctk.CTkToplevel):
@@ -116,6 +362,7 @@ class ModRepairDialog(ctk.CTkToplevel):
         on_finished_callback: Optional[callable] = None
     ):
         super().__init__(parent)
+        self.parent_window = parent
         self.target_mod = target_mod
         self.all_mods = all_mods if all_mods is not None else []
         self.on_finished = on_finished_callback
@@ -544,9 +791,10 @@ class ModRepairDialog(ctk.CTkToplevel):
     def _rollback_backup(self):
         if self.is_batch or not self.target_mod:
             return
-        confirm = messagebox.askyesno(
+        confirm = ask_confirm(
             "确认回滚复原",
-            f"确定要将模组【{self.target_mod.display_name}】还原至修复前的原始文件吗？\n\n此操作将完全恢复模组的初始文件。"
+            f"确定要将模组【{self.target_mod.display_name}】还原至修复前的原始文件吗？\n\n此操作将完全恢复模组的初始文件。",
+            parent=self
         )
         if not confirm:
             return
@@ -556,10 +804,10 @@ class ModRepairDialog(ctk.CTkToplevel):
             self._append_log(f"\n⏪ {msg}")
             if self.on_finished:
                 self.on_finished()
-            messagebox.showinfo("复原成功", msg)
+            show_info("复原成功", msg, parent=self)
         else:
             self._append_log(f"\n⚠️ {msg}")
-            messagebox.showwarning("复原提示", msg)
+            show_warning("复原提示", msg, parent=self)
 
     def _on_close(self):
         try:
@@ -567,6 +815,12 @@ class ModRepairDialog(ctk.CTkToplevel):
             self.destroy()
         except Exception:
             pass
+        if self.parent_window is not None:
+            try:
+                self.parent_window.lift()
+                self.parent_window.focus_force()
+            except Exception:
+                pass
 
 
 class ModernActionDropdown(tk.Toplevel):
@@ -703,18 +957,18 @@ class ModCard(CTkFrame):
         self.is_selected = is_selected
         self.image_cache = image_cache if image_cache is not None else {}
 
-        # High-contrast card border & background
+        # High-contrast subtle card border & background
         if is_selected:
             bg_color = "#1d263b"
-            border_color = "#60a5fa"
+            border_color = "#3b82f6"
             border_w = 2
         elif mod_item.enabled:
             bg_color = "#182030"
-            border_color = "#3b82f6"
-            border_w = 2
+            border_color = "#2a364f"
+            border_w = 1
         else:
             bg_color = "#141722"
-            border_color = "#283042"
+            border_color = "#1e2434"
             border_w = 1
 
         super().__init__(
@@ -945,22 +1199,12 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
         self.on_close_callback = on_close if callable(on_close) else None
         self.image_cache: Dict[str, CTkImage] = {}
 
-        self.title("模组管理 - XXMI Launcher")
-        self.overrideredirect(True)
+        self.title("模组管理 - XMMI Pro")
         self.geometry("1240x740")
+        self.minsize(980, 600)
         self.configure(fg_color="#0f1117")
+        self.protocol("WM_DELETE_WINDOW", self.close_mod_manager)
 
-        self.is_maximized = False
-        self._prev_w = 1240
-        self._prev_h = 740
-        self._prev_x = 100
-        self._prev_y = 100
-        self._drag_start_x = 0
-        self._drag_start_y = 0
-        self._resize_start_x = 0
-        self._resize_start_y = 0
-        self._resize_start_w = 1240
-        self._resize_start_h = 740
         self._current_cols = 3
         self._initial_centered = False
 
@@ -981,222 +1225,52 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
         self._build_ui()
 
     def _build_ui(self):
-        # 1. Top Window Title Bar (Single Clean Custom Draggable Header)
-        self.title_bar = CTkFrame(self, height=48, fg_color="#161924", corner_radius=10, border_width=1, border_color="#262d3d")
-        self.title_bar.pack(fill="x", padx=12, pady=(10, 6))
-        self.title_bar.pack_propagate(False)
+        # 0. Outermost Container Frame with Subtle Soft Border
+        self.window_border_frame = CTkFrame(
+            self,
+            fg_color="#0f1117",
+            corner_radius=0,
+            border_width=1,
+            border_color="#232c3d"
+        )
+        self.window_border_frame.pack(fill="both", expand=True)
 
+        # 1. Single Unified Top Toolbar (Merges title, active category indicator, filters, and actions)
+        self.top_bar = CTkFrame(self.window_border_frame, height=54, fg_color="#161924", corner_radius=10, border_width=1, border_color="#232c3d")
+        self.top_bar.pack(fill="x", padx=12, pady=(10, 8))
+        self.top_bar.pack_propagate(False)
+
+        # Left side: Category & Stats
         self.title_icon = CTkLabel(
-            self.title_bar,
+            self.top_bar,
             text="📦",
             font=("Segoe UI Emoji", 16)
         )
         self.title_icon.pack(side="left", padx=(14, 4))
 
-        self.title_label = CTkLabel(
-            self.title_bar,
-            text="模组管理",
-            font=("Microsoft YaHei", 15, "bold"),
-            text_color="#ffffff"
-        )
-        self.title_label.pack(side="left", padx=4)
-
-        self.stats_label = CTkLabel(
-            self.title_bar,
-            text="正在扫描模组...",
-            font=("Microsoft YaHei", 11),
-            text_color="#cbd5e1"
-        )
-        self.stats_label.pack(side="left", padx=16)
-
-        # Window Controls Container (Minimize, Maximize/Restore, Close)
-        self.window_controls = CTkFrame(self.title_bar, fg_color="transparent")
-        self.window_controls.pack(side="right", padx=(0, 8))
-
-        # Minimize Button [一]
-        self.min_btn = CTkButton(
-            self.window_controls,
-            text="一",
-            width=32,
-            height=32,
-            corner_radius=6,
-            font=("Segoe UI", 11, "bold"),
-            fg_color="transparent",
-            hover_color="#273248",
-            text_color="#cbd5e1",
-            command=self.minimize_mod_manager
-        )
-        self.min_btn.pack(side="left", padx=2)
-
-        # Maximize / Restore Button [🗖]
-        self.max_btn = CTkButton(
-            self.window_controls,
-            text="🗖",
-            width=32,
-            height=32,
-            corner_radius=6,
-            font=("Segoe UI", 12, "bold"),
-            fg_color="transparent",
-            hover_color="#273248",
-            text_color="#cbd5e1",
-            command=self._toggle_maximize
-        )
-        self.max_btn.pack(side="left", padx=2)
-
-        # Close Button [✕]
-        self.close_btn = CTkButton(
-            self.window_controls,
-            text="✕",
-            width=32,
-            height=32,
-            corner_radius=6,
-            font=("Segoe UI", 12, "bold"),
-            fg_color="transparent",
-            hover_color="#dc2626",
-            text_color="#f1f5f9",
-            command=self.close_mod_manager
-        )
-        self.close_btn.pack(side="left", padx=2)
-
-        # Titlebar Dragging & Double Click Maximize Handlers
-        for widget in (self.title_bar, self.title_icon, self.title_label, self.stats_label):
-            widget.bind("<Button-1>", self._start_drag)
-            widget.bind("<B1-Motion>", self._on_drag)
-        self.title_bar.bind("<Double-Button-1>", lambda e: self._toggle_maximize())
-        self.title_label.bind("<Double-Button-1>", lambda e: self._toggle_maximize())
-
-        # Bottom-Right Corner Resize Grip
-        self.resize_grip = CTkLabel(
-            self,
-            text="◢",
-            font=("Segoe UI", 11),
-            text_color="#475569",
-            cursor="size_nw_se"
-        )
-        self.resize_grip.place(relx=1.0, rely=1.0, anchor="se", x=-4, y=-4)
-        self.resize_grip.bind("<Button-1>", self._start_resize)
-        self.resize_grip.bind("<B1-Motion>", self._on_resize)
-
-        # 2. Main Horizontal Container (Left Sidebar + Center Cards Panel + Right Hotkey Inspector)
-        self.body_container = CTkFrame(self, fg_color="transparent")
-        self.body_container.pack(fill="both", expand=True, padx=12, pady=(0, 12))
-        self.body_container.pack_propagate(False)
-
-        # ==========================================
-        # LEFT SIDEBAR: Character Category Menu
-        # ==========================================
-        self.left_sidebar = CTkFrame(
-            self.body_container,
-            width=210,
-            fg_color="#131620",
-            corner_radius=10,
-            border_width=1,
-            border_color="#222838"
-        )
-        self.left_sidebar.pack(side="left", fill="y", padx=(0, 8), pady=0)
-        self.left_sidebar.pack_propagate(False)
-
-        # Search Box inside Sidebar Header
-        self.search_container = CTkFrame(self.left_sidebar, fg_color="transparent")
-        self.search_container.pack(fill="x", padx=10, pady=(10, 6))
-
-        self.search_entry = CTkEntry(
-            self.search_container,
-            placeholder_text="🔍 检索角色/拼音/英文...",
-            height=34,
-            corner_radius=8,
-            font=("Microsoft YaHei", 11),
-            fg_color="#1a1e2b",
-            border_color="#334155",
-            text_color="#ffffff",
-            placeholder_text_color="#94a3b8"
-        )
-        self.search_entry.pack(fill="x")
-        self.search_entry.bind("<KeyRelease>", self._on_search_change)
-
-        # Sidebar Title
-        self.sidebar_title_label = CTkLabel(
-            self.left_sidebar,
-            text="角色二级分类",
-            font=("Microsoft YaHei", 11, "bold"),
-            text_color="#94a3b8",
-            anchor="w"
-        )
-        self.sidebar_title_label.pack(fill="x", padx=14, pady=(4, 4))
-
-        # Scrollable Character List Frame
-        self.character_scroll_frame = CTkScrollableFrame(
-            self.left_sidebar,
-            fg_color="transparent",
-            corner_radius=6
-        )
-        self.character_scroll_frame.pack(fill="both", expand=True, padx=6, pady=(0, 8))
-
-        # ==========================================
-        # RIGHT INSPECTOR PANEL: Mod Hotkeys & Details
-        # ==========================================
-        self.inspector_panel = CTkFrame(
-            self.body_container,
-            width=310,
-            fg_color="#131620",
-            corner_radius=10,
-            border_width=1,
-            border_color="#222838"
-        )
-        self.inspector_panel.pack(side="right", fill="y", padx=(8, 0), pady=0)
-        self.inspector_panel.pack_propagate(False)
-
-        # Inspector Header Bar
-        self.inspector_header = CTkFrame(self.inspector_panel, height=44, fg_color="#161924", corner_radius=8, border_width=1, border_color="#262d3d")
-        self.inspector_header.pack(fill="x", padx=8, pady=(8, 6))
-        self.inspector_header.pack_propagate(False)
-
-        self.inspector_title = CTkLabel(
-            self.inspector_header,
-            text="🎮 快捷键与模组详情",
-            font=("Microsoft YaHei", 12, "bold"),
-            text_color="#ffffff"
-        )
-        self.inspector_title.pack(side="left", padx=10)
-
-        # Scrollable Body of Inspector
-        self.inspector_scroll = CTkScrollableFrame(
-            self.inspector_panel,
-            fg_color="transparent",
-            corner_radius=6
-        )
-        self.inspector_scroll.pack(fill="both", expand=True, padx=6, pady=(0, 8))
-
-        # ==========================================
-        # CENTER MAIN PANEL: Mod Grid & Header
-        # ==========================================
-        self.right_panel = CTkFrame(
-            self.body_container,
-            fg_color="#131620",
-            corner_radius=10,
-            border_width=1,
-            border_color="#222838"
-        )
-        self.right_panel.pack(side="left", fill="both", expand=True, padx=0, pady=0)
-        self.right_panel.pack_propagate(False)
-
-        # Center Header / Actions Bar
-        self.header_bar = CTkFrame(self.right_panel, height=52, fg_color="#161924", corner_radius=8, border_width=1, border_color="#262d3d")
-        self.header_bar.pack(fill="x", padx=10, pady=(10, 8))
-        self.header_bar.pack_propagate(False)
-
-        # Category Title Indicator
         self.current_category_label = CTkLabel(
-            self.header_bar,
+            self.top_bar,
             text="🌟 全部模组",
             font=("Microsoft YaHei", 14, "bold"),
             text_color="#ffffff"
         )
-        self.current_category_label.pack(side="left", padx=14)
+        self.current_category_label.pack(side="left", padx=(2, 10))
 
-        # State Filter Segment (全部 / 已启用 / 已禁用)
+        self.stats_label = CTkLabel(
+            self.top_bar,
+            text="正在扫描模组...",
+            font=("Microsoft YaHei", 11),
+            text_color="#94a3b8"
+        )
+        self.stats_label.pack(side="left", padx=4)
+
+        # Right side: Filter & Action Buttons Container
+        self.actions_frame = CTkFrame(self.top_bar, fg_color="transparent")
+        self.actions_frame.pack(side="right", padx=10)
+
+        # State Filter Segment
         self.state_filter_seg = CTkSegmentedButton(
-            self.header_bar,
+            self.actions_frame,
             values=["全部", "已启用", "已禁用"],
             font=("Microsoft YaHei", 11, "bold"),
             selected_color="#2563eb",
@@ -1207,11 +1281,7 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
             command=self._on_filter_state_change
         )
         self.state_filter_seg.set("全部")
-        self.state_filter_seg.pack(side="left", padx=10)
-
-        # Action Buttons (Import Archive, Import Folder, Open Explorer, Refresh)
-        self.actions_frame = CTkFrame(self.header_bar, fg_color="transparent")
-        self.actions_frame.pack(side="right", padx=8)
+        self.state_filter_seg.pack(side="left", padx=(0, 10))
 
         self.import_zip_btn = CTkButton(
             self.actions_frame,
@@ -1262,7 +1332,7 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
         self.repair_all_btn = CTkButton(
             self.actions_frame,
             text="🔧 深度修复",
-            width=90,
+            width=88,
             height=32,
             corner_radius=6,
             font=("Microsoft YaHei", 11),
@@ -1291,13 +1361,116 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
         )
         self.refresh_btn.pack(side="left", padx=2)
 
+        # 2. Main Horizontal Container (Left Sidebar + Center Cards Panel + Right Hotkey Inspector)
+        self.body_container = CTkFrame(self.window_border_frame, fg_color="transparent")
+        self.body_container.pack(fill="both", expand=True, padx=12, pady=(0, 12))
+        self.body_container.pack_propagate(False)
+
+        # ==========================================
+        # LEFT SIDEBAR: Character Category Menu
+        # ==========================================
+        self.left_sidebar = CTkFrame(
+            self.body_container,
+            width=210,
+            fg_color="#131620",
+            corner_radius=10,
+            border_width=1,
+            border_color="#232c3d"
+        )
+        self.left_sidebar.pack(side="left", fill="y", padx=(0, 8), pady=0)
+        self.left_sidebar.pack_propagate(False)
+
+        # Search Box inside Sidebar Header
+        self.search_container = CTkFrame(self.left_sidebar, fg_color="transparent")
+        self.search_container.pack(fill="x", padx=10, pady=(10, 6))
+
+        self.search_entry = CTkEntry(
+            self.search_container,
+            placeholder_text="🔍 检索角色/拼音/英文...",
+            height=34,
+            corner_radius=8,
+            font=("Microsoft YaHei", 11),
+            fg_color="#1a1e2b",
+            border_color="#334155",
+            text_color="#ffffff",
+            placeholder_text_color="#94a3b8"
+        )
+        self.search_entry.pack(fill="x")
+        self.search_entry.bind("<KeyRelease>", self._on_search_change)
+
+        # Sidebar Title
+        self.sidebar_title_label = CTkLabel(
+            self.left_sidebar,
+            text="角色二级分类",
+            font=("Microsoft YaHei", 11, "bold"),
+            text_color="#94a3b8",
+            anchor="w"
+        )
+        self.sidebar_title_label.pack(fill="x", padx=14, pady=(4, 4))
+
+        # Scrollable Character List Frame
+        self.character_scroll_frame = CTkScrollableFrame(
+            self.left_sidebar,
+            fg_color="transparent",
+            corner_radius=6
+        )
+        self.character_scroll_frame.pack(fill="both", expand=True, padx=6, pady=(0, 8))
+
+        # ==========================================
+        # RIGHT INSPECTOR PANEL: Mod Hotkeys & Details
+        # ==========================================
+        self.inspector_panel = CTkFrame(
+            self.body_container,
+            width=310,
+            fg_color="#131620",
+            corner_radius=10,
+            border_width=1,
+            border_color="#232c3d"
+        )
+        self.inspector_panel.pack(side="right", fill="y", padx=(8, 0), pady=0)
+        self.inspector_panel.pack_propagate(False)
+
+        # Inspector Header Bar
+        self.inspector_header = CTkFrame(self.inspector_panel, height=44, fg_color="#161924", corner_radius=8, border_width=1, border_color="#232c3d")
+        self.inspector_header.pack(fill="x", padx=8, pady=(8, 6))
+        self.inspector_header.pack_propagate(False)
+
+        self.inspector_title = CTkLabel(
+            self.inspector_header,
+            text="🎮 快捷键与模组详情",
+            font=("Microsoft YaHei", 12, "bold"),
+            text_color="#ffffff"
+        )
+        self.inspector_title.pack(side="left", padx=10)
+
+        # Scrollable Body of Inspector
+        self.inspector_scroll = CTkScrollableFrame(
+            self.inspector_panel,
+            fg_color="transparent",
+            corner_radius=6
+        )
+        self.inspector_scroll.pack(fill="both", expand=True, padx=6, pady=(0, 8))
+
+        # ==========================================
+        # CENTER MAIN PANEL: Mod Grid
+        # ==========================================
+        self.right_panel = CTkFrame(
+            self.body_container,
+            fg_color="#131620",
+            corner_radius=10,
+            border_width=1,
+            border_color="#232c3d"
+        )
+        self.right_panel.pack(side="left", fill="both", expand=True, padx=0, pady=0)
+        self.right_panel.pack_propagate(False)
+
         # Mod Scrollable Cards Grid Frame
         self.scroll_frame = CTkScrollableFrame(
             self.right_panel,
             fg_color="transparent",
             corner_radius=8
         )
-        self.scroll_frame.pack(fill="both", expand=True, padx=(10, 14), pady=(0, 10))
+        self.scroll_frame.pack(fill="both", expand=True, padx=(10, 10), pady=(10, 10))
         for i in range(12):
             self.scroll_frame.grid_columnconfigure(i, weight=1 if i < 3 else 0, uniform="mod_col" if i < 3 else "")
 
@@ -1499,9 +1672,10 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
 
             hint_label = CTkLabel(
                 empty_frame,
-                text="您可以点击右上角的【📦 导入压缩包】或【📁 导入文件夹】将 Mod 导入此分类",
+                text="💡 支持直接批量拖拽各种格式压缩包（.zip / .7z / .rar / .tar 等）或文件夹到此处导入\n也可以点击右上角【📦 导入压缩包】或【📁 导入文件夹】",
                 font=("Microsoft YaHei", 11),
-                text_color="#64748b"
+                text_color="#94a3b8",
+                justify="center"
             )
             hint_label.pack(pady=(2, 16))
             return
@@ -1554,11 +1728,11 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
                     is_sel = (child.mod_item.path.resolve() == mod_item.path.resolve())
                     child.is_selected = is_sel
                     if is_sel:
-                        child.configure(border_color="#60a5fa", border_width=2, fg_color="#1d263b")
+                        child.configure(border_color="#3b82f6", border_width=2, fg_color="#1d263b")
                     elif child.mod_item.enabled:
-                        child.configure(border_color="#3b82f6", border_width=2, fg_color="#182030")
+                        child.configure(border_color="#2a364f", border_width=1, fg_color="#182030")
                     else:
-                        child.configure(border_color="#283042", border_width=1, fg_color="#141722")
+                        child.configure(border_color="#1e2434", border_width=1, fg_color="#141722")
 
     def _render_inspector_panel(self):
         """Renders the right inspector sidebar with selected mod thumbnail, hotkeys, and quick actions."""
@@ -1838,7 +2012,7 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
                 self.selected_mod_item = new_item
             self.refresh_mods()
         else:
-            messagebox.showerror("操作失败", f"切换模组状态失败: {msg}")
+            show_copyable_error("操作失败", f"切换模组状态失败:\n{msg}", parent=self.winfo_toplevel())
 
     def _repair_mod(self, mod_item: ModItem):
         """Opens interactive Mod Repair & Fix Options modal dialog for the selected mod."""
@@ -1856,17 +2030,18 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
 
     def _restore_mod(self, mod_item: ModItem):
         """Restores mod to original pre-repair snapshot."""
-        confirm = messagebox.askyesno(
+        confirm = ask_confirm(
             "确认复原",
-            f"确定要将模组【{mod_item.display_name}】还原至修复前的原始文件吗？\n\n此操作将完全恢复模组的初始文件。"
+            f"确定要将模组【{mod_item.display_name}】还原至修复前的原始文件吗？\n\n此操作将完全恢复模组的初始文件。",
+            parent=self.winfo_toplevel()
         )
         if confirm:
             success, msg = ModService.restore_mod(mod_item)
             if success:
                 self.refresh_mods()
-                messagebox.showinfo("复原成功", msg)
+                show_info("复原成功", msg, parent=self.winfo_toplevel())
             else:
-                messagebox.showwarning("复原提示", msg)
+                show_warning("复原提示", msg, parent=self.winfo_toplevel())
 
     def _change_thumbnail(self, mod_item: ModItem):
         """Allows user to select and replace custom preview thumbnail."""
@@ -1888,9 +2063,9 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
             self.image_cache.pop(str(mod_item.path / "preview.png"), None)
             self.image_cache.pop(f"placeholder_{mod_item.name}", None)
             self.refresh_mods()
-            messagebox.showinfo("修改成功", "模组预览图已成功更新！")
+            show_info("修改成功", "模组预览图已成功更新！", parent=self.winfo_toplevel())
         else:
-            messagebox.showerror("修改失败", f"无法替换预览图: {msg}")
+            show_copyable_error("修改失败", f"无法替换预览图:\n{msg}", parent=self.winfo_toplevel())
 
     def _rename_mod(self, mod_item: ModItem):
         """Renames mod with user input prompt."""
@@ -1909,43 +2084,91 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
         if success:
             self.refresh_mods()
         else:
-            messagebox.showerror("重命名失败", msg)
+            show_copyable_error("重命名失败", f"无法重命名模组:\n{msg}", parent=self.winfo_toplevel())
 
     def _delete_mod(self, mod_item: ModItem):
-        confirm = messagebox.askyesno(
+        confirm = ask_confirm(
             "确认删除",
-            f"确定要彻底删除模组【{mod_item.display_name}】吗？\n此操作不可撤销！"
+            f"确定要彻底删除模组【{mod_item.display_name}】吗？\n此操作不可撤销！",
+            parent=self.winfo_toplevel()
         )
         if confirm:
             success, msg = ModService.delete_mod(mod_item)
             if success:
                 self.refresh_mods()
             else:
-                messagebox.showerror("删除失败", f"无法删除模组: {msg}")
+                show_copyable_error("删除失败", f"无法删除模组:\n{msg}", parent=self.winfo_toplevel())
 
-    def _import_archive(self):
-        file_paths = filedialog.askopenfilenames(
-            title="选择模组压缩包",
-            filetypes=[
-                ("模组压缩包 (*.zip, *.7z, *.rar, *.tar.gz)", "*.zip *.7z *.rar *.tar *.gz *.tgz"),
-                ("ZIP 文件 (*.zip)", "*.zip"),
-                ("7Z 压缩包 (*.7z)", "*.7z"),
-                ("RAR 压缩包 (*.rar)", "*.rar"),
-                ("所有文件 (*.*)", "*.*")
-            ]
-        )
-        if not file_paths:
+    def _setup_drag_and_drop(self):
+        """Attaches native drag-and-drop hook to the window."""
+        if getattr(self, "_dnd_hooked", False):
+            return
+        try:
+            self.update_idletasks()
+            hook_drag_and_drop(self, self._handle_dropped_paths)
+            self._dnd_hooked = True
+            log.info("Drag and drop successfully attached to ModManagerFrame.")
+        except Exception as e:
+            log.warning(f"Failed to setup drag and drop: {e}")
+
+    def _handle_dropped_paths(self, file_paths: List[str]):
+        """Handles batch files/folders dropped directly onto the Mod Manager window."""
+        valid_paths = []
+        valid_exts = {'.zip', '.7z', '.rar', '.tar', '.gz', '.tgz', '.bz2', '.tbz2', '.xz', '.txz', '.zst'}
+        for fp in file_paths:
+            p = Path(fp)
+            if p.exists():
+                if p.is_dir():
+                    valid_paths.append(p)
+                elif p.is_file():
+                    if p.suffix.lower() in valid_exts or '.tar.' in p.name.lower() or p.name.lower().endswith('.tar.zst'):
+                        valid_paths.append(p)
+
+        if not valid_paths:
+            show_info("拖拽导入提示", "未检测到有效的模组压缩包（.zip / .7z / .rar / .tar 等）或文件夹。", parent=self.winfo_toplevel())
             return
 
-        progress_dialog = ImportProgressDialog(self, title="正在导入模组压缩包")
+        self._process_batch_import(valid_paths)
+
+    def _process_batch_import(self, paths: List[Path]):
+        """Unified background batch importer for dropped files or selected archives/folders."""
+        if not paths:
+            return
+
+        progress_dialog = ImportProgressDialog(self.winfo_toplevel(), title="正在批量导入模组")
+
+        def request_password(archive_path: Path, archive_name: str) -> Optional[str]:
+            """Thread-safe interactive password prompt modal dialog on the GUI thread."""
+            result = {"pwd": None}
+            event = threading.Event()
+
+            def show():
+                try:
+                    PasswordPromptDialog(
+                        parent=self.winfo_toplevel(),
+                        archive_name=archive_name,
+                        on_submit=lambda pwd: _finish(pwd),
+                        on_cancel=lambda: _finish(None)
+                    )
+                except Exception as e:
+                    log.error(f"Error opening PasswordPromptDialog: {e}")
+                    _finish(None)
+
+            def _finish(pwd):
+                result["pwd"] = pwd
+                event.set()
+
+            self.after(0, show)
+            event.wait()
+            return result["pwd"]
 
         def worker():
-            total = len(file_paths)
+            total = len(paths)
             imported_count = 0
             errors = []
 
-            for i, fp in enumerate(file_paths):
-                path_obj = Path(fp)
+            for i, p in enumerate(paths):
+                path_obj = Path(p)
                 progress_dialog.update_progress(
                     f"正在处理 ({i+1}/{total}): {path_obj.name}",
                     (i / total) + 0.05
@@ -1958,7 +2181,11 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
                         current_overall
                     )
 
-                success, msg = ModService.import_mod_from_path(path_obj, progress_callback=sub_progress)
+                success, msg = ModService.import_mod_from_path(
+                    path_obj,
+                    password_callback=request_password,
+                    progress_callback=sub_progress
+                )
                 if success:
                     imported_count += 1
                 else:
@@ -1970,108 +2197,48 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
             def finish_ui():
                 self.refresh_mods()
                 if errors:
-                    err_summary = "\n".join(errors[:5])
-                    if len(errors) > 5:
-                        err_summary += f"\n...及其他 {len(errors)-5} 个错误"
-                    messagebox.showwarning(
-                        "导入完成 (部分失败)",
-                        f"成功导入 {imported_count}/{total} 个模组。\n\n失败详情:\n{err_summary}"
+                    err_summary = "\n".join(f"• {e}" for e in errors)
+                    show_copyable_error(
+                        "导入完成 (部分文件失败)",
+                        f"成功导入 {imported_count}/{total} 个模组。\n\n失败详情（可自由框选复制）：\n{err_summary}",
+                        parent=self.winfo_toplevel()
                     )
                 else:
-                    messagebox.showinfo("导入成功", f"已成功解压并导入 {imported_count} 个模组！")
+                    show_info(
+                        "导入成功",
+                        f"🎉 成功导入全部 {imported_count} 个模组并已就绪！",
+                        parent=self.winfo_toplevel()
+                    )
 
             self.after(200, finish_ui)
 
-        threading.Thread(target=worker, daemon=True).start()
+        threading.Thread(target=worker, daemon=True, name="BatchModImporter").start()
+
+    def _import_archive(self):
+        file_paths = filedialog.askopenfilenames(
+            title="选择模组压缩包",
+            filetypes=[
+                ("所有支持的压缩包 (*.zip, *.7z, *.rar, *.tar, *.gz, *.zst...)", "*.zip *.7z *.rar *.tar *.gz *.tgz *.bz2 *.tbz2 *.xz *.txz *.zst"),
+                ("ZIP 文件 (*.zip)", "*.zip"),
+                ("7Z 压缩包 (*.7z)", "*.7z"),
+                ("RAR 压缩包 (*.rar)", "*.rar"),
+                ("所有文件 (*.*)", "*.*")
+            ]
+        )
+        if file_paths:
+            self._process_batch_import([Path(p) for p in file_paths])
 
     def _import_folder(self):
         folder_path = filedialog.askdirectory(title="选择要导入的模组文件夹")
-        if not folder_path:
-            return
-
-        path_obj = Path(folder_path)
-        progress_dialog = ImportProgressDialog(self, title="正在导入模组文件夹")
-
-        def worker():
-            def sub_progress(status_text: str, fraction: float):
-                progress_dialog.update_progress(status_text, fraction)
-
-            success, msg = ModService.import_mod_from_path(path_obj, progress_callback=sub_progress)
-            progress_dialog.finish_close()
-
-            def finish_ui():
-                self.refresh_mods()
-                if success:
-                    messagebox.showinfo("导入成功", msg)
-                else:
-                    messagebox.showerror("导入失败", msg)
-
-            self.after(200, finish_ui)
-
-        threading.Thread(target=worker, daemon=True).start()
+        if folder_path:
+            self._process_batch_import([Path(folder_path)])
 
     def _open_mods_folder(self):
         mods_folder = ModService.get_active_mods_folder()
         if mods_folder and mods_folder.exists():
             os.startfile(str(mods_folder))
         else:
-            messagebox.showwarning("提示", "未找到 Mods 目录")
-
-    def _start_drag(self, event):
-        self._drag_start_x = event.x
-        self._drag_start_y = event.y
-
-    def _on_drag(self, event):
-        if self.is_maximized:
-            self._toggle_maximize()
-        deltax = event.x - self._drag_start_x
-        deltay = event.y - self._drag_start_y
-        new_x = self.winfo_x() + deltax
-        new_y = self.winfo_y() + deltay
-        self.geometry(f"+{new_x}+{new_y}")
-
-    def minimize_mod_manager(self):
-        """Minimizes/hides the mod manager window."""
-        self.withdraw()
-
-    def _toggle_maximize(self):
-        """Toggles between maximized and restored normal window state."""
-        if not self.is_maximized:
-            self._prev_w = self.winfo_width()
-            self._prev_h = self.winfo_height()
-            self._prev_x = self.winfo_x()
-            self._prev_y = self.winfo_y()
-            sw = self.winfo_screenwidth()
-            sh = self.winfo_screenheight() - 40
-            self.geometry(f"{sw}x{sh}+0+0")
-            self.is_maximized = True
-            self.max_btn.configure(text="❐")
-        else:
-            prev_w = getattr(self, "_prev_w", 1240)
-            prev_h = getattr(self, "_prev_h", 740)
-            prev_x = getattr(self, "_prev_x", 100)
-            prev_y = getattr(self, "_prev_y", 100)
-            self.geometry(f"{prev_w}x{prev_h}+{prev_x}+{prev_y}")
-            self.is_maximized = False
-            self.max_btn.configure(text="🗖")
-
-    def _start_resize(self, event):
-        """Records initial coordinates and dimensions when user begins dragging resize grip."""
-        self._resize_start_x = event.x_root
-        self._resize_start_y = event.y_root
-        self._resize_start_w = self.winfo_width()
-        self._resize_start_h = self.winfo_height()
-
-    def _on_resize(self, event):
-        """Calculates and applies new geometry as user drags resize grip."""
-        if self.is_maximized:
-            self.is_maximized = False
-            self.max_btn.configure(text="🗖")
-        delta_w = event.x_root - self._resize_start_x
-        delta_h = event.y_root - self._resize_start_y
-        new_w = max(960, self._resize_start_w + delta_w)
-        new_h = max(600, self._resize_start_h + delta_h)
-        self.geometry(f"{new_w}x{new_h}")
+            show_warning("提示", "未找到 Mods 目录", parent=self.winfo_toplevel())
 
     def _center_window(self):
         """Centers the window on the active monitor screen."""
@@ -2097,6 +2264,10 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
             self.state('normal')
         self.lift()
         self.focus_force()
+        self.attributes("-topmost", True)
+        self.after(150, lambda: self.attributes("-topmost", False))
+        self.after(50, lambda: apply_dwm_window_theme(self, caption_hex="#161924", border_hex="#232c3d"))
+        self._setup_drag_and_drop()
         self.refresh_mods()
 
     def close_mod_manager(self):
@@ -2106,10 +2277,11 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
             self.on_close_callback()
 
     def _hide(self):
-        self.withdraw()
+        """Do not automatically withdraw the top-level window when parent launcher frame hides."""
+        pass
 
     def _show(self):
-        self.open_mod_manager()
+        pass
 
     def unsubscribe(self, *args, **kwargs):
         """Lifecycle unsubscribe."""
@@ -2122,3 +2294,4 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
     def untrace_write(self, *args, **kwargs):
         """Lifecycle untrace_write."""
         pass
+

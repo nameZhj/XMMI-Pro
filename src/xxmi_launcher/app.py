@@ -36,45 +36,22 @@ def verify_msvc_integrity():
         except BaseException as e:
             raise Exception(f'Failed to verify {dll}!') from e
 
-    # Try to load GetFileVersionInfo from win32api package
-    # It's a good way to check MSVC++ by itself, as win32api requires it to function
+    # Try to load GetFileVersionInfo from win32api package to log versions if available
     try:
         from win32api import GetFileVersionInfo, HIWORD, LOWORD
-    except BaseException as e:
-        raise Exception(f'Failed to verify win32api import!') from e
-
-    if not callable(GetFileVersionInfo):
-        raise Exception(f'Failed to verify GetFileVersionInfo being function!')
-    if not callable(HIWORD):
-        raise Exception(f'Failed to verify HIWORD being function!')
-    if not callable(LOWORD):
-        raise Exception(f'Failed to verify LOWORD being function!')
-
-    # Create buffer to store path of loaded DLLs
-    try:
         dll_path_buffer = ctypes.create_unicode_buffer(1024)
-
-        # Read DLL versions
         dll_versions = []
 
         for (dll, dll_handle) in msvc_dll_handles:
-
-            # Read path to loaded DLL from handle
             ctypes.windll.kernel32.GetModuleFileNameW(dll_handle, dll_path_buffer, 1024)
-
-            # Get DLL version info
             version_info = GetFileVersionInfo(str(dll_path_buffer.value), '\\')
-
             ms_file_version = version_info['FileVersionMS']
             ls_file_version = version_info['FileVersionLS']
-
             version = [str(HIWORD(ms_file_version)), str(LOWORD(ms_file_version)),
                        str(HIWORD(ls_file_version)), str(LOWORD(ls_file_version))]
-
             dll_versions.append(f'{dll}: {".".join(version)}')
 
         logging.debug(f'Using MSVC++ DLLs: {str(dll_versions)}')
-
     except BaseException:
         pass
 
@@ -226,8 +203,16 @@ if __name__ == '__main__':
                     error_text=init_stack_trace,
                 )
 
-            from tkinter.messagebox import showerror
-            showerror(
-                title=f"XXMI Launcher - {L('message_title_fatal_error', 'Fatal Error')}",
-                message=error,
-            )
+            try:
+                from gui.copyable_error_dialog import show_copyable_error
+                show_copyable_error(
+                    title=f"XXMI Launcher - {L('message_title_fatal_error', '致命错误 / 启动崩溃')}",
+                    message=error,
+                    is_fatal=True
+                )
+            except Exception:
+                from tkinter.messagebox import showerror
+                showerror(
+                    title=f"XXMI Launcher - {L('message_title_fatal_error', 'Fatal Error')}",
+                    message=error,
+                )

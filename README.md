@@ -110,7 +110,7 @@ python build_release.py
 
 #### Option 1: Download Release (Recommended)
 Download the preferred distribution from [Releases](https://github.com/nameZhj/XMMI-Pro/releases):
-- 🌟 **Windows Installer MSI (Recommended)**: Download `XMMI-Pro-Setup-vX.X.X.msi` for a native Windows Installer setup with automatic desktop/start menu shortcuts.
+- 🌟 **Windows Setup Installer (Recommended)**: Download `XMMI-Pro-Setup-vX.X.X.exe` for a modern Chinese setup wizard with automatic desktop/start menu shortcuts.
 - 📦 **Portable Package**: Download `XMMI-Pro-vX.X.X-Windows-x64.zip`, extract and run `XMMI-Pro.bat`.
 
 #### Option 2: Run from Source
@@ -129,7 +129,7 @@ pip install -r requirements.txt
 # Run
 python src/xxmi_launcher/app.py
 
-# Package release locally (generates MSI and portable ZIP)
+# Package release locally (generates EXE installer and portable ZIP)
 python build_release.py
 ```
 

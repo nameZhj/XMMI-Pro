@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   build:
-    name: Build & Package Windows Modern Installer, MSI, and Portable Release
+    name: Build & Package Windows Modern Installer and Portable Release
     runs-on: windows-latest
 
     steps:
@@ -37,12 +37,9 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Set up WiX Toolset v5 & Inno Setup
+      - name: Set up Inno Setup
         shell: pwsh
         run: |
-          dotnet tool install --global wix --version 5.0.2
-          wix extension add WixToolset.UI.wixext/5.0.2
-          wix extension add WixToolset.Util.wixext/5.0.2
           choco install innosetup --no-progress
 
       - name: Build & Package XMMI-Pro
@@ -60,7 +57,6 @@ jobs:
           name: XMMI-Pro ${{ env.RELEASE_TAG }}
           files: |
             *.exe
-            *.msi
             *.zip
           draft: false
           prerelease: false

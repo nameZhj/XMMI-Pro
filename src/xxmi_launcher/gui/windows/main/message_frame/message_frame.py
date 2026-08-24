@@ -128,6 +128,12 @@ class MessageFrame(UIFrame):
             cancel_y = master.master.cfg.height / 2 + target_height / 2 - 35
             self.cancel_button = self.put(CancelButton(self, cancel_text, cancel_command, cancel_x, cancel_y, button_width))
 
+        # Copy text button on bottom-left
+        copy_btn_width = 110
+        copy_x = master.master.cfg.width / 2 - target_width / 2 + copy_btn_width / 2 + 20
+        copy_y = master.master.cfg.height / 2 + target_height / 2 - 35
+        self.copy_button = self.put(CopyButton(self, "📋 复制文字", str(message), copy_x, copy_y, copy_btn_width))
+
         self.put(self.content_frame).pack()
 
         scrollbar_width = 0
@@ -239,6 +245,51 @@ class CancelButton(UIImageButton):
             cancel_command()
         self.master.response = False
         self.master.close()
+
+
+class CopyButton(UIImageButton):
+    def __init__(self, master, text: str, message: str, x, y, width):
+        super().__init__(
+            x=x,
+            y=y,
+            bg_width=width,
+            bg_height=36,
+            text=text,
+            fg_color='#1f2024',
+            border_radius=10,
+            border_width=1,
+            border_color='#3b82f6',
+            text_y_offset=-1,
+            text_anchor='center',
+            font=('Microsoft YaHei', 13),
+            bg_normal_opacity=0.85,
+            bg_hover_opacity=1,
+            bg_selected_opacity=1,
+            bg_disabled_opacity=0.75,
+            fill='#60a5fa',
+            activefill='#93c5fd',
+            disabledfill='#808080',
+            command=lambda: self.copy_text(message),
+            anchor='center',
+            master=master
+        )
+
+    def copy_text(self, message: str):
+        try:
+            self.master.master.master.clipboard_clear()
+            self.master.master.master.clipboard_append(str(message))
+            self.text = "已复制！"
+            self.redraw()
+            self.master.after(2000, self._restore_text)
+        except Exception as e:
+            log.warning(f"Failed to copy message: {e}")
+
+    def _restore_text(self):
+        try:
+            self.text = "📋 复制文字"
+            self.redraw()
+        except Exception:
+            pass
 
 
 class CloseButton(UIImageButton):

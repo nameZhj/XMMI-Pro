@@ -2,9 +2,8 @@
 """
 XMMI-Pro Build Script
 Compiles and packages XMMI-Pro into:
-1. Portable Windows ZIP Archive (XMMI-Pro-{tag}-Windows-x64.zip)
-2. Modern Chinese Setup Installer (XMMI-Pro-Setup-{tag}.exe) via Inno Setup
-3. Windows Installer MSI (XMMI-Pro-Setup-{tag}.msi) via WiX Toolset v5
+1. Modern Chinese Setup Installer (XMMI-Pro-Setup-{tag}.exe) via Inno Setup
+2. Portable Windows ZIP Archive (XMMI-Pro-{tag}-Windows-x64.zip)
 """
 import os
 import sys
@@ -43,34 +42,6 @@ def find_iscc():
     return None
 
 
-def find_or_install_wix():
-    """Locates or automatically installs WiX Toolset v5 CLI."""
-    wix_cmd = shutil.which("wix")
-    if wix_cmd:
-        return wix_cmd
-
-    # Check dotnet global tools directory
-    user_home = Path.home()
-    dotnet_tool_wix = user_home / ".dotnet" / "tools" / "wix.exe"
-    if dotnet_tool_wix.exists():
-        return str(dotnet_tool_wix)
-
-    # Attempt to install wix v5 via dotnet
-    if shutil.which("dotnet"):
-        print("Installing WiX Toolset v5 via dotnet tool...")
-        try:
-            subprocess.run(["dotnet", "tool", "install", "--global", "wix", "--version", "5.0.2"], check=True)
-            subprocess.run(["wix", "extension", "add", "WixToolset.UI.wixext/5.0.2"], check=False)
-            subprocess.run(["wix", "extension", "add", "WixToolset.Util.wixext/5.0.2"], check=False)
-            if dotnet_tool_wix.exists():
-                return str(dotnet_tool_wix)
-            return "wix"
-        except Exception as e:
-            print(f"Warning: Failed to install WiX via dotnet tool: {e}")
-
-    return None
-
-
 def build(tag: str = "v1.0.0"):
     print("=" * 60)
     print(f"Building XMMI-Pro ({tag})...")
@@ -82,7 +53,7 @@ def build(tag: str = "v1.0.0"):
             print(f"Cleaning {d.name}...")
             shutil.rmtree(d, ignore_errors=True)
 
-    # 2. Run PyInstaller with embedded Version Info
+    # 2. Run PyInstaller with embedded Version Info & complete packages
     version_file = ROOT_DIR / "file_version_info.txt"
     cmd = [
         sys.executable, "-m", "PyInstaller",
@@ -95,9 +66,42 @@ def build(tag: str = "v1.0.0"):
         "--collect-all", "tkinterweb",
         "--collect-all", "PIL",
         "--collect-all", "py7zr",
+        "--collect-all", "dacite",
+        "--collect-all", "darkdetect",
+        "--collect-all", "pyglet",
+        "--collect-all", "winshell",
+        "--collect-all", "wmi",
+        "--collect-all", "requests",
+        "--collect-all", "markdown",
+        "--collect-all", "mdx_gfm",
+        "--collect-all", "cryptography",
+        "--collect-all", "win32api",
+        "--collect-all", "pywintypes",
+        "--collect-all", "win32gui",
+        "--collect-all", "tkinterdnd2",
+        "--hidden-import", "tkinterdnd2",
         "--hidden-import", "rarfile",
         "--hidden-import", "core.mod_service",
+        "--hidden-import", "core.drag_drop",
+        "--hidden-import", "gui.copyable_error_dialog",
         "--hidden-import", "gui.windows.main.mod_manager_frame.mod_manager_frame",
+        "--hidden-import", "dacite",
+        "--hidden-import", "darkdetect",
+        "--hidden-import", "pyglet",
+        "--hidden-import", "winshell",
+        "--hidden-import", "wmi",
+        "--hidden-import", "requests",
+        "--hidden-import", "markdown",
+        "--hidden-import", "mdx_gfm",
+        "--hidden-import", "cryptography",
+        "--hidden-import", "win32api",
+        "--hidden-import", "pywintypes",
+        "--hidden-import", "win32gui",
+        "--hidden-import", "win32con",
+        "--hidden-import", "win32process",
+        "--hidden-import", "pythoncom",
+        "--hidden-import", "ctypes",
+        "--hidden-import", "ctypes.wintypes",
         "--add-data", f"{SRC_DIR / 'core' / 'wuwa_fix_config.json'}{os.pathsep}core",
     ]
     if version_file.exists():
@@ -162,33 +166,6 @@ def build(tag: str = "v1.0.0"):
     else:
         print("[INFO] Inno Setup compiler (ISCC) not found, skipping setup exe build.")
 
-    # 6. Compile Windows Installer MSI (XMMI-Pro-Setup-v1.0.0.msi)
-    installer_msi = ROOT_DIR / f"XMMI-Pro-Setup-{tag}.msi"
-    wix_bin = find_or_install_wix()
-    clean_version = tag.lstrip("vV")
-    ver_parts = clean_version.split(".")
-    while len(ver_parts) < 3:
-        ver_parts.append("0")
-    clean_version = ".".join(ver_parts[:3])
-
-    if wix_bin and (ROOT_DIR / "installer.wxs").exists():
-        print(f"Compiling Windows Installer MSI via WiX Toolset ({wix_bin})...")
-        wix_cmd = [
-            wix_bin, "build",
-            "-arch", "x64",
-            "-culture", "zh-CN",
-            "-d", f"Version={clean_version}",
-            "-ext", "WixToolset.UI.wixext",
-            "-ext", "WixToolset.Util.wixext",
-            str(ROOT_DIR / "installer.wxs"),
-            "-o", str(installer_msi)
-        ]
-        res = subprocess.run(wix_cmd, cwd=ROOT_DIR)
-        if res.returncode == 0 and installer_msi.exists():
-            print(f"[SUCCESS] Windows Installer MSI generated: {installer_msi}")
-        else:
-            print(f"[WARNING] WiX Toolset build finished with code: {res.returncode}")
-
     # Export environment variables for GitHub Actions CI
     if "GITHUB_ENV" in os.environ:
         with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as f:
@@ -196,8 +173,6 @@ def build(tag: str = "v1.0.0"):
             f.write(f"RELEASE_TAG={tag}\n")
             if installer_exe.exists():
                 f.write(f"SETUP_EXE={installer_exe.name}\n")
-            if installer_msi.exists():
-                f.write(f"SETUP_MSI={installer_msi.name}\n")
 
     print("=" * 60)
     print(f"[SUCCESS] Build process completed successfully for {tag}!")
