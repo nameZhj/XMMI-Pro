@@ -81,7 +81,7 @@ pip install -r requirements.txt
 # 4. 运行启动器
 python src/xxmi_launcher/app.py
 
-# 5. 本地一键编译与打包（自动生成 MSI 安装包与便携绿色压缩包）
+# 5. 本地一键编译与打包（自动生成中文 Setup EXE 安装包与便携绿色压缩包）
 python build_release.py
 ```
 
@@ -143,7 +143,10 @@ python build_release.py
 
 XMMI-Pro is built upon and inspired by the remarkable contributions of the open-source modding community:
 
-- **Upstream Project**: [SpectrumQT/XXMI-Launcher](https://github.com/SpectrumQT/XXMI-Launcher) by [SpectrumQT](https://github.com/SpectrumQT)
+- **Upstream Launcher Project**: [SpectrumQT/XXMI-Launcher](https://github.com/SpectrumQT/XXMI-Launcher) by [SpectrumQT](https://github.com/SpectrumQT)
+- **Mod Repair & Compatibility Engine**:
+  - **Wuwa_Mod_Fixer**: 本项目内置的鸣潮 Mod 深度修复与版本更新适配算法（Hash 更新规则、顶点组权重修复 `vg_remap`、衍生贴图/LOD 防黑补全、Shapekey 与索引重构等）参考并整合了社区开源项目 **Wuwa_Mod_Fixer** 的算法架构与规则逻辑。特此向其开发者表示衷心感谢与致敬！
+  - *The deep mod repair algorithms, hash database, vertex group remapping, texture LOD fixes, and rule parsing mechanisms integrated in this project are based upon and derived from the open-source community project **Wuwa_Mod_Fixer**.*
 - **Model Importers & Community Developers**:
   - **WWMI / EFMI**: [SpectrumQT](https://github.com/SpectrumQT)
   - **ZZMI**: [LeoTorrez](https://github.com/leotorrez), [Scyll](https://gamebanana.com/members/2644630), [SilentNightSound](https://github.com/SilentNightSound), [SinsOfSeven](https://github.com/SinsOfSeven), [Gustav0](https://github.com/Seris0), [Satan1c](https://gamebanana.com/members/2789093)
@@ -154,3 +157,4 @@ XMMI-Pro is built upon and inspired by the remarkable contributions of the open-
 ## 开源许可 / License
 
 本项目基于 **[GNU General Public License v3.0 (GPLv3)](LICENSE)** 开源。根据 GPLv3 协议条款，任何基于此项目的衍生作品均须保持相同开源协议。
+
