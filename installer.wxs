@@ -1,0 +1,63 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <?ifndef Version?>
+    <?define Version = "1.0.0" ?>
+  <?endif?>
+  <Package Name="XMMI-Pro"
+           Manufacturer="XMMI-Pro Team"
+           Version="$(var.Version)"
+           UpgradeCode="DA9DAFB7-4878-4F0F-BBDC-E778F233A214"
+           Scope="perMachine"
+           Language="2052"
+           Codepage="936"
+           InstallerVersion="500">
+    <MajorUpgrade DowngradeErrorMessage="已安装更新版本的 XMMI-Pro。" />
+    
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <Icon Id="AppIcon" SourceFile="Themes\Default\Shortcuts\WWMI.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/nameZhj/XMMI-Pro" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/nameZhj/XMMI-Pro" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="XMMI-Pro" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="XMMI-Pro" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="XMMI-Pro-Release\**" />
+    </ComponentGroup>
+
+    <Component Id="AppShortcuts" Guid="69C98A39-9DF8-4935-9D08-DFD1106D2697" Directory="INSTALLFOLDER">
+      <Shortcut Id="ApplicationStartMenuShortcut"
+                Directory="ApplicationProgramsFolder"
+                Name="XMMI-Pro 模组启动器"
+                Description="鸣潮与二次元游戏模组管理器"
+                Target="[INSTALLFOLDER]Resources\Bin\XXMI Launcher.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon" />
+      <Shortcut Id="ApplicationDesktopShortcut"
+                Directory="DesktopFolder"
+                Name="XMMI-Pro 模组启动器"
+                Description="鸣潮与二次元游戏模组管理器"
+                Target="[INSTALLFOLDER]Resources\Bin\XXMI Launcher.exe"
+                WorkingDirectory="INSTALLFOLDER"
+                Icon="AppIcon" />
+      <RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall" />
+      <RegistryValue Root="HKCU" Key="Software\XMMI-Pro" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Feature Id="MainFeature" Title="XMMI-Pro" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="AppShortcuts" />
+    </Feature>
+
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+  </Package>
+</Wix>

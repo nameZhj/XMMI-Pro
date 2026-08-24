@@ -2,8 +2,8 @@
 """
 XMMI-Pro Build Script
 Compiles and packages XMMI-Pro into:
-1. Portable Windows ZIP Archive
-2. Windows Setup Installer EXE with Chinese Installation Wizard (Inno Setup)
+1. Portable Windows ZIP Archive (XMMI-Pro-{tag}-Windows-x64.zip)
+2. Windows Installer Package (XMMI-Pro-Setup-{tag}.msi) with Chinese Setup Wizard (WiX Toolset v5)
 """
 import os
 import sys
@@ -26,21 +26,31 @@ BUILD_DIR = ROOT_DIR / "build"
 RELEASE_DIR = ROOT_DIR / "XMMI-Pro-Release"
 
 
-def find_iscc():
-    """Locates Inno Setup command-line compiler (ISCC.exe)."""
-    iscc_path = shutil.which("iscc")
-    if iscc_path:
-        return iscc_path
+def find_or_install_wix():
+    """Locates or automatically installs WiX Toolset v5 CLI."""
+    wix_cmd = shutil.which("wix")
+    if wix_cmd:
+        return wix_cmd
 
-    candidates = [
-        Path(os.environ.get("ProgramFiles(x86)", "C:/Program Files (x86)")) / "Inno Setup 6" / "ISCC.exe",
-        Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Inno Setup 6" / "ISCC.exe",
-        Path("C:/Program Files (x86)/Inno Setup 6/ISCC.exe"),
-        Path("C:/Program Files/Inno Setup 6/ISCC.exe"),
-    ]
-    for p in candidates:
-        if p.exists():
-            return str(p)
+    # Check dotnet global tools directory
+    user_home = Path.home()
+    dotnet_tool_wix = user_home / ".dotnet" / "tools" / "wix.exe"
+    if dotnet_tool_wix.exists():
+        return str(dotnet_tool_wix)
+
+    # Attempt to install wix v5 via dotnet
+    if shutil.which("dotnet"):
+        print("Installing WiX Toolset v5 via dotnet tool...")
+        try:
+            subprocess.run(["dotnet", "tool", "install", "--global", "wix", "--version", "5.0.2"], check=True)
+            subprocess.run(["wix", "extension", "add", "WixToolset.UI.wixext/5.0.2"], check=False)
+            subprocess.run(["wix", "extension", "add", "WixToolset.Util.wixext/5.0.2"], check=False)
+            if dotnet_tool_wix.exists():
+                return str(dotnet_tool_wix)
+            return "wix"
+        except Exception as e:
+            print(f"Warning: Failed to install WiX via dotnet tool: {e}")
+
     return None
 
 
@@ -117,32 +127,48 @@ def build(tag: str = "v1.0.0"):
     shutil.make_archive(str(ROOT_DIR / zip_base_name), 'zip', RELEASE_DIR)
     print(f"[SUCCESS] Portable package created: {zip_path}")
 
-    # 5. Compile Inno Setup Windows Installer EXE (with Chinese wizard)
-    installer_exe = ROOT_DIR / f"XMMI-Pro-Setup-{tag}.exe"
-    iscc = find_iscc()
-    if iscc and (ROOT_DIR / "installer.iss").exists():
-        print(f"Compiling Chinese Setup Installer via Inno Setup ({iscc})...")
-        iss_cmd = [iscc, f"/DMyAppVersion={tag}", str(ROOT_DIR / "installer.iss")]
-        res = subprocess.run(iss_cmd, cwd=ROOT_DIR)
-        if res.returncode == 0 and installer_exe.exists():
-            print(f"[SUCCESS] Chinese Setup Installer generated: {installer_exe}")
+    # 5. Compile Windows Installer MSI (with Chinese wizard via WiX Toolset v5)
+    installer_msi = ROOT_DIR / f"XMMI-Pro-Setup-{tag}.msi"
+    wix_bin = find_or_install_wix()
+    clean_version = tag.lstrip("vV")
+    # Ensure valid 3-part version for MSI
+    ver_parts = clean_version.split(".")
+    while len(ver_parts) < 3:
+        ver_parts.append("0")
+    clean_version = ".".join(ver_parts[:3])
+
+    if wix_bin and (ROOT_DIR / "installer.wxs").exists():
+        print(f"Compiling Windows Installer MSI via WiX Toolset ({wix_bin})...")
+        wix_cmd = [
+            wix_bin, "build",
+            "-arch", "x64",
+            "-culture", "zh-CN",
+            "-d", f"Version={clean_version}",
+            "-ext", "WixToolset.UI.wixext",
+            "-ext", "WixToolset.Util.wixext",
+            str(ROOT_DIR / "installer.wxs"),
+            "-o", str(installer_msi)
+        ]
+        res = subprocess.run(wix_cmd, cwd=ROOT_DIR)
+        if res.returncode == 0 and installer_msi.exists():
+            print(f"[SUCCESS] Windows Installer MSI generated: {installer_msi}")
         else:
-            print(f"[FAILED] Inno Setup compiler failed with exit code: {res.returncode}")
+            print(f"[FAILED] WiX Toolset build failed with exit code: {res.returncode}")
             sys.exit(res.returncode if res.returncode != 0 else 1)
     else:
         if "GITHUB_ACTIONS" in os.environ:
-            print("[FAILED] Inno Setup compiler (ISCC.exe) not found in CI environment!")
+            print("[FAILED] WiX Toolset compiler not found in CI environment!")
             sys.exit(1)
         else:
-            print("[INFO] Inno Setup compiler (ISCC.exe) not found, skipping setup exe build.")
+            print("[INFO] WiX Toolset not found, skipping setup MSI build.")
 
     # Export environment variables for GitHub Actions CI
     if "GITHUB_ENV" in os.environ:
         with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as f:
             f.write(f"ZIP_NAME={zip_path.name}\n")
             f.write(f"RELEASE_TAG={tag}\n")
-            if installer_exe.exists():
-                f.write(f"SETUP_EXE={installer_exe.name}\n")
+            if installer_msi.exists():
+                f.write(f"SETUP_MSI={installer_msi.name}\n")
 
     print("=" * 60)
     print(f"[SUCCESS] Build process completed successfully for {tag}!")

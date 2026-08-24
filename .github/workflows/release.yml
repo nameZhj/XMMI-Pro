@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   build:
-    name: Build & Package Windows Installer and Portable Release
+    name: Build & Package Windows MSI Installer and Portable Release
     runs-on: windows-latest
 
     steps:
@@ -37,19 +37,14 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Set up Inno Setup
+      - name: Set up WiX Toolset v5
         shell: pwsh
         run: |
-          $InnoPath = "C:\Program Files (x86)\Inno Setup 6"
-          if (-not (Test-Path "$InnoPath\ISCC.exe")) {
-            Write-Host "Installing Inno Setup via Chocolatey..."
-            choco install innosetup -y
-          }
-          if (Test-Path $InnoPath) {
-            [System.IO.File]::AppendAllText($env:GITHUB_PATH, "$InnoPath`n", [System.Text.Encoding]::UTF8)
-          }
+          dotnet tool install --global wix --version 5.0.2
+          wix extension add WixToolset.UI.wixext/5.0.2
+          wix extension add WixToolset.Util.wixext/5.0.2
 
-      - name: Build & Package XMMI-Pro (Setup Installer & Portable Zip)
+      - name: Build & Package XMMI-Pro (MSI Installer & Portable Zip)
         shell: pwsh
         run: |
           $Tag = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { "${{ github.event.inputs.version }}" }
@@ -63,7 +58,7 @@ jobs:
           tag_name: ${{ env.RELEASE_TAG }}
           name: XMMI-Pro ${{ env.RELEASE_TAG }}
           files: |
-            *.exe
+            *.msi
             *.zip
           draft: false
           prerelease: false

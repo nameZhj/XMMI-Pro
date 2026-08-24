@@ -60,6 +60,9 @@ ENV/
 *.msi
 *.exe
 *.spec
+*.wixobj
+*.wixpdb
+.wix/
 /XMMI-Pro-Release/
 *.exe.spec
 XMMI-Pro-Release/

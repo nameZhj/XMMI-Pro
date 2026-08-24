@@ -40,9 +40,10 @@
 - 📦 **沉浸式可视化模组卡片**：
   - 支持高清 Contain 等比完整展示模组预览图，不拉伸、不裁剪。
   - 动态响应式卡片网格布局，根据窗口尺寸自适应 2~5 列排版。
-- 🔧 **智能 Mod 健康检测与一键修复**：
-  - 自动检测并修复 `.ini` / `.dds` / 纹理格式（DXGI）、法线贴图与槽位索引冲突。
-  - **一键复原备份**：修改或修复前自动创建安全备份，可随时将模组还原至原始文件。
+- 🔧 **深度模组修复与版本适配引擎 (基于 Wuwa_Mod_Fixer)**：
+  - 覆盖 115+ 角色与武器数据库，一键自动修复游戏版本更新 Hash、骨骼与顶点组重映射 (`vg_remap`)、衍生贴图与 LOD 远景防黑材质补全、绘制索引与 Shapekey 规则。
+  - **可视化多维度修复选项**：提供 8 大独立修复开关（Hash、顶点组、衍生贴图、规则、主角/风主专属、状态贴图、Engine.ini 等），支持单个修复与全库批量一键修复。
+  - **一键回滚备份**：修复前自动创建安全快照，随时一键撤销并还原至初始文件。
 - 📂 **角色二级分类与多维深度检索**：
   - 智能解析 Mod 角色归属，生成左侧分类导航树及动态数量角标。
   - 支持 **拼音全拼/首字母、中文角色名、英文名、GUID、文件夹名** 毫秒级多维模糊搜索。
@@ -56,7 +57,7 @@
 
 #### 方法一：下载 Release 发行版（推荐）
 进入本仓库 [Releases 页面](https://github.com/nameZhj/XMMI-Pro/releases) 下载适合的版本：
-- 🌟 **全中文安装包（推荐）**：下载 `XMMI-Pro-Setup-vX.X.X.exe`，双击启动中文安装向导，自动配置运行环境并创建桌面与开始菜单快捷方式。
+- 🌟 **Windows Installer MSI 安装包（推荐）**：下载 `XMMI-Pro-Setup-vX.X.X.msi`，双击启动中文安装向导，自动安装并创建桌面与开始菜单快捷方式。
 - 📦 **免安装便携版**：下载 `XMMI-Pro-vX.X.X-Windows-x64.zip`，解压后双击运行 `XMMI-Pro.bat` 即可使用。
 
 #### 方法二：源码运行与本地开发
@@ -75,7 +76,7 @@ pip install -r requirements.txt
 # 4. 运行启动器
 python src/xxmi_launcher/app.py
 
-# 5. 本地一键编译与打包（自动生成安装包与绿色压缩包）
+# 5. 本地一键编译与打包（自动生成 MSI 安装包与便携绿色压缩包）
 python build_release.py
 ```
 
@@ -84,30 +85,31 @@ python build_release.py
 ## English
 
 ### 📖 About XMMI-Pro
-**XMMI-Pro** is an enhanced, visual mod management tool and launcher based on the open-source project [SpectrumQT/XXMI-Launcher](https://github.com/SpectrumQT/XXMI-Launcher). It brings a next-generation UI, automated health checks, one-click repair engines, and real-time game synchronization.
+**XMMI-Pro** is an enhanced, visual mod management tool and launcher based on the open-source project [SpectrumQT/XXMI-Launcher](https://github.com/SpectrumQT/XXMI-Launcher). It brings a next-generation UI, automated health checks, deep repair engines (powered by Wuwa_Mod_Fixer), and real-time game synchronization.
 
 ### 🌟 Key Features
 
 - 📦 **Visual Mod Grid with Aspect-Fit Previews**:
   - Displays mod thumbnails with exact aspect containment (no distortion or cropping).
   - Responsive column auto-layout (2 to 5 columns) based on viewport width.
-- 🔧 **Automated Health Check & One-Click Repair Engine**:
-  - Automatically identifies and fixes texture format mismatches (DXGI), normal map errors, and shader slot conflicts.
-  - **Backup & Restore**: Automatic rollback backups before modifications.
+- 🔧 **Deep Mod Repair Engine & Options (Powered by Wuwa_Mod_Fixer)**:
+  - Supports 115+ characters and weapons with automated version hash replacement, vertex group remapping (`vg_remap`), derivative/LOD texture completion, and rule/index adjustments.
+  - **Interactive Repair Options**: Modular toggles for hash fix, bone remap, LOD textures, special character fixes, and Engine.ini optimizations.
+  - **Backup & Instant Rollback**: Automatic snapshots before repairs with 1-click restore.
 - 📂 **Character Navigation & Multi-Dimensional Search**:
   - Automatic character category mapping with live item counter badges.
   - Ultra-fast search across Chinese names, English names, Pinyin, GUIDs, and file names.
 - 🎮 **Hotkey Inspector & Live Game Synchronization**:
-  - Live hotkey parsing displaying all key bindings and control triggers in the inspector panel.
-  - Automatically sends live reload notifications (F10) to active game processes when toggling/repairing mods.
-- 🔄 **Universal Archive Importer**:
-  - Supports `.zip`, `.7z`, and `.rar` archive extraction and direct folder importing.
+  - Automatically parses hotkeys and controls in mod `.ini` files.
+  - Broadcasts live F10 reload signals to running games for instant in-game updates.
+- 🔄 **Universal Format Support**:
+  - Supports `.zip`, `.7z`, `.rar` archive extraction and folder-based mod imports.
 
 ### 🚀 Getting Started
 
 #### Option 1: Download Release (Recommended)
 Download the preferred distribution from [Releases](https://github.com/nameZhj/XMMI-Pro/releases):
-- 🌟 **Windows Setup Installer**: Download `XMMI-Pro-Setup-vX.X.X.exe` for a guided installation wizard in Chinese with automatic desktop/start menu shortcuts.
+- 🌟 **Windows Installer MSI (Recommended)**: Download `XMMI-Pro-Setup-vX.X.X.msi` for a native Windows Installer setup with automatic desktop/start menu shortcuts.
 - 📦 **Portable Package**: Download `XMMI-Pro-vX.X.X-Windows-x64.zip`, extract and run `XMMI-Pro.bat`.
 
 #### Option 2: Run from Source
@@ -126,7 +128,7 @@ pip install -r requirements.txt
 # Run
 python src/xxmi_launcher/app.py
 
-# Package release locally
+# Package release locally (generates MSI and portable ZIP)
 python build_release.py
 ```
 
