@@ -139,13 +139,6 @@ class VisualModManagerButton(ToolsBarButton):
             text=L('tool_bar_visual_mod_manager_button', 'Visual Mod Manager'),
             command=lambda: Events.Fire(Events.Application.OpenModManager()),
             master=master)
-        self.subscribe(Events.PackageManager.VersionNotification, self.handle_version_notification)
-
-    def handle_version_notification(self, event):
-        package_state = event.package_states.get(Config.Launcher.active_importer, None)
-        if package_state is None:
-            return
-        self.set_disabled(not package_state.installed_version)
 
 
 class RepairXXMIButton(ToolsBarButton):
@@ -198,12 +191,5 @@ class OpenModsFolderButton(ToolsBarButton):
             text=L('tool_bar_open_mods_button', 'Open Mods Folder'),
             command=lambda: Events.Fire(Events.MigotoManager.OpenModsFolder()),
             master=master)
-        self.subscribe(Events.PackageManager.VersionNotification, self.handle_version_notification)
-
-    def handle_version_notification(self, event):
-        package_state = event.package_states.get(Config.Launcher.active_importer, None)
-        if package_state is None:
-            return
-        self.set_disabled(not package_state.installed_version)
 
 # endregion

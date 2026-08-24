@@ -114,9 +114,15 @@ class MigotoPackage(Package):
             raise
 
     def handle_open_mods_folder(self, event: MigotoManagerEvents.OpenModsFolder):
-        mods_path = Config.Active.Importer.importer_path / 'Mods'
-        Paths.verify_path(mods_path)
-        subprocess.Popen(['explorer.exe', mods_path])
+        try:
+            from core.mod_service import ModService
+            mods_path = ModService.get_active_mods_folder()
+            if not mods_path:
+                mods_path = Config.Active.Importer.importer_path / 'Mods'
+            Paths.verify_path(mods_path)
+            subprocess.Popen(['explorer.exe', str(mods_path)])
+        except Exception as e:
+            log.warning(f"Failed to open mods folder: {e}")
 
     def handle_start_and_inject(self, event: MigotoManagerEvents.StartAndInject):
 
