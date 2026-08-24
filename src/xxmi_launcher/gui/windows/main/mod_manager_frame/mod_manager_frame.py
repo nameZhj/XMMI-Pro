@@ -16,7 +16,9 @@ from customtkinter import (
     CTkProgressBar,
     CTkSegmentedButton,
     CTkImage,
-    CTkToplevel
+    CTkToplevel,
+    CTkCheckBox,
+    CTkTextbox
 )
 from PIL import Image, ImageDraw
 import tkinter as tk
@@ -24,7 +26,7 @@ import tkinter.filedialog as filedialog
 import tkinter.messagebox as messagebox
 
 from gui.classes.element import UIElementBase
-from core.mod_service import ModService, ModItem, CharacterMenuItem
+from core.mod_service import ModService, ModItem, CharacterMenuItem, ModRepairOptions
 from core.locale_manager import L
 
 log = logging.getLogger(__name__)
@@ -94,6 +96,424 @@ class ImportProgressDialog(ctk.CTkToplevel):
             pass
 
     def finish_close(self):
+        try:
+            self.grab_release()
+            self.destroy()
+        except Exception:
+            pass
+
+
+class ModRepairDialog(ctk.CTkToplevel):
+    """
+    Comprehensive interactive Mod Repair & Fix Options modal dialog.
+    Supports single mod deep repair and batch library deep repair.
+    """
+    def __init__(
+        self,
+        parent,
+        target_mod: Optional[ModItem] = None,
+        all_mods: Optional[List[ModItem]] = None,
+        on_finished_callback: Optional[callable] = None
+    ):
+        super().__init__(parent)
+        self.target_mod = target_mod
+        self.all_mods = all_mods if all_mods is not None else []
+        self.on_finished = on_finished_callback
+        self.is_batch = (target_mod is None)
+
+        title_text = "🔧 全库模组深度修复与适配" if self.is_batch else f"🔧 模组深度修复 - {target_mod.display_name}"
+        self.title(title_text)
+        self.geometry("640x720")
+        self.minsize(580, 600)
+        self.configure(fg_color="#121622")
+
+        self.transient(parent)
+        self.grab_set()
+
+        # Center on parent window
+        self.update_idletasks()
+        try:
+            px = parent.winfo_rootx()
+            py = parent.winfo_rooty()
+            pw = parent.winfo_width()
+            ph = parent.winfo_height()
+            x = px + (pw - 640) // 2
+            y = py + (ph - 720) // 2
+            self.geometry(f"+{max(10, x)}+{max(10, y)}")
+        except Exception:
+            pass
+
+        self._build_ui()
+
+    def _build_ui(self):
+        # 1. Header Card
+        header_frame = CTkFrame(self, fg_color="#181f2f", corner_radius=10, border_width=1, border_color="#2b384e")
+        header_frame.pack(fill="x", padx=16, pady=(16, 8))
+
+        top_row = CTkFrame(header_frame, fg_color="transparent")
+        top_row.pack(fill="x", padx=14, pady=(12, 4))
+
+        icon_lbl = CTkLabel(top_row, text="🔧", font=("Segoe UI Emoji", 20))
+        icon_lbl.pack(side="left", padx=(0, 8))
+
+        title_lbl = CTkLabel(
+            top_row,
+            text="鸣潮模组版本适配与深度修复引擎",
+            font=("Microsoft YaHei", 14, "bold"),
+            text_color="#ffffff"
+        )
+        title_lbl.pack(side="left")
+
+        desc_lbl = CTkLabel(
+            header_frame,
+            text="基于 Wuwa_Mod_Fixer 规则库 (覆盖 115+ 角色与武器)，深度修复更新失效、模型破皮拉扯、远景变黑与贴图错位",
+            font=("Microsoft YaHei", 10),
+            text_color="#94a3b8",
+            anchor="w",
+            justify="left",
+            wraplength=580
+        )
+        desc_lbl.pack(fill="x", padx=14, pady=(0, 6))
+
+        # Target badge
+        target_badge = CTkFrame(header_frame, fg_color="#0f172a", corner_radius=6, border_width=1, border_color="#1e293b")
+        target_badge.pack(fill="x", padx=14, pady=(0, 10))
+
+        if self.is_batch:
+            target_str = f"🎯 当前模式: 全库批量深度修复 (共 {len(self.all_mods)} 个模组)"
+        else:
+            target_str = f"🎯 目标模组: 【{self.target_mod.display_name}】 ({self.target_mod.character_name})"
+
+        target_lbl = CTkLabel(
+            target_badge,
+            text=target_str,
+            font=("Microsoft YaHei", 11, "bold"),
+            text_color="#60a5fa",
+            anchor="w"
+        )
+        target_lbl.pack(fill="x", padx=10, pady=5)
+
+        # 2. Options Preset Toolbar
+        preset_bar = CTkFrame(self, fg_color="transparent")
+        preset_bar.pack(fill="x", padx=16, pady=(4, 6))
+
+        opt_title = CTkLabel(
+            preset_bar,
+            text="⚙️ 修复选项配置",
+            font=("Microsoft YaHei", 12, "bold"),
+            text_color="#e2e8f0"
+        )
+        opt_title.pack(side="left")
+
+        btn_none = CTkButton(
+            preset_bar,
+            text="全不选",
+            width=55,
+            height=24,
+            corner_radius=4,
+            font=("Microsoft YaHei", 10),
+            fg_color="#1e293b",
+            hover_color="#334155",
+            text_color="#cbd5e1",
+            command=self._select_none_options
+        )
+        btn_none.pack(side="right", padx=2)
+
+        btn_all = CTkButton(
+            preset_bar,
+            text="全选",
+            width=50,
+            height=24,
+            corner_radius=4,
+            font=("Microsoft YaHei", 10),
+            fg_color="#1e293b",
+            hover_color="#334155",
+            text_color="#cbd5e1",
+            command=self._select_all_options
+        )
+        btn_all.pack(side="right", padx=2)
+
+        btn_rec = CTkButton(
+            preset_bar,
+            text="⚡ 推荐配置",
+            width=70,
+            height=24,
+            corner_radius=4,
+            font=("Microsoft YaHei", 10, "bold"),
+            fg_color="#2563eb",
+            hover_color="#1d4ed8",
+            text_color="#ffffff",
+            command=self._select_recommended_options
+        )
+        btn_rec.pack(side="right", padx=2)
+
+        # 3. Options Scrollable Container
+        self.options_scroll = CTkScrollableFrame(self, fg_color="#161b28", corner_radius=8, border_width=1, border_color="#283246", height=230)
+        self.options_scroll.pack(fill="both", expand=True, padx=16, pady=2)
+
+        # Option Variables
+        self.var_fix_hashes = tk.BooleanVar(value=True)
+        self.var_fix_vertex_groups = tk.BooleanVar(value=True)
+        self.var_fix_derive_textures = tk.BooleanVar(value=True)
+        self.var_fix_rules = tk.BooleanVar(value=True)
+        self.var_fix_resource_override = tk.BooleanVar(value=True)
+        self.var_fix_stable_texture = tk.BooleanVar(value=True)
+        self.var_fix_rover_special = tk.BooleanVar(value=True)
+        self.var_inject_engine_ini = tk.BooleanVar(value=True)
+        self.var_clean_trash_files = tk.BooleanVar(value=True)
+        self.var_normalize_ini = tk.BooleanVar(value=True)
+        self.var_create_backup = tk.BooleanVar(value=True)
+
+        options_meta = [
+            (self.var_fix_hashes, "游戏版本更新 Hash 替换", "匹配 115+ 角色与武器在版本更新后的主 Hash 与贴图 Hash"),
+            (self.var_fix_vertex_groups, "骨骼与顶点组重映射 (vg_remap)", "重映射顶点组与骨骼权重，修复白芷、长离等因骨骼变动导致拉扯破皮"),
+            (self.var_fix_derive_textures, "衍生贴图与 LOD 远景防黑补全", "自动补全 LOD/Wet/Charged/Injured 衍生重载，解决远距离变黑变色"),
+            (self.var_fix_rules, "索引规则与 Shapekey 修复", "修正 match_first_index、match_index_count、面部表情与顶点偏移"),
+            (self.var_fix_resource_override, "追加资源重载检查", "追加 CheckTextureOverride 检查，防止多材质重载相互冲突"),
+            (self.var_fix_stable_texture, "状态贴图稳定模式", "稳定处理爱弥斯 (Aemeath)、椿 (Camellya) 等角色的特殊状态贴图"),
+            (self.var_fix_rover_special, "主角材质与风主眼部专属修复", "漂泊者 Materialmap 材质自动适配生成，以及风主满充能眼部修复"),
+            (self.var_inject_engine_ini, "Engine.ini 渲染与防破图注入", "向游戏 Engine.ini 写入高精模型渲染 LODDistanceScale 与贴图流式优化"),
+            (self.var_clean_trash_files, "清理冗余与临时干扰文件", "清除 CheckTexture.ini, References.ini, .DS_Store, Thumbs.db 等干扰文件"),
+            (self.var_normalize_ini, "规范化 .ini 编码与路径格式", "转换所有 .ini 为标准 UTF-8 编码并将文件路径反斜杠标准化"),
+            (self.var_create_backup, "修复前自动创建安全回滚备份", "自动备份原始文件，随时支持一键无损撤销与复原")
+        ]
+
+        for var, title, subtext in options_meta:
+            opt_row = CTkFrame(self.options_scroll, fg_color="transparent")
+            opt_row.pack(fill="x", padx=6, pady=4)
+
+            chk = CTkCheckBox(
+                opt_row,
+                text=title,
+                variable=var,
+                font=("Microsoft YaHei", 11, "bold"),
+                text_color="#f8fafc",
+                checkmark_color="#ffffff",
+                fg_color="#2563eb",
+                hover_color="#1d4ed8",
+                border_color="#475569",
+                border_width=2,
+                corner_radius=4,
+                width=24,
+                height=24
+            )
+            chk.pack(anchor="w")
+
+            desc = CTkLabel(
+                opt_row,
+                text=subtext,
+                font=("Microsoft YaHei", 9),
+                text_color="#94a3b8",
+                anchor="w",
+                justify="left"
+            )
+            desc.pack(anchor="w", padx=(28, 0), pady=(0, 2))
+
+        # 4. Progress & Log Console Output
+        self.progress_frame = CTkFrame(self, fg_color="#10131d", corner_radius=8, border_width=1, border_color="#1e2434")
+        self.progress_frame.pack(fill="x", padx=16, pady=(6, 8))
+
+        self.progress_bar = CTkProgressBar(
+            self.progress_frame,
+            height=6,
+            corner_radius=3,
+            progress_color="#2563eb",
+            fg_color="#1e293b"
+        )
+        self.progress_bar.pack(fill="x", padx=10, pady=(8, 4))
+        self.progress_bar.set(0.0)
+
+        self.log_textbox = CTkTextbox(
+            self.progress_frame,
+            height=100,
+            font=("Consolas", 10),
+            fg_color="#090c13",
+            text_color="#cbd5e1",
+            corner_radius=6,
+            border_width=1,
+            border_color="#1a2233"
+        )
+        self.log_textbox.pack(fill="both", expand=True, padx=10, pady=(2, 8))
+        self.log_textbox.insert("end", "💡 准备就绪。请确认勾选的修复选项后点击下方【开始修复】按钮...\n")
+        self.log_textbox.configure(state="disabled")
+
+        # 5. Bottom Action Bar
+        bottom_bar = CTkFrame(self, fg_color="transparent")
+        bottom_bar.pack(fill="x", padx=16, pady=(0, 16))
+
+        self.btn_start = CTkButton(
+            bottom_bar,
+            text="🚀 开始修复",
+            height=36,
+            corner_radius=6,
+            font=("Microsoft YaHei", 12, "bold"),
+            fg_color="#2563eb",
+            hover_color="#1d4ed8",
+            text_color="#ffffff",
+            command=self._start_repair
+        )
+        self.btn_start.pack(side="left", fill="x", expand=True, padx=(0, 4))
+
+        has_bk = (not self.is_batch and self.target_mod and ModService.has_backup(self.target_mod))
+        self.btn_restore = CTkButton(
+            bottom_bar,
+            text="⏪ 一键回滚备份",
+            height=36,
+            corner_radius=6,
+            font=("Microsoft YaHei", 11),
+            fg_color="#334155" if has_bk else "#1e293b",
+            hover_color="#475569" if has_bk else "#1e293b",
+            text_color="#f1f5f9" if has_bk else "#64748b",
+            state="normal" if has_bk else "disabled",
+            command=self._rollback_backup
+        )
+        if not self.is_batch:
+            self.btn_restore.pack(side="left", padx=4)
+
+        self.btn_close = CTkButton(
+            bottom_bar,
+            text="关闭",
+            width=80,
+            height=36,
+            corner_radius=6,
+            font=("Microsoft YaHei", 11),
+            fg_color="#242b3d",
+            hover_color="#333d54",
+            border_width=1,
+            border_color="#3b475f",
+            text_color="#f1f5f9",
+            command=self._on_close
+        )
+        self.btn_close.pack(side="right", padx=(4, 0))
+
+    def _select_recommended_options(self):
+        self.var_fix_hashes.set(True)
+        self.var_fix_vertex_groups.set(True)
+        self.var_fix_derive_textures.set(True)
+        self.var_fix_rules.set(True)
+        self.var_fix_resource_override.set(True)
+        self.var_fix_stable_texture.set(True)
+        self.var_fix_rover_special.set(True)
+        self.var_inject_engine_ini.set(True)
+        self.var_clean_trash_files.set(True)
+        self.var_normalize_ini.set(True)
+        self.var_create_backup.set(True)
+
+    def _select_all_options(self):
+        for v in [
+            self.var_fix_hashes, self.var_fix_vertex_groups, self.var_fix_derive_textures,
+            self.var_fix_rules, self.var_fix_resource_override, self.var_fix_stable_texture,
+            self.var_fix_rover_special, self.var_inject_engine_ini, self.var_clean_trash_files,
+            self.var_normalize_ini, self.var_create_backup
+        ]:
+            v.set(True)
+
+    def _select_none_options(self):
+        for v in [
+            self.var_fix_hashes, self.var_fix_vertex_groups, self.var_fix_derive_textures,
+            self.var_fix_rules, self.var_fix_resource_override, self.var_fix_stable_texture,
+            self.var_fix_rover_special, self.var_inject_engine_ini, self.var_clean_trash_files,
+            self.var_normalize_ini, self.var_create_backup
+        ]:
+            v.set(False)
+
+    def _append_log(self, text: str):
+        self.log_textbox.configure(state="normal")
+        self.log_textbox.insert("end", text + "\n")
+        self.log_textbox.see("end")
+        self.log_textbox.configure(state="disabled")
+
+    def _start_repair(self):
+        opts = ModRepairOptions(
+            fix_hashes=self.var_fix_hashes.get(),
+            fix_vertex_groups=self.var_fix_vertex_groups.get(),
+            fix_derive_textures=self.var_fix_derive_textures.get(),
+            fix_rules=self.var_fix_rules.get(),
+            fix_resource_override=self.var_fix_resource_override.get(),
+            fix_stable_texture=self.var_fix_stable_texture.get(),
+            fix_rover_special=self.var_fix_rover_special.get(),
+            inject_engine_ini=self.var_inject_engine_ini.get(),
+            clean_trash_files=self.var_clean_trash_files.get(),
+            normalize_ini=self.var_normalize_ini.get(),
+            create_backup=self.var_create_backup.get()
+        )
+
+        self.btn_start.configure(state="disabled", text="⏳ 正在深度修复中...")
+        if not self.is_batch:
+            self.btn_restore.configure(state="disabled")
+
+        self.log_textbox.configure(state="normal")
+        self.log_textbox.delete("1.0", "end")
+        self.log_textbox.configure(state="disabled")
+
+        threading.Thread(target=self._run_repair_worker, args=(opts,), daemon=True).start()
+
+    def _run_repair_worker(self, opts: ModRepairOptions):
+        try:
+            if not self.is_batch and self.target_mod:
+                self.after(0, lambda: self._append_log(f"🚀 开始深度修复模组: 【{self.target_mod.display_name}】..."))
+                self.after(0, lambda: self.progress_bar.set(0.3))
+                success, fixes = ModService.repair_mod(self.target_mod, options=opts)
+                self.after(0, lambda: self.progress_bar.set(1.0))
+                for f in fixes:
+                    self.after(0, lambda msg=f: self._append_log(f"  • {msg}"))
+
+                if success:
+                    self.after(0, lambda: self._append_log("\n✨ 模组修复成功并已同步至游戏！"))
+                else:
+                    self.after(0, lambda: self._append_log("\n❌ 模组修复失败，请查看上方日志。"))
+            else:
+                total = len(self.all_mods)
+                self.after(0, lambda: self._append_log(f"🚀 开始全库批量深度修复 (共 {total} 个模组)..."))
+                for idx, m in enumerate(self.all_mods, 1):
+                    progress = idx / max(1, total)
+                    self.after(0, lambda p=progress: self.progress_bar.set(p))
+                    self.after(0, lambda i=idx, n=m.display_name: self._append_log(f"[{i}/{total}] 正在处理: {n}..."))
+                    success, fixes = ModService.repair_mod(m, options=opts)
+                    for f in fixes:
+                        self.after(0, lambda msg=f: self._append_log(f"    - {msg}"))
+
+                self.after(0, lambda: self._append_log("\n🎉 全库批量模组深度修复完成！"))
+
+            if self.on_finished:
+                self.after(0, self.on_finished)
+        except Exception as e:
+            self.after(0, lambda err=str(e): self._append_log(f"\n❌ 修复过程出现异常: {err}"))
+        finally:
+            self.after(0, self._on_repair_finished)
+
+    def _on_repair_finished(self):
+        self.btn_start.configure(state="normal", text="🚀 开始修复")
+        if not self.is_batch and self.target_mod:
+            has_bk = ModService.has_backup(self.target_mod)
+            self.btn_restore.configure(
+                state="normal" if has_bk else "disabled",
+                fg_color="#334155" if has_bk else "#1e293b",
+                hover_color="#475569" if has_bk else "#1e293b",
+                text_color="#f1f5f9" if has_bk else "#64748b"
+            )
+
+    def _rollback_backup(self):
+        if self.is_batch or not self.target_mod:
+            return
+        confirm = messagebox.askyesno(
+            "确认回滚复原",
+            f"确定要将模组【{self.target_mod.display_name}】还原至修复前的原始文件吗？\n\n此操作将完全恢复模组的初始文件。"
+        )
+        if not confirm:
+            return
+
+        success, msg = ModService.restore_mod(self.target_mod)
+        if success:
+            self._append_log(f"\n⏪ {msg}")
+            if self.on_finished:
+                self.on_finished()
+            messagebox.showinfo("复原成功", msg)
+        else:
+            self._append_log(f"\n⚠️ {msg}")
+            messagebox.showwarning("复原提示", msg)
+
+    def _on_close(self):
         try:
             self.grab_release()
             self.destroy()
@@ -791,6 +1211,22 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
         )
         self.open_dir_btn.pack(side="left", padx=2)
 
+        self.repair_all_btn = CTkButton(
+            self.actions_frame,
+            text="🔧 深度修复",
+            width=90,
+            height=32,
+            corner_radius=6,
+            font=("Microsoft YaHei", 11),
+            fg_color="#242b3d",
+            hover_color="#333d54",
+            border_width=1,
+            border_color="#3b475f",
+            text_color="#f1f5f9",
+            command=lambda: self._open_repair_dialog(None)
+        )
+        self.repair_all_btn.pack(side="left", padx=2)
+
         self.refresh_btn = CTkButton(
             self.actions_frame,
             text="🔄 刷新",
@@ -1357,18 +1793,18 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
             messagebox.showerror("操作失败", f"切换模组状态失败: {msg}")
 
     def _repair_mod(self, mod_item: ModItem):
-        """Repairs mod syntax, ini encodings, nested directories, trash files, and Engine.ini."""
-        success, fixes = ModService.repair_mod(mod_item)
-        if success:
-            fixes_text = "\n".join([f"• {f}" for f in fixes])
-            messagebox.showinfo(
-                "模组修复完成",
-                f"已对模组【{mod_item.display_name}】完成自动化检测与修复：\n\n{fixes_text}"
-            )
-            self.refresh_mods()
-        else:
-            err_text = "\n".join(fixes)
-            messagebox.showerror("修复失败", f"修复模组时出错：\n{err_text}")
+        """Opens interactive Mod Repair & Fix Options modal dialog for the selected mod."""
+        self._open_repair_dialog(mod_item)
+
+    def _open_repair_dialog(self, mod_item: Optional[ModItem] = None):
+        """Opens interactive Mod Repair Dialog for either a single mod or full library batch."""
+        all_mods_list = self.current_mods if self.current_mods else ModService.scan_mods()
+        dialog = ModRepairDialog(
+            parent=self.winfo_toplevel(),
+            target_mod=mod_item,
+            all_mods=all_mods_list,
+            on_finished_callback=self.refresh_mods
+        )
 
     def _restore_mod(self, mod_item: ModItem):
         """Restores mod to original pre-repair snapshot."""

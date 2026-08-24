@@ -70,6 +70,7 @@ def build(tag: str = "v1.0.0"):
         "--hidden-import", "rarfile",
         "--hidden-import", "core.mod_service",
         "--hidden-import", "gui.windows.main.mod_manager_frame.mod_manager_frame",
+        "--add-data", f"{SRC_DIR / 'core' / 'wuwa_fix_config.json'}{os.pathsep}core",
         str(SRC_DIR / "app.py")
     ]
     print(f"Executing: {' '.join(cmd)}")
