@@ -155,7 +155,24 @@ class CharacterMenuItem:
     enabled_count: int = 0
 
 
+@dataclass
+class ModRepairOptions:
+    """Options for Wuwa / 3DMigoto Mod Repair Engine."""
+    fix_hashes: bool = True               # 1. 游戏版本更新 Hash 修复 (Main Hashes & Texture Hashes)
+    fix_vertex_groups: bool = True        # 2. 骨骼与顶点组重映射 (Vertex Group Remap)
+    fix_derive_textures: bool = True      # 3. 衍生贴图与 LOD 自动补全 (Derive & LOD Textures)
+    fix_rules: bool = True                # 4. 索引规则与 Shapekey 修复 (Rules & Index Replacement)
+    fix_resource_override: bool = True    # 5. 追加资源重载检查 (CheckTextureOverride)
+    fix_stable_texture: bool = True       # 6. 状态贴图稳定模式 (Stable State Textures)
+    fix_rover_special: bool = False       # 7. 主角材质与风主眼部专属修复 (按需开启，源码 enable_aero_rover_fix 默认为 false)
+    inject_engine_ini: bool = False       # 8. Engine.ini 渲染与防破图参数注入 (修改游戏全局配置，按需开启)
+    clean_trash_files: bool = True        # 清理冗余/临时干扰文件 (.DS_Store, Thumbs.db, etc.)
+    normalize_ini: bool = True            # 规范化 .ini 编码 (UTF-8) 与路径反斜杠
+    create_backup: bool = True            # 修复前自动创建安全回滚备份
+
+
 class ModService:
+    _fix_config_cache = None
     KEY_NAME_MAP = {
         'RSHIFT': '右 Shift',
         'LSHIFT': '左 Shift',
@@ -353,15 +370,25 @@ class ModService:
     def get_active_mods_folder() -> Optional[Path]:
         """Returns the active importer's Mods folder path, creating it if needed."""
         try:
-            active_importer = getattr(Config.Launcher, 'active_importer', None)
+            launcher_cfg = getattr(Config, 'Launcher', None)
+            if not launcher_cfg:
+                return None
+            active_importer = getattr(launcher_cfg, 'active_importer', None)
             if not active_importer or active_importer == 'XXMI':
                 return None
             
-            importer_package = Config.Importers.__dict__.get(active_importer, None)
+            importers_obj = getattr(Config, 'Importers', None)
+            if not importers_obj:
+                return None
+            importer_package = getattr(importers_obj, active_importer, None)
+            if importer_package is None and hasattr(importers_obj, '__dict__'):
+                importer_package = importers_obj.__dict__.get(active_importer, None)
             if importer_package is None:
                 return None
             
-            importer_cfg = importer_package.Importer
+            importer_cfg = getattr(importer_package, 'Importer', None)
+            if not importer_cfg or not hasattr(importer_cfg, 'importer_path'):
+                return None
             mods_path = importer_cfg.importer_path / 'Mods'
             Paths.verify_path(mods_path)
             return mods_path
@@ -945,38 +972,39 @@ class ModService:
             log.exception(f"Failed to rename mod {mod_item.name}: {e}")
             return False, str(e), None
 
+    @classmethod
+    def get_wuwa_fix_config_file_path(cls) -> Path:
+        """Returns the primary writable path for caching the Wuwa fix definitions."""
+        # 1. Check workspace source path
+        source_path = Path(__file__).resolve().parent / "wuwa_fix_config.json"
+        try:
+            if source_path.exists() and os.access(source_path.parent, os.W_OK):
+                return source_path
+        except Exception:
+            pass
 
-@dataclass
-class ModRepairOptions:
-    """Options for Wuwa / 3DMigoto Mod Repair Engine."""
-    fix_hashes: bool = True               # 1. 游戏版本更新 Hash 修复 (Main Hashes & Texture Hashes)
-    fix_vertex_groups: bool = True        # 2. 骨骼与顶点组重映射 (Vertex Group Remap)
-    fix_derive_textures: bool = True      # 3. 衍生贴图与 LOD 自动补全 (Derive & LOD Textures)
-    fix_rules: bool = True                # 4. 索引规则与 Shapekey 修复 (Rules & Index Replacement)
-    fix_resource_override: bool = True    # 5. 追加资源重载检查 (CheckTextureOverride)
-    fix_stable_texture: bool = True       # 6. 状态贴图稳定模式 (Stable State Textures)
-    fix_rover_special: bool = True        # 7. 主角材质与风主眼部专属修复 (Rover & Special Fixes)
-    inject_engine_ini: bool = True        # 8. Engine.ini 渲染与防破图参数注入 (LOD & Texture Streaming)
-    clean_trash_files: bool = True        # 清理冗余/临时干扰文件 (.DS_Store, Thumbs.db, etc.)
-    normalize_ini: bool = True            # 规范化 .ini 编码 (UTF-8) 与路径反斜杠
-    create_backup: bool = True            # 修复前自动创建安全回滚备份
+        # 2. User local AppData cache path
+        user_cache_dir = Path.home() / ".xxmi_launcher"
+        try:
+            user_cache_dir.mkdir(parents=True, exist_ok=True)
+            return user_cache_dir / "wuwa_fix_config.json"
+        except Exception:
+            pass
 
+        return source_path
 
-class ModService:
-    """
-    Core service managing all mod operations:
-    - Scanning, caching, categorization, status toggling
-    - Fast sub-millisecond search & filtering
-    - Hotkey introspection & parsing
-    - Real-time in-game synchronization via window message broadcasting
-    - Comprehensive Automated Mod Repair Engine based on Wuwa_Mod_Fixer
-    - Backup snapshot & instant rollback restoration
-    """
-    _cache_importer: Optional[str] = None
-    _cache_mods: List[ModItem] = []
-    _cache_time: float = 0.0
-    _cache_lock = threading.Lock()
-    _fix_config_cache = None
+    @classmethod
+    def get_wuwa_fix_version_info(cls) -> Dict:
+        """Returns version and character count of the loaded Wuwa fix database."""
+        cfg = cls.get_wuwa_fix_config()
+        ver_obj = cfg.get("version", {})
+        ver_str = ver_obj.get("current_version", "1.0.0") if isinstance(ver_obj, dict) else str(ver_obj)
+        chars_count = len(cfg.get("characters", {}))
+        return {
+            "version": ver_str,
+            "character_count": chars_count,
+            "min_required": ver_obj.get("min_required_version", "") if isinstance(ver_obj, dict) else ""
+        }
 
     @classmethod
     def get_wuwa_fix_config(cls) -> Dict:
@@ -986,6 +1014,7 @@ class ModService:
                 import json
                 import sys
                 candidates = [
+                    Path.home() / ".xxmi_launcher" / "wuwa_fix_config.json",
                     Path(__file__).resolve().parent / "wuwa_fix_config.json",
                     Path(getattr(sys, '_MEIPASS', '')) / "core" / "wuwa_fix_config.json" if hasattr(sys, '_MEIPASS') else None,
                     Path(sys.executable).parent / "core" / "wuwa_fix_config.json",
@@ -1007,9 +1036,104 @@ class ModService:
         return cls._fix_config_cache
 
     @classmethod
+    def update_wuwa_fix_config_from_remote(
+        cls,
+        force: bool = False,
+        callback: Optional[Callable[[bool, str], None]] = None
+    ) -> Tuple[bool, str, Dict]:
+        """
+        Dynamically checks for and downloads the latest Wuwa_Mod_Fixer rules and character hashes
+        from Moonholder/Wuwa_Mod_Fixer upstream with mirror/CDN fallbacks.
+        """
+        import urllib.request
+        import json
+        import ssl
+
+        urls = [
+            'https://raw.githubusercontent.com/Moonholder/Wuwa_Mod_Fixer/main/config.json',
+            'https://fastly.jsdelivr.net/gh/Moonholder/Wuwa_Mod_Fixer@main/config.json',
+            'https://ghproxy.net/https://raw.githubusercontent.com/Moonholder/Wuwa_Mod_Fixer/main/config.json',
+            'https://raw.gitmirror.com/Moonholder/Wuwa_Mod_Fixer/main/config.json',
+        ]
+
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+
+        remote_data = None
+        last_error = ""
+
+        for u in urls:
+            try:
+                req = urllib.request.Request(
+                    u,
+                    headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) XMMI-Pro/1.0'}
+                )
+                with urllib.request.urlopen(req, timeout=5, context=ctx) as resp:
+                    if resp.status == 200:
+                        raw_bytes = resp.read()
+                        data = json.loads(raw_bytes.decode('utf-8'))
+                        if isinstance(data, dict) and 'characters' in data and len(data['characters']) > 0:
+                            remote_data = data
+                            break
+            except Exception as e:
+                last_error = str(e)
+
+        if not remote_data:
+            msg = f"检查更新失败: 无法连接至规则服务器 ({last_error})"
+            if callback:
+                callback(False, msg)
+            return False, msg, cls.get_wuwa_fix_config()
+
+        # Compare with local version
+        current_cfg = cls.get_wuwa_fix_config()
+        curr_ver = current_cfg.get("version", {}).get("current_version", "0.0.0") if isinstance(current_cfg.get("version"), dict) else "0.0.0"
+        remote_ver = remote_data.get("version", {}).get("current_version", "0.0.0") if isinstance(remote_data.get("version"), dict) else "0.0.0"
+        curr_count = len(current_cfg.get("characters", {}))
+        remote_count = len(remote_data.get("characters", {}))
+
+        has_update = force or (remote_ver > curr_ver) or (remote_count > curr_count)
+
+        if has_update:
+            try:
+                save_path = cls.get_wuwa_fix_config_file_path()
+                save_path.parent.mkdir(parents=True, exist_ok=True)
+                save_path.write_text(json.dumps(remote_data, ensure_ascii=False, indent=2), encoding='utf-8')
+                cls._fix_config_cache = remote_data
+                msg = f"鸣潮修复规则库已成功自动更新至 v{remote_ver} (共收录 {remote_count} 个角色与武器规则)"
+                log.info(msg)
+                if callback:
+                    callback(True, msg)
+                return True, msg, remote_data
+            except Exception as e:
+                msg = f"保存更新规则库失败: {e}"
+                log.warning(msg)
+                if callback:
+                    callback(False, msg)
+                return False, msg, cls.get_wuwa_fix_config()
+        else:
+            msg = f"当前鸣潮修复规则库已是最新版本 (v{curr_ver}，共 {curr_count} 个角色/武器)"
+            if callback:
+                callback(True, msg)
+            return True, msg, current_cfg
+
+    @classmethod
+    def start_background_rule_updater(cls):
+        """Spawns an asynchronous background worker to check and update Wuwa fix rules on startup."""
+        def _worker():
+            try:
+                time.sleep(2)  # Delay slightly after app startup to avoid CPU contention
+                cls.update_wuwa_fix_config_from_remote()
+            except Exception as e:
+                log.debug(f"Background rule update check error: {e}")
+
+        t = threading.Thread(target=_worker, daemon=True, name="WuwaRuleUpdater")
+        t.start()
+
+    @classmethod
     def has_backup(cls, mod_item: ModItem) -> bool:
         """Checks if a pre-repair backup snapshot exists for the given mod."""
-        mods_folder = cls.get_active_mods_folder()
+        mods_folder = cls.get_active_mods_folder() or mod_item.path.parent
         if not mods_folder:
             return False
         backup_zip = mods_folder / ".mod_backups" / f"{mod_item.display_name}.zip"
@@ -1041,7 +1165,7 @@ class ModService:
 
         try:
             # 0. Create pre-repair backup snapshot
-            mods_folder = cls.get_active_mods_folder()
+            mods_folder = cls.get_active_mods_folder() or mod_item.path.parent
             if options.create_backup and mods_folder:
                 backup_dir = mods_folder / ".mod_backups"
                 backup_dir.mkdir(parents=True, exist_ok=True)
@@ -1234,6 +1358,48 @@ class ModService:
                                         modified = True
                                         cur_text = '\n'.join(lines)
 
+                    # G. State Texture Stabilization & Skip Components (Aemeath/Shorekeeper/Changli etc.)
+                    if options.fix_stable_texture:
+                        for c_name, c_def in matched_chars:
+                            skip_comps = c_def.get('skip_components', [])
+                            for sc in skip_comps:
+                                sc_pattern = rf'(?i)component\s*=\s*{sc}\b'
+                                for idx, l in enumerate(lines):
+                                    if re.search(sc_pattern, l):
+                                        # Ensure handling = skip is applied to this component section
+                                        sec_start = idx
+                                        while sec_start >= 0 and not lines[sec_start].strip().startswith('['):
+                                            sec_start -= 1
+                                        sec_end = idx
+                                        while sec_end < len(lines) and not (sec_end > idx and lines[sec_end].strip().startswith('[')):
+                                            sec_end += 1
+                                        sec_block = '\n'.join(lines[sec_start:sec_end])
+                                        if 'handling = skip' not in sec_block.lower():
+                                            lines.insert(idx + 1, 'handling = skip')
+                                            modified = True
+                                            break
+
+                    # H. Texture Override Check (CheckTextureOverride)
+                    if options.fix_resource_override:
+                        in_override_sec = False
+                        has_check = False
+                        sec_idx = -1
+                        for idx, l in enumerate(lines):
+                            stripped = l.strip()
+                            if stripped.startswith('[') and stripped.endswith(']'):
+                                if in_override_sec and not has_check and sec_idx >= 0:
+                                    lines.insert(sec_idx + 1, 'CheckTextureOverride = 0')
+                                    modified = True
+                                in_override_sec = 'textureoverride' in stripped.lower()
+                                has_check = False
+                                sec_idx = idx
+                            elif in_override_sec:
+                                if 'checktextureoverride' in stripped.lower():
+                                    has_check = True
+                        if in_override_sec and not has_check and sec_idx >= 0:
+                            lines.append('CheckTextureOverride = 0')
+                            modified = True
+
                     # Save updated content
                     fixed_content = '\r\n'.join(lines)
                     if modified or (options.normalize_ini and raw_bytes != fixed_content.encode('utf-8')):
@@ -1258,36 +1424,42 @@ class ModService:
 
             # 4. Engine.ini optimization injection for Wuthering Waves
             if options.inject_engine_ini:
-                active_importer = getattr(Config.Launcher, 'active_importer', None)
-                if active_importer and active_importer in Config.Importers.__dict__:
-                    importer_cfg = Config.Importers.__dict__[active_importer].Importer
-                    game_folder = getattr(importer_cfg, 'game_folder', None)
-                    if game_folder:
-                        engine_ini = Path(game_folder) / "Client" / "Saved" / "Config" / "WindowsNoEditor" / "Engine.ini"
-                        if not engine_ini.exists():
-                            engine_ini = Path(game_folder) / "Saved" / "Config" / "WindowsNoEditor" / "Engine.ini"
+                try:
+                    launcher_cfg = getattr(Config, 'Launcher', None)
+                    active_importer = getattr(launcher_cfg, 'active_importer', None) if launcher_cfg else None
+                    importers_obj = getattr(Config, 'Importers', None)
+                    if active_importer and importers_obj:
+                        importer_package = getattr(importers_obj, active_importer, None)
+                        if importer_package is None and hasattr(importers_obj, '__dict__'):
+                            importer_package = importers_obj.__dict__.get(active_importer, None)
+                        if importer_package:
+                            importer_cfg = getattr(importer_package, 'Importer', None)
+                            game_folder = getattr(importer_cfg, 'game_folder', None) if importer_cfg else None
+                            if game_folder:
+                                engine_ini = Path(game_folder) / "Client" / "Saved" / "Config" / "WindowsNoEditor" / "Engine.ini"
+                                if not engine_ini.exists():
+                                    engine_ini = Path(game_folder) / "Saved" / "Config" / "WindowsNoEditor" / "Engine.ini"
 
-                        if engine_ini.exists() and engine_ini.is_file():
-                            try:
-                                e_text = engine_ini.read_text(encoding='utf-8', errors='ignore')
-                                opt_vars = [
-                                    "r.Kuro.SkeletalMesh.LODDistanceScale=25",
-                                    "r.Streaming.FullyLoadUsedTextures=1",
-                                    "r.Streaming.HiddenPrimitiveScale=25",
-                                    "r.Streaming.UseAllMips=1"
-                                ]
-                                missing_vars = [v for v in opt_vars if v.split('=')[0].strip() not in e_text]
-                                if missing_vars:
-                                    if "[ConsoleVariables]" not in e_text:
-                                        e_text += "\n\n[ConsoleVariables]\n"
-                                    for mv in missing_vars:
-                                        e_text += f"{mv}\n"
-                                    engine_ini.write_text(e_text, encoding='utf-8')
-                                    fixes.append(f"已向游戏 Engine.ini 写入高精模型渲染与防破图参数 ({len(missing_vars)} 项)")
-                                else:
-                                    fixes.append("游戏 Engine.ini 渲染与防破图参数已是最佳配置")
-                            except Exception as e:
-                                log.debug(f"Failed to patch Engine.ini: {e}")
+                                if engine_ini.exists() and engine_ini.is_file():
+                                    e_text = engine_ini.read_text(encoding='utf-8', errors='ignore')
+                                    opt_vars = [
+                                        "r.Kuro.SkeletalMesh.LODDistanceScale=25",
+                                        "r.Streaming.FullyLoadUsedTextures=1",
+                                        "r.Streaming.HiddenPrimitiveScale=25",
+                                        "r.Streaming.UseAllMips=1"
+                                    ]
+                                    missing_vars = [v for v in opt_vars if v.split('=')[0].strip() not in e_text]
+                                    if missing_vars:
+                                        if "[ConsoleVariables]" not in e_text:
+                                            e_text += "\n\n[ConsoleVariables]\n"
+                                        for mv in missing_vars:
+                                            e_text += f"{mv}\n"
+                                        engine_ini.write_text(e_text, encoding='utf-8')
+                                        fixes.append(f"已向游戏 Engine.ini 写入高精模型渲染与防破图参数 ({len(missing_vars)} 项)")
+                                    else:
+                                        fixes.append("游戏 Engine.ini 渲染与防破图参数已是最佳配置")
+                except Exception as e:
+                    log.debug(f"Failed to patch Engine.ini: {e}")
 
             if not fixes:
                 fixes.append("经全面检测，模组文件结构完整且未发现异常。")
@@ -1338,7 +1510,7 @@ class ModService:
         """
         Restores a mod back to its original pre-repair files from the backup snapshot.
         """
-        mods_folder = cls.get_active_mods_folder()
+        mods_folder = cls.get_active_mods_folder() or mod_item.path.parent
         if not mods_folder:
             return False, "未找到当前游戏的 Mods 目录"
 

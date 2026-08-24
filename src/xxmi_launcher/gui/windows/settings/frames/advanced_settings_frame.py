@@ -175,7 +175,7 @@ class CustomLaunchEntry(UIEntry):
             self.configure(state='disabled')
 
     def get_tooltip(self):
-        return L('advanced_settings_custom_launch_entry_tooltip', """
+        return L('advanced_settings_custom_launch_entry_tooltip', r"""
             Windows console command to run when Start button is pressed instead of default game exe launch.
             Hint: If you want to change injection method only, just leave this field empty.
             Warning! This command also overrides `Launch Options` from General Settings.
@@ -298,7 +298,7 @@ class InjectLibrariesTextbox(UITextbox):
             height=90,
             undo=True,
             master=master)
-        self.set_tooltip(L('advanced_settings_inject_libraries_tooltip', """
+        self.set_tooltip(L('advanced_settings_inject_libraries_tooltip', r"""
             List of additional DLL paths to inject into the game process. 1 path per line.
             injection will be made via WriteProcessMemory method.
             Example (inject ReShade dll):

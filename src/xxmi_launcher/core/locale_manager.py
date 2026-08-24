@@ -282,7 +282,8 @@ class LocaleManager:
         self.active_locale: Optional[LocaleData] = None
 
     def get_string(self, key: str, string: str) -> 'LocaleString':
-        string = self.locale_engine.get_string(key, string)
+        if self.locale_engine is not None:
+            string = self.locale_engine.get_string(key, string)
         # if self.enable_guide_chan:
         #     string = self.guide_chan.get_string(key, string)
         return LocaleString(string, key)

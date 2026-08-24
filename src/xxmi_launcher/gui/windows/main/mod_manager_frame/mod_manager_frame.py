@@ -175,7 +175,7 @@ class ModRepairDialog(ctk.CTkToplevel):
         )
         desc_lbl.pack(fill="x", padx=14, pady=(0, 6))
 
-        # Target badge
+        # Target badge & Rule Library Status
         target_badge = CTkFrame(header_frame, fg_color="#0f172a", corner_radius=6, border_width=1, border_color="#1e293b")
         target_badge.pack(fill="x", padx=14, pady=(0, 10))
 
@@ -184,14 +184,41 @@ class ModRepairDialog(ctk.CTkToplevel):
         else:
             target_str = f"🎯 目标模组: 【{self.target_mod.display_name}】 ({self.target_mod.character_name})"
 
+        badge_top = CTkFrame(target_badge, fg_color="transparent")
+        badge_top.pack(fill="x", padx=10, pady=5)
+
         target_lbl = CTkLabel(
-            target_badge,
+            badge_top,
             text=target_str,
             font=("Microsoft YaHei", 11, "bold"),
             text_color="#60a5fa",
             anchor="w"
         )
-        target_lbl.pack(fill="x", padx=10, pady=5)
+        target_lbl.pack(side="left")
+
+        self.btn_update_rules = CTkButton(
+            badge_top,
+            text="🔄 检查规则更新",
+            width=90,
+            height=22,
+            corner_radius=4,
+            font=("Microsoft YaHei", 10),
+            fg_color="#1e293b",
+            hover_color="#334155",
+            text_color="#38bdf8",
+            command=self._on_check_rules_update
+        )
+        self.btn_update_rules.pack(side="right")
+
+        ver_info = ModService.get_wuwa_fix_version_info()
+        self.rule_ver_str = tk.StringVar(value=f"⚡ 规则库: v{ver_info['version']} ({ver_info['character_count']} 角色/武器)")
+        self.rule_lbl = CTkLabel(
+            badge_top,
+            textvariable=self.rule_ver_str,
+            font=("Microsoft YaHei", 10),
+            text_color="#94a3b8"
+        )
+        self.rule_lbl.pack(side="right", padx=(0, 8))
 
         # 2. Options Preset Toolbar
         preset_bar = CTkFrame(self, fg_color="transparent")
@@ -258,8 +285,8 @@ class ModRepairDialog(ctk.CTkToplevel):
         self.var_fix_rules = tk.BooleanVar(value=True)
         self.var_fix_resource_override = tk.BooleanVar(value=True)
         self.var_fix_stable_texture = tk.BooleanVar(value=True)
-        self.var_fix_rover_special = tk.BooleanVar(value=True)
-        self.var_inject_engine_ini = tk.BooleanVar(value=True)
+        self.var_fix_rover_special = tk.BooleanVar(value=False)
+        self.var_inject_engine_ini = tk.BooleanVar(value=False)
         self.var_clean_trash_files = tk.BooleanVar(value=True)
         self.var_normalize_ini = tk.BooleanVar(value=True)
         self.var_create_backup = tk.BooleanVar(value=True)
@@ -393,8 +420,8 @@ class ModRepairDialog(ctk.CTkToplevel):
         self.var_fix_rules.set(True)
         self.var_fix_resource_override.set(True)
         self.var_fix_stable_texture.set(True)
-        self.var_fix_rover_special.set(True)
-        self.var_inject_engine_ini.set(True)
+        self.var_fix_rover_special.set(False)
+        self.var_inject_engine_ini.set(False)
         self.var_clean_trash_files.set(True)
         self.var_normalize_ini.set(True)
         self.var_create_backup.set(True)
@@ -416,6 +443,27 @@ class ModRepairDialog(ctk.CTkToplevel):
             self.var_normalize_ini, self.var_create_backup
         ]:
             v.set(False)
+
+    def _on_check_rules_update(self):
+        self.btn_update_rules.configure(state="disabled", text="⏳ 检查中...")
+        self._append_log("🔄 正在连接 Moonholder/Wuwa_Mod_Fixer 云端规则库检查更新...")
+
+        def _worker():
+            success, msg, _ = ModService.update_wuwa_fix_config_from_remote(force=False)
+            def _ui_callback():
+                try:
+                    self.btn_update_rules.configure(state="normal", text="🔄 检查规则更新")
+                    ver_info = ModService.get_wuwa_fix_version_info()
+                    self.rule_ver_str.set(f"⚡ 规则库: v{ver_info['version']} ({ver_info['character_count']} 角色/武器)")
+                    if success:
+                        self._append_log(f"✅ {msg}")
+                    else:
+                        self._append_log(f"⚠️ {msg}")
+                except Exception:
+                    pass
+            self.after(0, _ui_callback)
+
+        threading.Thread(target=_worker, daemon=True).start()
 
     def _append_log(self, text: str):
         self.log_textbox.configure(state="normal")

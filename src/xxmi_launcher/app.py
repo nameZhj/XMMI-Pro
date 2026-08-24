@@ -127,6 +127,10 @@ if __name__ == '__main__':
         from core.application import Application
         Application(gui)
 
+        # Asynchronously check and update Wuwa_Mod_Fixer rules in background
+        from core.mod_service import ModService
+        ModService.start_background_rule_updater()
+
     except BaseException as init_error:
         # Handle init time error
         logging.exception(init_error)
