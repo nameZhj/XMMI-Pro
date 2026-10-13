@@ -60,6 +60,11 @@ if __name__ == '__main__':
     # Multiprocessing support for Pyinstaller
     multiprocessing.freeze_support()
 
+    if '--gamebanana-browser' in sys.argv:
+        from gui.windows.gamebanana_browser import run_gamebanana_browser
+        run_gamebanana_browser()
+        sys.exit(0)
+
     if '__compiled__' in globals():
         # Nuitka (release build): `XXMI Launcher\Resources\Bin\XXMI Launcher.exe`
         root_path = Path(sys.argv[0]).resolve().parent.parent.parent

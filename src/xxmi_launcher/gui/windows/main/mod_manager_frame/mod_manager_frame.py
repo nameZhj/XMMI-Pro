@@ -2,11 +2,14 @@ import os
 import sys
 import ctypes
 import io
+import json
 import shutil
+import subprocess
 import threading
 import logging
 from pathlib import Path
 from typing import Optional, List, Dict, Callable, Tuple, Set, Any
+import core.path_manager as Paths
 
 import customtkinter as ctk
 from customtkinter import (
@@ -1287,6 +1290,20 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
         self.state_filter_seg.set("全部")
         self.state_filter_seg.pack(side="left", padx=(0, 10))
 
+        self.gamebanana_btn = CTkButton(
+            self.actions_frame,
+            text="🍌 GameBanana 下载",
+            width=132,
+            height=32,
+            corner_radius=6,
+            font=("Microsoft YaHei", 11, "bold"),
+            fg_color="#ea580c",
+            hover_color="#c2410c",
+            text_color="#ffffff",
+            command=self._open_gamebanana_browser
+        )
+        self.gamebanana_btn.pack(side="left", padx=2)
+
         self.import_zip_btn = CTkButton(
             self.actions_frame,
             text="📦 导入压缩包",
@@ -2243,6 +2260,185 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
             os.startfile(str(mods_folder))
         else:
             show_warning("提示", "未找到 Mods 目录", parent=self.winfo_toplevel())
+
+    def _open_gamebanana_browser(self):
+        """Opens the integrated GameBanana Mod Download Center window."""
+        mods_folder = ModService.get_active_mods_folder()
+        if not mods_folder or not mods_folder.exists():
+            show_warning(
+                "无法打开模组下载站",
+                "未找到当前游戏的 Mods 目录！请先确保在启动器中正确配置了游戏路径与模组加载器。",
+                parent=self.winfo_toplevel()
+            )
+            return
+
+        # Check if browser process is already alive
+        if hasattr(self, '_gamebanana_proc') and self._gamebanana_proc and self._gamebanana_proc.poll() is None:
+            try:
+                import win32gui, win32con
+                def enum_handler(hwnd, extra):
+                    if win32gui.IsWindowVisible(hwnd) and "GameBanana" in win32gui.GetWindowText(hwnd):
+                        win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
+                        win32gui.SetForegroundWindow(hwnd)
+                win32gui.EnumWindows(enum_handler, None)
+            except Exception:
+                pass
+            return
+
+        try:
+            app_root = Paths.App.Root
+        except Exception:
+            app_root = Path.cwd()
+
+        download_dir = app_root / "Downloads"
+        download_dir.mkdir(parents=True, exist_ok=True)
+        cache_dir = app_root / "UserData" / "GameBananaBrowser"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        # Determine initial GameBanana URL according to active game importer
+        try:
+            from core.config_manager import Config
+            active_importer = getattr(Config.Launcher, "active_importer", "WWMI")
+        except Exception:
+            active_importer = "WWMI"
+
+        gamebanana_urls = {
+            'WWMI': 'https://gamebanana.com/games/20357',  # 鸣潮
+            'ZZMI': 'https://gamebanana.com/games/18951',  # 绝区零
+            'SRMI': 'https://gamebanana.com/games/18261',  # 崩铁
+            'GIMI': 'https://gamebanana.com/games/8552',   # 原神
+            'HIMI': 'https://gamebanana.com/games/15446',  # 崩坏3
+        }
+        initial_url = gamebanana_urls.get(active_importer, "https://gamebanana.com/games/20357")
+
+        cmd = [sys.executable]
+
+        if getattr(sys, 'frozen', False):
+            cmd.extend([
+                '--gamebanana-browser',
+                '--mods-dir', str(mods_folder),
+                '--download-dir', str(download_dir),
+                '--cache-dir', str(cache_dir),
+                '--initial-url', str(initial_url),
+                '--parent-pid', str(os.getpid())
+            ])
+        else:
+            browser_script = Path(__file__).resolve().parent.parent.parent / "gamebanana_browser.py"
+            if not browser_script.exists():
+                browser_script = app_root / "src" / "xxmi_launcher" / "gui" / "windows" / "gamebanana_browser.py"
+
+            cmd.extend([
+                str(browser_script),
+                '--mods-dir', str(mods_folder),
+                '--download-dir', str(download_dir),
+                '--cache-dir', str(cache_dir),
+                '--initial-url', str(initial_url),
+                '--parent-pid', str(os.getpid())
+            ])
+
+        try:
+            self._gamebanana_proc = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                encoding="utf-8",
+                bufsize=1
+            )
+        except Exception as e:
+            show_copyable_error(
+                "启动下载中心失败",
+                f"启动 GameBanana 模组下载中心遇到异常：\n{e}",
+                parent=self.winfo_toplevel()
+            )
+            return
+
+        # Start background listener thread to handle auto-importing completed downloads
+        def listener():
+            try:
+                for line in self._gamebanana_proc.stdout:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        data = json.loads(line)
+                        event = data.get("event")
+                        if event == "download_complete":
+                            file_path = data.get("file_path")
+                            if file_path and Path(file_path).exists():
+                                self._handle_gamebanana_downloaded_mod(Path(file_path))
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+        threading.Thread(target=listener, daemon=True, name="GameBananaListener").start()
+
+    def _handle_gamebanana_downloaded_mod(self, file_path: Path):
+        """Automatically imports a mod downloaded via GameBanana browser and refreshes the UI."""
+        def request_password(archive_path: Path, archive_name: str) -> Optional[str]:
+            result = {"pwd": None}
+            event = threading.Event()
+
+            def show():
+                try:
+                    PasswordPromptDialog(
+                        parent=self.winfo_toplevel(),
+                        archive_name=archive_name,
+                        on_submit=lambda pwd: _finish(pwd),
+                        on_cancel=lambda: _finish(None)
+                    )
+                except Exception as e:
+                    log.error(f"Error opening PasswordPromptDialog: {e}")
+                    _finish(None)
+
+            def _finish(pwd):
+                result["pwd"] = pwd
+                event.set()
+
+            self.after(0, show)
+            event.wait()
+            return result["pwd"]
+
+        def worker():
+            success, msg = ModService.import_mod_from_path(
+                file_path,
+                password_callback=request_password
+            )
+
+            # Reply to browser process
+            if hasattr(self, '_gamebanana_proc') and self._gamebanana_proc and self._gamebanana_proc.poll() is None:
+                try:
+                    reply = json.dumps({
+                        "action": "import_result",
+                        "success": success,
+                        "file_path": str(file_path),
+                        "message": msg
+                    }, ensure_ascii=False) + "\n"
+                    self._gamebanana_proc.stdin.write(reply)
+                    self._gamebanana_proc.stdin.flush()
+                except Exception:
+                    pass
+
+            def finish():
+                self.refresh_mods()
+                if success:
+                    show_info(
+                        "模组自动下载并安装成功",
+                        f"🎉 成功从 GameBanana 下载并安装模组：\n\n【{file_path.stem}】\n\n模组已就绪并在列表中显示！",
+                        parent=self.winfo_toplevel()
+                    )
+                else:
+                    show_copyable_error(
+                        "模组导入失败",
+                        f"模组文件已下载，但在解压导入时失败：\n\n{msg}",
+                        parent=self.winfo_toplevel()
+                    )
+
+            self.after(100, finish)
+
+        threading.Thread(target=worker, daemon=True, name="GameBananaModImporter").start()
 
     def _center_window(self):
         """Centers the window on the active monitor screen."""
