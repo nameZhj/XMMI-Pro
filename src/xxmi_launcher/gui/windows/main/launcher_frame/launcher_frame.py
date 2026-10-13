@@ -7,7 +7,9 @@ import gui.vars as Vars
 
 from core.locale_manager import L
 
-from gui.events import Stage
+from core.config.enums import LogLevel
+
+from gui.enums import Stage
 from gui.classes.containers import UIFrame
 from gui.classes.widgets import UIText, UIImageButton
 from gui.windows.main.launcher_frame.top_bar import TopBarFrame
@@ -49,6 +51,7 @@ class LauncherFrame(UIFrame):
         tools_button = self.put(ToolsButton(self))
         self.put(StartButton(self, tools_button))
         self.put(InstallButton(self, tools_button))
+        self.put(LogLevelText(self))
         self.put(ToolBarFrame(self, self.canvas))
 
         # Package versions
@@ -86,10 +89,49 @@ class LauncherFrame(UIFrame):
             Events.Application.LoadImporter,
             lambda event: self.update_background(event.importer_id))
 
+        self.subscribe(Events.Application.OpenSettings, self.pause_background_animation)
+        self.subscribe(Events.Application.CloseSettings, self.resume_background_animation)
+        self.subscribe(Events.GUIEvents.PauseAnimations, self.pause_background_animation)
+        self.subscribe(Events.GUIEvents.ResumeAnimations, self.resume_background_animation)
+
+        master.bind("<FocusIn>", self.resume_background_animation)
+        master.bind("<FocusOut>", self.pause_background_animation)
+
     def update_background(self, importer_id):
-        self.set_background_image(f'background-image-{importer_id.lower()}.webp',
-                                  width=self.master.cfg.width,
-                                  height=self.master.cfg.height)
+        background_image_path = f'background-image-{importer_id.lower()}.webp'
+
+        if self.background_image and self.background_image.image_path == background_image_path:
+            return
+
+        should_restart_animation = self.background_image is not None
+
+        self.set_background_image(
+            background_image_path,
+            width=self.master.cfg.width,
+            height=self.master.cfg.height,
+            anim_start_delay=-1,
+        )
+
+        if should_restart_animation:
+            self.background_image.start_animation()
+
+    def pause_background_animation(self, event):
+        if isinstance(event, Events.GUIEvents.PauseAnimations):
+            reason = "event"
+        elif isinstance(event, Events.Application.OpenSettings):
+            reason = "settings"
+        else:
+            reason = None
+        self.background_image.pause_animation(reason)
+
+    def resume_background_animation(self, event):
+        if isinstance(event, Events.GUIEvents.ResumeAnimations):
+            reason = "event"
+        elif isinstance(event, Events.Application.CloseSettings):
+            reason = "settings"
+        else:
+            reason = None
+        self.background_image.resume_animation(reason)
 
     def handle_open_donation_center(self, event: Events.Application.OpenDonationCenter):
         from gui.windows.main.donate_frame.donate_frame import DonateFrame
@@ -449,24 +491,41 @@ class PackageVersionText(UIImageButton):
     def get_tooltip(self):
         package = Events.Call(Events.PackageManager.GetPackage(self.package_name))
 
-        installed_release_notes = package.cfg.deployed_release_notes
+        installed_release_notes = None
 
-        if package.installed_version == package.cfg.latest_version:
-            package_release_notes = L('package_release_notes_up_to_date', """
-                # What's new in {package_name} v{new_package_version}:
-                {installed_release_notes}
+        if not package.deployed_version:
+            if package.installed_version:
+                package_release_notes = L('package_state_not_deployed', """
+                    # {package_name} is not deployed.
+                    Press **{launcher_start_button}** to deploy the installed package automatically.
+                """)
+            else:
+                package_release_notes = L('package_state_not_installed', """
+                    # {package_name} is not installed.
+                    Press **{launcher_install_button}** to install the package.
+                """)
+        elif package.deployed_version == "X.X.X":
+            package_release_notes = L('package_state_unknown_source', """
+                # {package_name} is not recognized.
+                If you installed it manually, continue with care.
+                Otherwise, consider running **Repair {active_importer}**.
             """)
-            installed_release_notes = installed_release_notes or package.cfg.latest_release_notes
         else:
-            package_release_notes = L('package_release_notes_update_available', """
-                # Update {package_name} to v{new_package_version} for:
-                {latest_release_notes}
-            """)
-
-        if not package.cfg.deployed_release_notes and not package.cfg.latest_release_notes:
-            package_release_notes = L('package_release_notes_not_installed', """
-                Press **Install** button to setup the package.
-            """)
+            if package.installed_version == package.cfg.latest_version and package.cfg.deployed_release_notes:
+                package_release_notes = L('package_release_notes_up_to_date', """
+                    # What's new in {package_name} v{new_package_version}:
+                    {installed_release_notes}
+                """)
+                installed_release_notes = package.cfg.deployed_release_notes
+            elif package.installed_version != package.cfg.latest_version and package.cfg.latest_release_notes:
+                package_release_notes = L('package_release_notes_update_available', """
+                    # Update {package_name} to v{new_package_version} for:
+                    {latest_release_notes}
+                """)
+            else:
+                package_release_notes = L('package_release_notes_unavailable', """
+                    # Package release notes are unavailable.
+                """)
 
         if self.package_name == 'Launcher':
             package_description = L('package_description_launcher', """
@@ -543,8 +602,8 @@ class XXMIVersionText(PackageVersionText):
         package_state = event.package_states.get('XXMI', None)
         if package_state is None:
             return
-        if package_state.installed_version:
-            self.set_text(f'XXMI {package_state.installed_version}')
+        if package_state.deployed_version:
+            self.set_text(f'XXMI {package_state.deployed_version}')
         else:
             self.set_text(f'XXMI N/A')
 
@@ -573,3 +632,47 @@ class ImporterVersionText(PackageVersionText):
     def get_tooltip(self, package_name=''):
         self.package_name = Config.Launcher.active_importer
         return super().get_tooltip()
+
+
+class LogLevelText(UIText):
+    def __init__(self, master):
+        super().__init__(
+            x=1040,
+            y=675,
+            text="",
+            font=('Asap', 20),
+            fill='#ff2929',
+            activefill='#ff4040',
+            anchor='n',
+            master=master
+        )
+
+        self.subscribe_show(Events.GUI.LauncherFrame.StageUpdate, lambda event: event.stage == Stage.Ready)
+
+        self.subscribe(Events.Application.ConfigUpdate, self.handle_config_update)
+
+        self.set_tooltip(lambda: L("importer_settings_log_level_option_menu_tooltip", """
+            Controls how verbose **d3d11_log.txt** file is.
+            
+            * **{importer_settings_log_level_disabled}**: Log nothing.
+            * **{importer_settings_log_level_warning}**: Log warnings and overlay messages.
+            * **{importer_settings_log_level_info}**: Also log API usage calls.
+            * **{importer_settings_log_level_debug}**: Also log super verbose massive debug output.
+        """)
+         + "\n\n"
+         + (
+             '<font color="#666666">'
+             f"{L('settings_title', 'Settings')} › "
+             f"{Config.Launcher.active_importer} › "
+             f"{L('launcher_settings_logging_section_label', 'Logging')} › "
+             f"{L('launcher_settings_log_verbosity_label', 'Log File Output Verbosity')}"
+             "</font>"
+         ))
+
+    def handle_config_update(self, event=None):
+        try:
+            self.enabled = Config.Launcher.active_importer != 'XXMI' and Config.Active.Migoto.log_level != LogLevel.DISABLED
+            self.set(f"{L("launcher_settings_logging_section_label", "Logging")}: {Config.Active.Migoto.log_level.value.relocalize()}")
+            self.show()
+        except Exception:
+            pass

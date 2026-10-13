@@ -5,7 +5,7 @@ import core.config_manager as Config
 import gui.vars as Vars
 
 from core.locale_manager import L
-from gui.events import Stage
+from gui.enums import Stage
 from gui.classes.containers import UIFrame
 from gui.classes.widgets import UIButton, UIText, UIProgressBar, UILabel, UIImageButton, UIImage
 
@@ -14,7 +14,10 @@ class BottomBarFrame(UIFrame):
     def __init__(self, master, canvas, width, height, **kwargs):
         super().__init__(master=master, canvas=canvas, **kwargs)
 
-        self.set_background_image(image_path='background-image.png', width=width, height=240, y=500)
+        self.set_background_image(image_path='background-image.png', width=width, height=240, y=500, opacity=0.75)
+
+        self.status_background = UIFrame(master=self, canvas=canvas, **kwargs)
+        self.status_background.set_background_image(image_path='MainWindow/LauncherFrame/BottomBarFrame/background-image.png', width=width, height=240, y=500, opacity=0.25)
 
         self.rowconfigure(0, weight=1)
         self.columnconfigure(0, weight=1)
@@ -29,10 +32,10 @@ class BottomBarFrame(UIFrame):
     def handle_stage_update(self, event):
         if event.stage == Stage.Busy or event.stage == Stage.Download:
             self.grid()
-            self.background_image.configure(opacity=1)
+            self.status_background._show()
         else:
             self.grid_remove()
-            self.background_image.configure(opacity=0.75)
+            self.status_background._hide()
 
 
 class DownloadProgressBar(UIProgressBar):
@@ -65,22 +68,50 @@ class DownloadProgressBar(UIProgressBar):
 class InstallationProgressBar(UIProgressBar):
     def __init__(self, master):
         super().__init__(
+            master=master,
             mode='indeterminate',
             orientation='horizontal',
             height=18,
             corner_radius=0,
-            master=master)
+        )
+
+        self._running = False
+        self._paused = False
+
         self.subscribe_show(Events.GUI.LauncherFrame.StageUpdate, lambda event: event.stage == Stage.Busy)
 
-        self.subscribe(
-            Events.Application.Ready,
-            lambda event: self.stop())
-        self.subscribe(
-            Events.Application.Launch,
-            lambda event: self.start())
-        self.subscribe(
-            Events.Application.Busy,
-            lambda event: self.start())
+        self.subscribe(Events.Application.Ready, self.handle_stop)
+        self.subscribe(Events.Application.Launch, self.handle_start)
+        self.subscribe(Events.Application.Busy, self.handle_start)
+        self.subscribe(Events.GUIEvents.PauseAnimations, self.handle_pause_animations)
+        self.subscribe(Events.GUIEvents.ResumeAnimations, self.handle_resume_animations)
+
+    def handle_start(self, event):
+        self._running = True
+        self._sync_animation()
+
+    def handle_stop(self, event):
+        self._running = False
+        self._sync_animation()
+
+    def handle_pause_animations(self, event):
+        self._paused = True
+        self._sync_animation()
+        self._hide()
+
+    def handle_resume_animations(self, event):
+        self._paused = False
+        self._show()
+        self._sync_animation()
+
+    def _sync_animation(self):
+        self.after(1, self._apply_animation_state)
+
+    def _apply_animation_state(self):
+        if self._running and not self._paused:
+            self.start()
+        else:
+            self.stop()
 
 
 class LeftStatusText(UIText):
@@ -111,7 +142,7 @@ class LeftStatusText(UIText):
             lambda event: L('bottom_bar_verifying_hook', 'Verifying {library} load into {process}...').format(library=event.library_name, process=event.process_name))
         self.subscribe_set(
             Events.Application.Inject,
-            lambda event: L('bottom_bar_injecting', 'Injecting {library} to {process}...').format(library=event.library_name, process=event.process_name))
+            lambda event: L('bottom_bar_injecting', 'Waiting for {library} injection to {process}...').format(library=event.library_name, process=event.process_name))
         self.subscribe_set(
             Events.Application.Bypass,
             lambda event: L('bottom_bar_bypass', 'Starting {process} in bypass mode...').format(process=event.process_name))

@@ -2,7 +2,7 @@ import sys
 import logging
 import subprocess
 import time
-
+import re
 import winshell
 import pythoncom
 import winreg
@@ -17,17 +17,19 @@ import core.config_manager as Config
 from core.locale_manager import L
 from core.package_manager import Package, PackageMetadata
 
+from core.config.enums import UpdateChannel
 from core.utils.proxy import ProxyConfig
-from core.utils.process_tracker import wait_for_process, WaitResult
+from core.config.enums import StartMethod
+from core.utils.process_manager import ProcessManager, LaunchContext, CommandLaunch
 
 log = logging.getLogger(__name__)
 
 
 @dataclass
 class LauncherManagerConfig:
-    auto_update: bool = False
+    auto_update: bool = True
     pre_release: bool = False
-    update_channel: str = 'Auto'
+    update_channel: UpdateChannel = UpdateChannel.AUTO
     auto_close: bool = True
     start_timeout: int = 30
     gui_theme: str = 'Default'
@@ -44,67 +46,79 @@ class LauncherManagerConfig:
     locale: str = ''
 
 
-@dataclass
-class LauncherManagerEvents:
-
-    @dataclass
-    class Update:
-        pass
-
-    @dataclass
-    class CreateShortcut:
-        pass
-
-
 class LauncherPackage(Package):
     def __init__(self):
         super().__init__(PackageMetadata(
             package_name='Launcher',
             auto_load=True,
-            github_repo_owner='nameZhj',
-            github_repo_name='XMMI-Pro',
+            github_repo_owner='SpectrumQT',
+            github_repo_name='XXMI-Launcher',
             asset_version_pattern=r'.*(\d\.\d\.\d).*',
-            asset_name_format='XMMI-Pro-v%s-Windows-x64.zip',
-            signature_pattern=r'^## Signature[\r\n]+- ((?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{4}|[A-Za-z0-9+\/]{3}=|[A-Za-z0-9+\/]{2}={2})$)',
-            signature_public_key='',
+            asset_name_format='XXMI-Launcher-Installer-Online-v%s.msi',
+            signature_pattern=r'^## Signature[\r\n]+- ((?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{4}|[A-Za-z0-9+\/]{3}=|[A-Za-z0-9+\/]{2}={2}))\r?$',
+            signature_public_key='MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEYac352uRGKZh6LOwK0fVDW/TpyECEfnRtUp+bP2PJPP63SWOkJ3a/d9pAnPfYezRVJ1hWjZtpRTT8HEAN/b4mWpJvqO43SAEV/1Q6vz9Rk/VvRV3jZ6B/tmqVnIeHKEb',
             exit_after_update=True,
         ))
         self.subscribe(Events.LauncherManager.CreateShortcut, lambda event: self.create_shortcut())
 
+        # Launcher releases come in 2 formats:
+        # * .msi (installer) - updated via Windows Installer
+        # * .zip (portable) - updated via custom exe (https://github.com/SpectrumQT/XXMI-Updater)
+        self._auto_update_channel: UpdateChannel = self.detect_update_channel()
+
         self.upgrade_installation()
 
-    def get_installed_version(self):
+    def get_installed_version(self) -> str:
         if '__compiled__' in globals() or getattr(sys, 'frozen', False):
-            try:
-                ver = self.get_file_version(sys.executable, max_parts=3)
-                if ver and ver != '0.0.0':
-                    return ver
-            except Exception:
-                pass
-            return '1.0.0'
+            return self.get_file_version(sys.executable, max_parts=3)
         else:
             return '0.0.0'
 
     def get_last_installed_version(self):
         return self.get_installed_version()
 
-    def update_available(self):
-        # Do not push or trigger automatic launcher updates
-        return False
+    def update_available(self) -> bool:
+        installed_version = self.get_installed_version()
+        if installed_version == "0.0.0":
+            return False
+        return self.cfg.latest_version != "" and self.cfg.latest_version > installed_version
 
     def install_latest_version(self, clean):
         Events.Fire(Events.PackageManager.InitializeInstallation())
 
-        cmd = f'msiexec /i "{self.downloaded_asset_path}" /qr /norestart APPDIR="{Paths.App.Root}" CREATE_SHORTCUTS=""'
-        log.debug(f'Calling `{cmd}`...')
-        subprocess.Popen(cmd, shell=True)
+        if self.get_update_channel() == UpdateChannel.MSI:
+            # Run MSI and let Windows Installer do the heavy lifting
+            self.run_msi_installer()
+        else:
+            # Use installer (updater) package (targeted at .zip)
+            # If we're not relying on Windows Installer for self-update, we'll have to do the heavy lifting ourselves
+            from core.packages.updater_package import UpdaterPackage
+            self.manager.register_package(UpdaterPackage())
+            Events.Fire(Events.UpdaterManager.UpdateLauncher(downloaded_asset_path=self.downloaded_asset_path))
 
-        installer_process_name = 'EnhancedUI.exe'
+    def run_msi_installer(self):
+        cmd = f'msiexec /i "{self.downloaded_asset_path}" /qr /norestart APPDIR="{Paths.App.Root}" CREATE_SHORTCUTS=""'
+
+        launch_context = LaunchContext(
+            start_method=StartMethod.NATIVE,
+            process_name="EnhancedUI.exe",
+            target=CommandLaunch(
+                cmd=cmd,
+            ),
+        )
+
+        manager = ProcessManager(launch_context)
+
+        manager.start()
 
         Events.Fire(Events.Application.StatusUpdate(status=L('status_waiting_installer', 'Waiting for installer to start...')))
 
-        result, pid = wait_for_process(installer_process_name, with_window=True, timeout=15)
-        if result == WaitResult.Timeout:
+        window_found = manager.wait_until_running(
+            timeout=15,
+            wait_for_window=True
+        )
+
+        if not window_found:
             raise ValueError(L('error_launcher_installer_start_failed', """
                 Failed to start {asset_name}!
                 
@@ -113,63 +127,56 @@ class LauncherPackage(Package):
 
         time.sleep(1)
 
-    def detect_update_channel(self):
+    def detect_update_channel(self) -> UpdateChannel:
         try:
             launcher_key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, 'SOFTWARE\\SpectrumQT\\XXMI Launcher', 0, winreg.KEY_READ)
         except FileNotFoundError:
-            return 'ZIP'
+            return UpdateChannel.ZIP
 
         try:
             (path_value, regtype) = winreg.QueryValueEx(launcher_key, 'Path')
             if regtype != winreg.REG_SZ:
-                return 'ZIP'
+                return UpdateChannel.ZIP
         except FileNotFoundError:
-            return 'ZIP'
+            return UpdateChannel.ZIP
 
         if Path(path_value) != Paths.App.Root:
-            return 'ZIP'
+            return UpdateChannel.ZIP
 
-        return 'MSI'
+        return UpdateChannel.MSI
 
-    def update(self, clean=False):
-        # Launcher releases come in 2 formats:
-        # * .msi (installer) - updated via Windows Installer
-        # * .zip (portable) - updated via custom exe (https://github.com/SpectrumQT/XXMI-Updater)
-        if Config.Launcher.update_channel.upper() in ['MSI', 'ZIP']:
-            # Use update channel override provided by user
-            update_channel = Config.Launcher.update_channel.upper()
+    def get_update_channel(self) -> UpdateChannel:
+        if Config.Launcher.update_channel == UpdateChannel.AUTO:
+            # Use automatically detected channel.
+            return self._auto_update_channel
         else:
-            # Autodetect installation format based (check for .msi registry record)
-            update_channel = self.detect_update_channel()
+            return Config.Launcher.update_channel
+
+    def detect_latest_version(self):
+        # Download .msi or .zip using default package update method.
+        # Deployment is handled by install_latest_version above.
+        update_channel = self.get_update_channel()
+        if update_channel == UpdateChannel.MSI:
+            self.metadata.asset_name_format = "XXMI-Launcher-Installer-Online-v%s.msi"
+            self.metadata.signature_pattern=r'^## Signature[\r\n]+- ((?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{4}|[A-Za-z0-9+\/]{3}=|[A-Za-z0-9+\/]{2}={2}))\r?$'
+        else:
+            self.metadata.asset_name_format = "XXMI-Launcher-Portable-v%s.zip"
+            self.metadata.signature_pattern=r'^## Signature Extra[\r\n]+- ((?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{4}|[A-Za-z0-9+\/]{3}=|[A-Za-z0-9+\/]{2}={2}))\r?$'
+        self.signature_pattern = re.compile(self.metadata.signature_pattern, re.MULTILINE)
+
         log.debug(f'Using {update_channel} update channel')
 
-        if update_channel == 'MSI':
-            # Use default package update method (targeted at .msi) and let Windows Installer do the heavy lifting
-            super().update()
-        else:
-            # Use installer (updater) package (targeted at .zip)
-            # If we're not relying on Windows Installer for self-update, we'll have to do the heavy lifting ourselves
-            from core.packages.updater_package import UpdaterPackage
-            self.manager.register_package(UpdaterPackage())
-            Events.Fire(Events.UpdaterManager.UpdateLauncher())
+        super().detect_latest_version()
 
     def upgrade_installation(self):
-        # Grab old version info from config
-        old_version = Config.Launcher.config_version
-
         # Grab new version info from exe
         new_version = self.get_installed_version()
 
-        # Exit early if no version upgrade required
-        if old_version == new_version:
+        if new_version == "0.0.0":
             return
 
         # Upgrade existing config to the latest version
-        Config.Config.upgrade(old_version, new_version)
-
-        # Exit early if old version is empty (aka fresh installation)
-        if not old_version:
-            return
+        Config.Manager.migrate(new_version)
 
     def create_shortcut(self):
         pythoncom.CoInitialize()

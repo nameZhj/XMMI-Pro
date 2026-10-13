@@ -1,13 +1,12 @@
 import logging
 import time
 import psutil
-import subprocess
 import win32api
+import pefile
 
 import ctypes as ct
 import ctypes.wintypes as wt
 
-from typing import List, Optional
 from pathlib import Path
 from enum import Enum
 
@@ -26,6 +25,38 @@ class DllInjector:
         self.mutex = None
 
         self.load(Path(injector_lib_path).resolve(), load_hook, load_inject)
+
+    @staticmethod
+    def get_dll_description(path: str) -> str | None:
+        try:
+            pe = pefile.PE(path, fast_load=True)
+
+            try:
+                pe.parse_data_directories(
+                    directories=[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_RESOURCE"]]
+                )
+
+                if not hasattr(pe, "FileInfo"):
+                    return None
+
+                for file_info in pe.FileInfo:
+                    for entry in file_info:
+                        if entry.Key.decode(errors="ignore") != "StringFileInfo":
+                            continue
+
+                        for table in entry.StringTable:
+                            description = table.entries.get(b"FileDescription")
+
+                            if description:
+                                return description.decode(errors="replace")
+
+                return None
+
+            finally:
+                pe.close()
+
+        except (pefile.PEFormatError, OSError):
+            return None
 
     @staticmethod
     def get_short_path(path: Path) -> str:
@@ -88,72 +119,6 @@ class DllInjector:
         result = kernel32.FreeLibrary(self.lib._handle)
         if result == 0:
             raise ValueError(L('error_dll_injector_unload_failed', 'Failed to unload injector library!'))
-
-    def start_process(self, exe_path: str, work_dir: Optional[str] = None, start_args: str = ''):
-        if work_dir is None:
-            work_dir = ''
-
-        result = self.lib.StartProcess(
-            wt.LPCWSTR(exe_path),
-            wt.LPCWSTR(work_dir),
-            wt.LPCWSTR(start_args)
-        )
-
-        if result != 0:
-            codes = {
-                0:	L('dll_injector_shell_error_out_of_memory', 'The operating system is out of memory/resources'),
-                2:	L('dll_injector_shell_error_file_not_found', 'File not found'),
-                3:	L('dll_injector_shell_error_path_not_found', 'Path not found'),
-                5:	L('dll_injector_shell_error_access_denied', 'Access denied'),
-                11:	L('dll_injector_shell_error_not_win32_app', '.exe file is invalid or not a Win32 app'),
-                26:	L('dll_injector_shell_error_sharing_violation', 'Sharing violation'),
-                31:	L('dll_injector_shell_error_no_app_association', 'No application is associated with the file'),
-                32:	L('dll_injector_shell_error_incomplete_app_association', 'File association is incomplete'),
-            }
-            error_text = codes.get(result, L('dll_injector_unknown_shell_error_code', 'Unknown ShellExecute error code {error_code}').format(error_code=result))
-            raise ValueError(L('error_dll_injector_process_start_failed', 'Failed to start {process_name}: {error_text}!').format(process_name=exe_path.name, error_text=error_text))
-
-    def open_process(self,
-                     start_method: str,
-                     exe_path: Optional[str],
-                     work_dir: Optional[str],
-                     start_args: Optional[List[str]],
-                     process_flags: Optional[int],
-                     process_name: Optional[str] = None,
-                     dll_paths: Optional[List[Path]] = None,
-                     cmd: Optional[str] = None,
-                     inject_timeout: int = 15):
-
-        log.debug(f'Starting game process {process_name} using {start_method} method: exe_path={exe_path}, work_dir={work_dir}, start_args={start_args}, process_flags={process_flags}, cmd={cmd}, dll_paths={dll_paths}')
-
-        start_method = start_method.upper()
-
-        if start_method == 'NATIVE':
-            if cmd is None:
-                cmd = [exe_path] + start_args
-                use_shell = False
-            else:
-                use_shell = True
-            subprocess.Popen(cmd, creationflags=process_flags, cwd=work_dir, shell=use_shell)
-
-        elif start_method == 'SHELL':
-            if cmd is None:
-                self.start_process(exe_path, work_dir, ' '.join(start_args))
-            else:
-                # cmd = ' '.join([f'start \"\" \"{exe_path}\"'] + start_args)
-                self.start_process('cmd.exe', None, f'/C "{cmd}"')
-
-        elif start_method == 'MANUAL':
-            log.debug(f'Waiting for user to start the game process {process_name}...')
-
-        else:
-            raise ValueError(L('error_dll_injector_unknown_start_method', 'Unknown process start method `{start_method}`!').format(start_method=start_method))
-
-        if dll_paths:
-            pid = self.inject_libraries(dll_paths, process_name, timeout=inject_timeout)
-            if pid == -1:
-                raise ValueError(L('error_dll_injector_injection_failed', 'Failed to inject {dll_paths}!').format(dll_paths=str(dll_paths)))
-
 
     def hook_library(self, dll_path: Path, target_process: str):
         if self.hook is not None:
@@ -241,7 +206,7 @@ class DllInjector:
         INJECTION_FAILED = (600, L('error_dll_inject_injection_failed', 'DLL injection failed'))
         UNKNOWN_ERROR = (700, L('error_dll_inject_unknown_error', 'Unknown low level error'))
 
-    def inject_libraries(self, dll_paths: List[Path], process_name: str = None, pid: int = None, timeout: int = 15):
+    def inject_libraries(self, dll_paths: list[Path], process_name: str = None, pid: int = None, timeout: int = 15):
 
         time_start = time.time()
 

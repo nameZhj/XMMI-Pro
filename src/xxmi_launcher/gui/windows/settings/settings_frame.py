@@ -14,13 +14,25 @@ class SettingsFrame(UIFrame):
 
         self.settings_frame = None
 
-        self.set_background_image(image_path='background-image.png', width=master.master.cfg.width,
-                                  height=master.master.cfg.height, x=0, y=0, anchor='nw', brightness=1.0, opacity=1)
+        self.set_background_image(
+            width=940,
+            height=560,
+            x=master.master.cfg.width/2,
+            y=master.master.cfg.height/2,
+            anchor='c',
+            fg_color='#1f2024',
+            border_color='gray',
+            border_radius=20,
+            border_width=1,
+            brightness=1.0,
+            opacity=1.0,
+            dim_opacity=0.5,
+            secondary_fill_color="#24252a",
+            split=0.25,
+            split_direction="vertical",
+        )
 
-        self._offset_x = 0
-        self._offset_y = 0
         self.background_image.bind('<Button-1>', self._handle_button_press)
-        self.background_image.bind('<B1-Motion>', self._handle_mouse_move)
 
         self.close_button = self.put(CloseButton(self))
 
@@ -34,7 +46,7 @@ class SettingsFrame(UIFrame):
         Vars.Settings.initialize_vars()
         Vars.Settings.load()
         # self.grid(row=0, column=0, padx=(125), pady=(175,140), sticky='nsew')
-        self.place(x=124, y=167)
+        self.place(x=175, y=122)
 
         from gui.windows.settings.settings_tabs_frame import SettingsTabsFrame
         if not tab_name:
@@ -47,7 +59,7 @@ class SettingsFrame(UIFrame):
 
     def save_and_close(self, event=None):
         Vars.Settings.save()
-        Config.Config.save()
+        Config.Manager.save()
         self.hide()
         self._reset_frame()
 
@@ -64,31 +76,29 @@ class SettingsFrame(UIFrame):
 
     def _reset_frame(self):
         self.place_forget()
+        if self.close_button is not None:
+            self.close_button.hide()
         if self.settings_frame is not None:
             self.settings_frame.grid_forget()
+            self.update_idletasks()
             self.settings_frame.destroy()
         self.elements = {}
 
         self.settings_frame = None
-        if self.close_button is not None:
-            self.close_button.hide()
 
     def _hide(self):
         super()._hide()
+        self.close_button.hide()
 
     def _handle_button_press(self, event):
-        self._offset_x = event.x
-        self._offset_y = event.y
-
-    def _handle_mouse_move(self, event):
-        Events.Fire(Events.Application.MoveWindow(offset_x=self._offset_x, offset_y=self._offset_y))
+        self.winfo_toplevel().begin_window_drag(event)
 
 
 class CloseButton(UIImageButton):
     def __init__(self, master):
         super().__init__(
-            x=1135,
-            y=155,
+            x=1085,
+            y=105,
             width=18,
             height=18,
             button_image_path='button-system-close.png',
@@ -106,4 +116,4 @@ class CloseButton(UIImageButton):
         self.set_tooltip(f'Close', delay=0.1)
 
     def close(self):
-        self.master.save_and_close()
+        Events.Fire(Events.Application.CloseSettings(save=True))

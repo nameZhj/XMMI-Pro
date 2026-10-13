@@ -1,7 +1,5 @@
 import json
 import logging
-import shutil
-
 import pyglet
 
 import core.path_manager as Paths
@@ -47,7 +45,8 @@ class MainWindow(UIMainWindow):
         self.launcher_frame = None
         self.message_frame = None
 
-        Events.Subscribe(Events.Application.MoveWindow, lambda event: self.move(event.offset_x, event.offset_y))
+        self.minimal_gui = True
+
         Events.Subscribe(Events.Application.ShowMessage, lambda event: self.show_messagebox(event))
         Events.Subscribe(Events.Application.ShowError, lambda event: self.show_messagebox(event))
         Events.Subscribe(Events.Application.ShowWarning, lambda event: self.show_messagebox(event))
@@ -57,16 +56,25 @@ class MainWindow(UIMainWindow):
         # Skip loading the same theme
         if self.active_theme == theme:
             return
+
         theme_path = Paths.App.Themes / theme
         theme_json_path = theme_path / 'custom-tkinter-theme.json'
+
         # Ensure customtkinter theme integrity
         if not self.validate_theme(theme_json_path):
-            return
+            theme = 'Default'
+            Config.Launcher.gui_theme = theme
+            theme_path = Paths.App.Themes / theme
+            theme_json_path = theme_path / 'custom-tkinter-theme.json'
+            if self.active_theme == theme:
+                return
+
         # Load customtkinter theme
         try:
             set_default_color_theme(str(theme_json_path))
         except Exception as e:
             log.exception(e)
+
         # Load custom fonts
         fonts_path = theme_path / 'Fonts'
         if fonts_path.is_dir():
@@ -77,25 +85,23 @@ class MainWindow(UIMainWindow):
                     pyglet.font.add_file(str(font_path))
                 except Exception as e:
                     log.exception(e)
+
         # Set icon path
         icon_path = theme_path / 'window-icon.ico'
         if icon_path.is_file():
             self.cfg.icon_path = icon_path
+
         # Set theme as active
         self.active_theme = theme
         Config.Config.active_theme = theme
 
     def validate_theme(self, theme_json_path):
         theme_name = theme_json_path.parent.name
-        if theme_name == 'Default':
-            return True
 
         # Make sure that theme exists
         if not theme_json_path.is_file():
-            Config.Config.active_theme = 'Default'
-            Config.Launcher.gui_theme = 'Default'
-            self.load_theme('Default')
             Events.Fire(Events.Application.ShowWarning(
+                modal=True,
                 message=L('message_text_theme_load_failed_no_folder', """
                     Failed to load {theme} theme:
                     
@@ -105,10 +111,8 @@ class MainWindow(UIMainWindow):
             return False
 
         if not theme_json_path.parent.is_dir():
-            Config.Config.active_theme = 'Default'
-            Config.Launcher.gui_theme = 'Default'
-            self.load_theme('Default')
             Events.Fire(Events.Application.ShowWarning(
+                modal=True,
                 message=L('message_text_theme_load_failed_no_file', """
                     Failed to load {theme} theme:
                     
@@ -117,15 +121,16 @@ class MainWindow(UIMainWindow):
             ))
             return False
 
+        if theme_name == 'Default':
+            return True
+
         try:
             theme_data = json.loads(Paths.App.read_text(theme_json_path))
             theme_api_version = theme_data['Metadata']['theme_api_version']
         except:
             theme_api_version = '0.0.0'
 
-        if theme_api_version <  '1.0.1':
-            default_json_path = Paths.App.Themes / 'Default' / 'custom-tkinter-theme.json'
-            set_default_color_theme(str(default_json_path))
+        if theme_api_version <  '1.1.0':
             update_dialogue = Events.Application.ShowWarning(
                 modal=True,
                 title=L('message_title_theme_update_required', 'Theme Update Required'),
@@ -138,16 +143,15 @@ class MainWindow(UIMainWindow):
                     Click `Patch Theme` to replace `custom-tkinter-theme.json` with new one.
                 """).format(theme=theme_name)
             )
+
             user_requested_default_theme = self.show_messagebox(update_dialogue)
-            if user_requested_default_theme:
-                Config.Config.active_theme = 'Default'
-                Config.Launcher.gui_theme = 'Default'
-                self.load_theme('Default')
+
+            if user_requested_default_theme is False:
+                default_json_path = Paths.App.Themes / 'Default' / 'custom-tkinter-theme.json'
+                Paths.App.copy_file(default_json_path, theme_json_path)
+                return True
             else:
-                Events.Fire(Events.PathManager.VerifyFileAccess(path=theme_json_path, write=True))
-                theme_json_path.unlink()
-                shutil.copy2(default_json_path, theme_json_path)
-                self.load_theme(theme_name)
+                return False
 
         return True
 
@@ -185,6 +189,8 @@ class MainWindow(UIMainWindow):
 
     def initialize(self):
         import gui.vars as Vars
+
+        self.minimal_gui = False
 
         Vars.Settings.initialize(Config.Config, self)
         Vars.Settings.load()
@@ -225,6 +231,10 @@ class MainWindow(UIMainWindow):
     def reload_gui(self, event: Events.GUI.ReloadGUI):
         Events.Fire(Events.Application.StatusUpdate(status=L('status_reloading_gui', 'Reloading GUI...')))
 
+        settings_frame = self.launcher_frame.grab('SettingsFrame')
+        if settings_frame:
+            Events.Fire(Events.Application.CloseSettings(save=True))
+
         # Remove existing LauncherFrame widgets tree
         del self.elements[self.launcher_frame._id]
         self.launcher_frame.destroy()
@@ -243,12 +253,19 @@ class MainWindow(UIMainWindow):
         Events.Fire(Events.Application.ConfigUpdate())
         Events.Fire(Events.PackageManager.NotifyPackageVersions(detect_installed=True))
 
+        # Mouse events can't be processed while GUI is reloading.
+        # Catch the window up to the cursor's current position.
+        self.update_window_drag_position()
+
     def handle_close(self, event):
         self.after(event.delay, self.close)
 
     def close(self):
         Events.Fire(Events.Application.Ready())
-        super().close()
+        log.debug("Stopping GUI...")
+        self.hide()
+        self.quit()
+        log.debug("GUI stopped")
 
     def show_messagebox(self, event=None, **kwargs):
         if not self.exists:
@@ -257,14 +274,13 @@ class MainWindow(UIMainWindow):
         if event is not None:
             kwargs = vars(event)
 
-        minimal_gui = False
         modal = kwargs.pop('modal', False)
         show_settings = False
         settings_frame = None
 
         if self.launcher_frame is None:
             # Initialize minimal GUI (launcher crashed before LauncherFrame initialization)
-            minimal_gui = True
+            self.minimal_gui = True
             self.load_theme('Default')
             self.apply_config()
             self.center_window()
@@ -277,19 +293,27 @@ class MainWindow(UIMainWindow):
                 show_settings = True
                 settings_frame.hide()
 
+        self.after(1, lambda: Events.Fire(Events.GUIEvents.PauseAnimations()))
+
         messagebox = MessageFrame(self.launcher_frame, self.launcher_frame.canvas, **kwargs)
 
         self.message_frame = self.put(messagebox)
         self.message_frame.show()
 
-        if minimal_gui:
+        if self.minimal_gui:
             self.show()
 
         if modal:
             self.wait_window(messagebox)
+            self.update_idletasks()
+            
+            if self.minimal_gui:
+                self.hide()
 
         if self.message_frame is not None:
             self.message_frame = None
+
+        self.after(1, lambda: Events.Fire(Events.GUIEvents.ResumeAnimations()))
 
         if show_settings and settings_frame.is_hidden:
             settings_frame.show()
@@ -312,3 +336,9 @@ class MainWindow(UIMainWindow):
         ))
         Events.Fire(Events.Application.Ready())
         logging.exception(val)
+
+    def _set_scaling(self, new_widget_scaling, new_window_scaling):
+        super()._set_scaling(new_widget_scaling, new_window_scaling)
+
+        # Let CTk finish its geometry/scaling transition first.
+        self.after(1, lambda: Events.Fire(Events.GUI.ReloadGUI()))

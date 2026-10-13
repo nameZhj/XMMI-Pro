@@ -2,15 +2,11 @@ import sys
 import logging
 import os
 import argparse
-import shutil
 import subprocess
-import time
 import traceback
 
 from pathlib import Path
-from typing import Union, Callable, List, Optional
-from dataclasses import dataclass, field
-from threading import Thread, current_thread, main_thread
+from threading import Thread, current_thread, main_thread, Lock, Event
 from queue import Queue, Empty
 
 import core.error_manager as Errors
@@ -18,16 +14,15 @@ import core.locale_manager as Locale
 import core.path_manager as Paths
 import core.event_manager as Events
 import core.config_manager as Config
-
 import core.utils.system_info as system_info
 
 from core.locale_manager import L
+from core.events.application import ApplicationEvents
 from core.package_manager import PackageManager
 
 from core.packages.launcher_package import LauncherPackage
 from core.packages.migoto_package import MigotoPackage
 from core.packages.genshin_fps_unlock_package import GenshinFpsUnlockerPackage
-from core.packages.model_importers.model_importer import ModelImporterPackage
 from core.packages.model_importers.gimi_package import GIMIPackage
 from core.packages.model_importers.srmi_package import SRMIPackage
 from core.packages.model_importers.wwmi_package import WWMIPackage
@@ -35,166 +30,7 @@ from core.packages.model_importers.zzmi_package import ZZMIPackage
 from core.packages.model_importers.himi_package import HIMIPackage
 from core.packages.model_importers.efmi_package import EFMIPackage
 
-
-@dataclass
-class ApplicationEvents:
-
-    @dataclass
-    class ConfigUpdate:
-        pass
-
-    @dataclass
-    class OpenSettings:
-        wait_window: bool = False
-        tab_name: str = ''
-
-    @dataclass
-    class CloseSettings:
-        save: bool = False
-
-    @dataclass
-    class OpenModManager:
-        pass
-
-    @dataclass
-    class CloseModManager:
-        pass
-
-    @dataclass
-    class LoadImporter:
-        importer_id: str
-        reload: bool = False
-
-    @dataclass
-    class ToggleImporter:
-        importer_id: str
-
-    @dataclass
-    class Ready:
-        pass
-
-    @dataclass
-    class Busy:
-        pass
-
-    @dataclass
-    class RunPreLaunch:
-        cmd: str = ''
-
-    @dataclass
-    class Launch:
-        pass
-
-    @dataclass
-    class RunPostLoad:
-        cmd: str = ''
-
-    @dataclass
-    class StatusUpdate:
-        status: str
-
-    @dataclass
-    class MoveWindow:
-        offset_x: int
-        offset_y: int
-
-    @dataclass
-    class Minimize:
-        pass
-
-    @dataclass
-    class Maximize:
-        pass
-
-    @dataclass
-    class Close:
-        delay: int = 0
-        pass
-
-    @dataclass
-    class Restart:
-        delay: int = 0
-
-    @dataclass
-    class LoadLocale:
-        locale_name: str
-        skip_reload: bool = False
-
-    @dataclass
-    class Update:
-        no_install: bool = False
-        no_check: bool = False
-        force: bool = False
-        reinstall: bool = False
-        packages: Union[list, None] = None
-        silent: bool = False
-        no_thread: bool = False
-
-    @dataclass
-    class CheckForUpdates:
-        pass
-
-    @dataclass
-    class SetupHook:
-        library_name: str
-        process_name: str
-
-    @dataclass
-    class Inject:
-        library_name: str
-        process_name: str
-
-    @dataclass
-    class Bypass:
-        process_name: str
-
-    @dataclass
-    class WaitForProcess:
-        process_name: str
-
-    @dataclass
-    class StartGameExe:
-        process_name: str
-
-    @dataclass
-    class VerifyHook:
-        library_name: str
-        process_name: str
-
-    @dataclass
-    class ShowMessage:
-        modal: bool = False
-        title: str = field(default_factory=lambda: L('message_title_message', 'Message'))
-        message: str = '< Text >'
-        confirm_text: str = field(default_factory=lambda: L('message_button_ok', 'OK'))
-        confirm_command: Optional[Callable] = None
-        cancel_text: str = ''
-        cancel_command: Optional[Callable] = None
-        radio_options: Optional[List[str]] = None
-        checkbox_options: Optional[List[str]] = None
-
-    @dataclass
-    class ShowError(ShowMessage):
-        title: str = field(default_factory=lambda: L('message_title_error', 'Error'))
-
-    @dataclass
-    class ShowWarning(ShowMessage):
-        title: str = field(default_factory=lambda: L('message_title_warning', 'Warning'))
-
-    @dataclass
-    class ShowInfo(ShowMessage):
-        title: str = field(default_factory=lambda: L('message_title_info', 'Info'))
-
-    @dataclass
-    class ShowDialogue(ShowMessage):
-        confirm_text: str = field(default_factory=lambda: L('message_button_confirm', 'Confirm'))
-        cancel_text: str = field(default_factory=lambda: L('message_button_cancel', 'Cancel'))
-
-    @dataclass
-    class OpenDonationCenter:
-        mode: str = 'NORMAL'
-        model_importer: str = ''
-        launch_count: int = 0
+from core.game_launcher import Launcher
 
 
 class Application:
@@ -205,10 +41,13 @@ class Application:
         self.is_locked = False
         # Thread pool for threaded tasks
         self.threads = []
+        self.thread_lock = Lock()
         # Queue for thread errors handling
         self.error_queue = Queue()
-        # App state flag for watchdog thread
-        self.is_alive = True
+        # App shutdown state flag
+        self.shutting_down = False
+        # App shutdown event for watchdog thread
+        self.shutdown_event = Event()
 
         # Parse console args
         parser = argparse.ArgumentParser(add_help=False)
@@ -225,9 +64,11 @@ class Application:
                             help='Create desktop shortcut for launcher .exe.')
         parser.add_argument('-un', '--uninstall', action='store_true',
                             help='Remove downloaded packages from the Resources folder.')
+        parser.add_argument('-su', '--silent_update', action='store_true',
+                            help='Install available updates without confirmation dialogue.')
         try:
             args = [arg for arg in sys.argv[1:] if arg != '&&']  # Filter out shell operator '&&'
-            self.args = parser.parse_args(args)
+            self.args, self.unknown_args = parser.parse_known_args(args)
             logging.debug(f'Arguments: {self.args}')
             if self.args.help:
                 parser.print_help()
@@ -285,6 +126,10 @@ class Application:
         if self.args.create_shortcut:
             Events.Fire(Events.LauncherManager.CreateShortcut())
 
+        # Initialize launcher class.
+        self.launcher = Launcher
+        self.launcher.initialize(self.package_manager.get_package('XXMI'))
+
         # Get active MI from args, use one from config or fallback to XXMI homepage
         active_importer = self.get_active_importer()
 
@@ -292,7 +137,7 @@ class Application:
         self.load_importer(active_importer, update=False)
 
         if self.args.update:
-            Config.Config.save()
+            Config.Manager.save()
 
         Events.Subscribe(Events.Application.OpenSettings, self.handle_open_settings)
         Events.Subscribe(Events.Application.OpenModManager, self.handle_open_mod_manager)
@@ -323,25 +168,24 @@ class Application:
             Events.Fire(Events.Application.Busy())
             Events.Fire(Events.Application.StatusUpdate(status=L('status_initializing_update', 'Initializing update...')))
 
+        # Trigger events required to initialize GUI state.
         Events.Fire(Events.Application.LoadImporter(importer_id=Config.Launcher.active_importer))
-
-        Events.Subscribe(Events.Application.Update,
-                         lambda event: self.run_as_thread(self.package_manager.update_packages, **event.__dict__))
-        Events.Subscribe(Events.Application.CheckForUpdates,
-                         lambda event: self.run_as_thread(self.check_for_updates))
-        Events.Subscribe(Events.Application.LoadImporter,
-                         lambda event: self.run_as_thread(self.load_importer, importer_id=event.importer_id, reload=event.reload))
-        Events.Subscribe(Events.Application.Launch,
-                         lambda event: self.run_as_thread(self.launch))
-        Events.Subscribe(Events.Application.Restart,
-                         lambda event: self.run_as_thread(self.restart, delay=event.delay))
-
         Events.Fire(Events.Application.ConfigUpdate())
-
         Events.Fire(Events.PackageManager.NotifyPackageVersions(detect_installed=True))
+        self.gui.update()
+        self.gui.launcher_frame.background_image.start_animation()
 
-        if Config.Launcher.auto_update or self.args.update:
-            self.gui.after(100, self.run_as_thread, self.auto_update)
+        Events.Subscribe(Events.Application.Update, self.handle_update)
+        Events.Subscribe(Events.Application.CheckForUpdates,
+            lambda event: self.run_as_thread(self.check_for_updates))
+        Events.Subscribe(Events.Application.LoadImporter,
+            lambda event: self.run_as_thread(self.load_importer, importer_id=event.importer_id, reload=event.reload))
+        Events.Subscribe(Events.Application.Launch,
+            lambda event: self.run_as_thread(self.launch))
+        Events.Subscribe(Events.Application.Restart,
+            lambda event: self.run_as_thread(self.restart, delay=event.delay))
+
+        self.gui.after(100, self.run_as_thread, self.auto_update)
 
         if open_settings:
             Events.Fire(Events.Application.OpenSettings())
@@ -354,7 +198,12 @@ class Application:
 
         self.gui.open()
 
+    def handle_update(self, event: Events.Application.Update):
+        self.launcher.ensure_game_close()
+        self.run_as_thread(self.package_manager.update_packages, **event.__dict__)
+
     def handle_open_settings(self, event: ApplicationEvents.OpenSettings):
+        self.package_manager.notify_package_versions(detect_installed=True)
         settings_frame = self.gui.launcher_frame.grab('SettingsFrame')
         if not settings_frame:
             self.initialize_gui(open_settings=True)
@@ -368,14 +217,14 @@ class Application:
                 mod_manager_frame.open_mod_manager()
 
     def load_config(self):
-        cfg_backup_path = Paths.App.Backups / Config.Config.config_path.name
+        cfg_backup_path = Paths.App.Backups / Config.Manager.config_path.name
         try:
-            Config.Config.load()
+            Config.Manager.load()
             # Backup last successfully loaded config
-            if Config.Config.config_path.is_file():
-                Paths.App.copy_file(Config.Config.config_path, cfg_backup_path)
+            if Config.Manager.config_path.is_file():
+                Paths.App.copy_file(Config.Manager.config_path, cfg_backup_path)
         except Exception as e:
-            if Config.Config.config_path.is_file():
+            if Config.Manager.config_path.is_file():
                 error_dialogue = Events.Application.ShowError(
                     modal=True,
                     confirm_text=L('message_button_load_backup_config', 'Load Backup'),
@@ -384,7 +233,7 @@ class Application:
                 )
                 user_requested_backup_load = self.gui.show_messagebox(error_dialogue)
                 if user_requested_backup_load:
-                    Config.Config.load(cfg_backup_path)
+                    Config.Manager.load(cfg_backup_path)
             else:
                 raise e
 
@@ -409,28 +258,23 @@ class Application:
             raise ValueError(L('error_unknown_model_importer', 'Unknown model importer {importer}!').format(importer=importer_name))
         return importer_name
 
-    def get_importer_from_path(self, path: Path):
-        if path.is_file() or path.suffix == '.exe':
-            game_folder = Path(path).parent
-        else:
-            game_folder = path
+    def get_importer_from_path(self, game_exe_path: Path):
+        Events.Fire(Events.PathManager.VerifyFileAccess(path=game_exe_path, extension_filter="exe"))
 
-        for package_name in ['WWMI', 'ZZMI', 'SRMI', 'GIMI', 'HIMI', 'EFMI']:
-            package = self.package_manager.get_package(package_name)
-            if not isinstance(package, ModelImporterPackage):
-                raise ValueError(f'Package {package.metadata.package_name} is not ModelImporterPackage!')
-            try:
-                game_path = package.validate_game_path(game_folder)
-                game_exe_path = package.validate_game_exe_path(game_path)
-            except Exception:
-                continue
-            return package.metadata.package_name, game_path, game_exe_path
+        for package_name, package_config in Config.Importers.__dict__.items():
+            game_exe_name = game_exe_path.name
+
+            if game_exe_name in package_config.Importer.process_exe_names:
+                return package_name, game_exe_path.parent, game_exe_path
+
+            if game_exe_name in package_config.Importer.game_exe_names:
+                return package_name, game_exe_path.parent, game_exe_path
 
         raise ValueError(L('error_model_importer_auto_select_failed', """
             Failed to auto-select importer for `{path}`!
             
             Try to add `--nogui --xxmi WWMI` args (or GIMI, SRMI, ZZMI, HIMI, EFMI).
-        """).format(path=path))
+        """).format(path=game_exe_path))
 
     def get_active_importer(self) -> str:
         active_importer = None
@@ -469,12 +313,10 @@ class Application:
         return active_importer
 
     def auto_update(self):
-        # Exit early if auto-update is disabled and not forced via command line argument
-        if not (Config.Launcher.auto_update or self.args.update):
-            return
         # Exit early if current active model importer is not installed
         importer_package = self.package_manager.packages.get(Config.Launcher.active_importer, None)
         if importer_package is None or importer_package.get_installed_version() == '':
+            self.package_manager.update_packages(packages=['Launcher'], no_install=True, silent=True)
             Events.Fire(Events.Application.Ready())
             return
         # Query GitHub for updates and skip installation, force query and lock GUI if --update argument is supplied
@@ -524,19 +366,22 @@ class Application:
             Config.Launcher.enabled_importers.append(importer_id)
         # Load MI package
         Config.Active = getattr(Config.Importers, importer_id)
+        Config.Config.Active = Config.Active
         self.package_manager.load_package(importer_id)
+        self.launcher.set_model_importer(self.package_manager.get_package(importer_id))
         self.package_manager.notify_package_versions()
-        Config.ConfigSecurity.validate_config()
+        Config.Manager.validate_config()
         Events.Fire(Events.Application.ConfigUpdate())
-        # Check for updates only if auto_update is explicitly enabled
-        if update and Config.Launcher.auto_update and self.package_manager.get_package(importer_id).installed_version:
+        # Check for updates
+        if update and self.package_manager.get_package(importer_id).installed_version:
             self.run_as_thread(self.package_manager.update_packages, no_install=True, silent=True)
 
     def update_scheduled(self) -> bool:
-        if not (Config.Launcher.auto_update or self.args.update):
-            return False
         if not self.package_manager.update_available():
             return False
+
+        if self.args.silent_update:
+            return True
 
         pending_update_message = []
 
@@ -568,7 +413,7 @@ class Application:
         user_requested_update = self.gui.show_messagebox(update_dialogue)
 
         # Mark updates as skipped if user pressed Skip button, but only if it's not None from Close button
-        if not user_requested_update and user_requested_update is not None:
+        if user_requested_update is False:
             self.package_manager.skip_latest_updates()
 
         return bool(user_requested_update)
@@ -710,8 +555,8 @@ class Application:
                 if Config.Active.Importer.run_pre_launch_wait:
                     process.wait()
 
-            # Signal active model importer package to start game and inject 3dmigoto
-            Events.Fire(Events.ModelImporter.StartGame())
+            # Start game and inject 3dmigoto
+            self.launcher.launch(self.unknown_args)
 
             # Execute specified shell command after successful injection
             if Config.Active.Importer.run_post_load_enabled and Config.Active.Importer.run_post_load != '':
@@ -724,8 +569,15 @@ class Application:
             self.gui.after(100, Events.Fire, Events.Application.Ready())
             return
         except Exception as e:
-            raise Errors.with_title(e, L('message_title_model_importer_loading_failed', '{importer} Loading Failed').format(
-                importer=Config.Launcher.active_importer,
+            log_path = f'<a href="file:///{Paths.App.Root / "XXMI Launcher Log.txt"}">XXMI Launcher Log.txt</a>'
+            Events.Fire(Events.Application.ShowError(
+                title=L('message_title_model_importer_loading_failed', '{importer} Loading Failed').format(
+                    importer=Config.Launcher.active_importer,
+                ),
+                message=f"{e}\n\n" + L('log_file_link', 'Log file: {log_path}').format(
+                    log_path=log_path,
+                ),
+                modal=True,
             ))
         finally:
             self.is_locked = False
@@ -746,82 +598,124 @@ class Application:
             self.error_queue.put_nowait((e, traceback.format_exc()))
 
     def run_as_thread(self, callback, *args, **kwargs):
-        # Force blocking callback execution with value return via `no_thread=True`is found in kwargs
-        # Doing so allows to wait for callback completion or get its return value
-        if 'no_thread' in kwargs:
-            no_thread = kwargs['no_thread']
-            del kwargs['no_thread']
-        else:
-            no_thread = False
-        # Execute callback function directly or deploy it as thread
+        # Force blocking callback execution with value return via `no_thread=True`is found in kwargs.
+        # Doing so allows to wait for callback completion or get its return value.
+        no_thread = kwargs.pop("no_thread", False)
+
+        # Execute callback function directly.
         if no_thread:
             return callback(*args, **kwargs)
-        else:
-            thread = Thread(target=self.wrap_errors, args=(callback, *args), kwargs=kwargs)
+
+        with self.thread_lock:
+            if self.shutting_down:
+                logging.warning("Ignoring thread request during application shutdown: %s", callback)
+                return None
+
+            thread = Thread(
+                target=self.wrap_errors,
+                args=(callback, *args),
+                kwargs=kwargs
+            )
+
             self.threads.append(thread)
             thread.start()
 
+        return None
+
     def check_threads(self):
-        self.gui.after(50, self.check_threads)
-        # Remove finished threads from the list
-        self.threads = [thread for thread in self.threads if thread.is_alive()]
-        # Raise exceptions sent to error queue by threads
-        try:
-            if self.gui.state() != 'normal':
-                return
-            self.report_thread_error()
-            # raise exception
-        except Empty:
-            pass
+        if self.shutting_down:
+            return
 
-    def report_thread_error(self):
-        (error, trace) = self.error_queue.get_nowait()
-        logging.error(trace)
-        self.gui.show_messagebox(Events.Application.ShowError(
-            modal=True,
-            title=Errors.get_title(error) or L('message_title_error', 'Error'),
-            message=str(error),
-        ))
-        if self.gui.is_shown():
-            self.gui.after(100, Events.Fire, Events.Application.Ready())
+        # Remove finished threads from the list.
+        with self.thread_lock:
+            self.threads = [thread for thread in self.threads if thread.is_alive()]
 
-    def watchdog(self, timeout: int = 15):
-        timeout = time.time() + timeout
-        while True:
-            time.sleep(0.1)
-            if not self.is_alive:
-                return
-            if time.time() > timeout:
-                break
-        logging.error('[WATCHDOG]: Shutting down stuck process...')
-        os._exit(os.EX_OK)
-
-    def exit(self):
-        try:
-            assert current_thread() is main_thread()
-        except Exception as e:
-            self.error_queue.put_nowait((e, traceback.format_exc()))
-        # Start watchdog to forcefully shutdown process in 5 seconds
-        watchdog_thread = Thread(target=self.watchdog, kwargs={'timeout': 5})
-        watchdog_thread.start()
-        # Join active threads
-        logging.debug(f'Joining threads...')
-        for thread in self.threads:
-            thread.join()
-        # Join watchdog thread
-        logging.debug(f'Joining watchdog thread...')
-        self.is_alive = False
-        watchdog_thread.join()
-        # Write config to ini file
-        logging.debug(f'Saving config...')
-        Config.Config.save()
-        # Report any errors left in queue
+        # Handle all pending worker exceptions.
         while True:
             try:
                 self.report_thread_error()
             except Empty:
                 break
-        logging.debug(f'App Exit')
+            except Exception:
+                # Don't allow an error while displaying an error to kill the Tkinter polling loop.
+                logging.exception("Failed to report thread error")
+                break
+
+        # Schedule the next check.
+        try:
+            self.gui.after(50, self.check_threads)
+        except RuntimeError:
+            # GUI/mainloop has already shut down.
+            pass
+
+    def report_thread_error(self):
+        (error, trace) = self.error_queue.get_nowait()
+
+        logging.error(trace)
+
+        self.gui.show_messagebox(Events.Application.ShowError(
+            modal=True,
+            title=Errors.get_title(error) or L("message_title_error", "Error"),
+            message=str(error),
+        ))
+
+    def log_remaining_thread_errors(self):
+        count = 0
+
+        while True:
+            try:
+                error, trace = self.error_queue.get_nowait()
+            except Empty:
+                break
+
+            count += 1
+            logging.error("Unhandled worker exception during shutdown: %s\n%s", error, trace)
+
+        if count:
+            logging.error("Shutting down with %d unreported worker error(s).", count)
+
+    def watchdog(self, timeout: int = 15):
+        if not self.shutdown_event.wait(timeout):
+            logging.error("[WATCHDOG]: Shutting down stuck process...")
+            os._exit(os.EX_OK)
+
+    def exit(self):
+        if current_thread() is not main_thread():
+            raise RuntimeError("exit() must be called from the main thread")
+
+        # Establish the shutdown barrier.
+        with self.thread_lock:
+            self.shutting_down = True
+            threads = list(self.threads)
+
+        # Start watchdog to forcefully shutdown process in 5 seconds.
+        watchdog_thread = Thread(
+            target=self.watchdog,
+            kwargs={"timeout": 5},
+            daemon=True,
+        )
+        watchdog_thread.start()
+
+        # No new threads should be started from this point.
+        logging.debug("Joining threads...")
+        for thread in threads:
+            thread.join()
+
+        # All workers are now finished, so no more errors can be added to error_queue.
+        self.log_remaining_thread_errors()
+
+        # Disable watchdog.
+        logging.debug("Stopping shutdown watchdog...")
+        self.shutdown_event.set()
+
+        # Write config to ini file
+        logging.debug("Saving config...")
+        try:
+            Config.Manager.save()
+        except Exception:
+            logging.exception("Failed to save config during shutdown")
+
+        logging.debug("App Exit")
         os._exit(os.EX_OK)
 
     def restart(self, delay: int = 0):

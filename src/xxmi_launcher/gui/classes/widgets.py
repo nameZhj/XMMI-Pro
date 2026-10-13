@@ -3,17 +3,18 @@ import logging
 import time
 import tkinter
 import re
-# import cv2
-# import math
+import threading
 
 from typing import Union, Tuple, List, Dict, Optional, Callable
 from pathlib import Path
+from collections import deque
 
 from tkinter import Menu, INSERT, font
 from customtkinter import CTkBaseClass, CTkButton, CTkImage, CTkLabel, CTkProgressBar, CTkEntry, CTkCheckBox, CTkTextbox, CTkOptionMenu, CTkRadioButton, StringVar
 from customtkinter import END, CURRENT
+from customtkinter.windows.widgets.scaling.scaling_base_class import CTkScalingBaseClass
 from customtkinter import ThemeManager, CTkFont
-from PIL import Image, ImageTk, ImageDraw
+from PIL import Image, ImageTk, ImageDraw, ImageSequence
 
 import core.config_manager as Config
 
@@ -21,6 +22,9 @@ from gui.classes.element import UIElementBase
 from gui.classes.windows import UIWindow
 
 logging.getLogger('PIL').setLevel(logging.INFO)
+
+
+log = logging.getLogger(__name__)
 
 
 class UIWidget(UIElementBase):
@@ -72,6 +76,7 @@ class UIText(UICanvasWidget, CTkBaseClass):
                  y: int = 0,
                  canvas=None,
                  anchor=None,
+                 max_width=0,
                  **kwargs):
         if 'Asap' in font:
             y -= 1
@@ -88,6 +93,7 @@ class UIText(UICanvasWidget, CTkBaseClass):
         self._height = None
         self._font_obj = None
         self._anchor = anchor
+        self._max_width = max_width
 
         if isinstance(font, str):
             font_pattern = re.compile(r'(?P<family>.*)\s(?P<size>\d+)\s*(?P<weight>.*)?')
@@ -127,8 +133,9 @@ class UIText(UICanvasWidget, CTkBaseClass):
         self.canvas.coords(self._text_id, self._x, self._y)
 
     def set(self, text: str):
+        text = self._truncate_text(text)
         self.canvas.itemconfigure(self._text_id, text=text)
-        self._width = int(self._font_obj.measure(text) / self._apply_widget_scaling(1))
+        self._width = self._measure_text(text)
 
     def _show(self):
         self.canvas.itemconfigure(self._text_id, state='normal')
@@ -158,27 +165,419 @@ class UIText(UICanvasWidget, CTkBaseClass):
             pass
         super().destroy()
 
+    def _measure_text(self, text: str) -> int:
+        return int(self._font_obj.measure(text) / self._apply_widget_scaling(1))
 
-class UIImage(UICanvasWidget, CTkBaseClass):
-    def __init__(self,
-                 master: Union[UIWindow, 'UIFrame'],
-                 canvas=None,
-                 image_path: Optional[Union[Path, Image]] = None,
-                 x: int = 0,
-                 y: int = 0,
-                 width: int = 64,
-                 height: int = 64,
-                 anchor: str = 'center',
-                 opacity: float = 1,
-                 brightness: float = 1,
-                 fg_color: Optional[Union[str, Tuple[str, str]]] = None,
-                 border_radius: int = 0,
-                 border_width: int = 0,
-                 border_color: Optional[Union[str, Tuple[str, str]]] = None,
-                 bg_opacity = 0,
-                 padx = None,
-                 pady = None,
-                 **kwargs):
+    def _truncate_text(self, text: str, ellipsis: str = "...") -> str:
+        if self._max_width <= 0:
+            return text
+
+        if self._measure_text(text) <= self._max_width:
+            return text
+
+        while text and self._measure_text(text + ellipsis) > self._max_width:
+            text = text[:-1]
+
+        return text + ellipsis if text else ellipsis
+
+
+class AnimationMixin:
+    """Background-decoded animation playback for Tk widgets.
+
+    Public methods and rendering run on the Tk thread. The worker only
+    decodes and prepares Pillow frames. Generation tokens invalidate stale
+    work when playback is stopped or restarted.
+    """
+
+    _ANIMATION_RETRY_MS = 2
+    _ANIMATION_MIN_DELAY_MS = 1
+    _ANIMATION_DEFAULT_FRAME_MS = 100
+
+    def _init_animation(self) -> None:
+        self._anim_condition = threading.Condition()
+        self._anim_buffer = deque(maxlen=1)
+
+        self._anim_worker = None
+        self._anim_worker_stop = threading.Event()
+        self._anim_generation = 0
+        self._anim_job = None
+
+        self._anim_is_running = False
+        self._anim_is_paused = False
+        self._anim_pause_reasons: set[str] = set()
+
+        self._anim_started_at = 0.0
+        self._anim_paused_at = 0.0
+        self._anim_frame_durations = None
+        self._anim_frame_starts = None
+        self._anim_total_duration = 0
+
+        self._anim_displayed_index = None
+        self._anim_index = 0
+
+        self._anim_track_fps = False
+        self._fps_frame_count = 0
+        self._fps_last_time = time.perf_counter()
+
+    # Host-widget hooks
+
+    def _get_animation_source(self) -> Image.Image | None:
+        raise NotImplementedError
+
+    def _prepare_animation_frame(self, frame: Image.Image) -> Image.Image:
+        """Prepare a Pillow frame without creating Tk objects."""
+        raise NotImplementedError
+
+    def _display_animation_frame(self, frame_data: tuple) -> None:
+        """Display a prepared frame on the Tk thread."""
+        raise NotImplementedError
+
+    def _has_animation(self) -> bool:
+        source = self._get_animation_source()
+        return source is not None and getattr(source, "n_frames", 1) > 1
+
+    def _worker_is_obsolete(
+        self,
+        generation: int,
+        stop_event: threading.Event,
+    ) -> bool:
+        return stop_event.is_set() or generation != self._anim_generation
+
+    # Lifecycle
+
+    def start_animation(self) -> None:
+        if not self._has_animation():
+            return
+
+        if self._anim_pause_reasons:
+            self._anim_is_paused = True
+            return
+
+        if self._anim_is_running:
+            return
+
+        self._anim_is_running = True
+        self._anim_is_paused = False
+        self._anim_started_at = 0.0
+        self._anim_paused_at = 0.0
+        self._anim_displayed_index = None
+        self._anim_index = 0
+
+        with self._anim_condition:
+            self._anim_buffer.clear()
+            self._anim_condition.notify_all()
+
+        self._ensure_animation_worker()
+        self._schedule_animation_callback(self._ANIMATION_MIN_DELAY_MS)
+
+    def stop_animation(self) -> None:
+        self._anim_is_running = False
+        self._anim_generation += 1
+        self._cancel_animation_callback()
+
+        with self._anim_condition:
+            self._anim_worker_stop.set()
+            self._anim_buffer.clear()
+            self._anim_started_at = self._anim_paused_at = 0.0
+            self._anim_displayed_index = None
+            self._anim_index = 0
+            self._anim_frame_durations = None
+            self._anim_frame_starts = None
+            self._anim_total_duration = 0
+            self._anim_condition.notify_all()
+
+    def pause_animation(self, reason: str = "default") -> None:
+        if not self._has_animation():
+            return
+
+        self._anim_pause_reasons.add(reason)
+        if self._anim_is_paused:
+            return
+
+        self._anim_is_paused = True
+        self._anim_paused_at = time.perf_counter()
+        self._cancel_animation_callback()
+
+        with self._anim_condition:
+            self._anim_condition.notify_all()
+
+    def resume_animation(self, reason: str = "default") -> None:
+        self._anim_pause_reasons.discard(reason)
+        if self._anim_pause_reasons or not self._anim_is_paused:
+            return
+
+        now = time.perf_counter()
+        if self._anim_started_at and self._anim_paused_at:
+            self._anim_started_at += now - self._anim_paused_at
+
+        self._anim_paused_at = 0.0
+        self._anim_is_paused = False
+
+        if not self._anim_is_running:
+            self.start_animation()
+            return
+
+        with self._anim_condition:
+            self._anim_condition.notify_all()
+
+        self._ensure_animation_worker()
+        self._schedule_animation_callback(self._ANIMATION_MIN_DELAY_MS)
+
+    # Tk callback scheduling
+
+    def _schedule_animation_callback(self, delay_ms: int) -> None:
+        if self._anim_is_running and not self._anim_is_paused and self._anim_job is None:
+            self._anim_job = self.after(
+                max(self._ANIMATION_MIN_DELAY_MS, int(delay_ms)),
+                self._animation_tick,
+            )
+
+    def _cancel_animation_callback(self) -> None:
+        job, self._anim_job = self._anim_job, None
+        if job is None:
+            return
+
+        try:
+            self.after_cancel(job)
+        except Exception:
+            log.debug("Animation callback was unavailable", exc_info=True)
+
+    def _animation_tick(self) -> None:
+        self._anim_job = None
+        if not self._anim_is_running or self._anim_is_paused:
+            return
+
+        if self._get_animation_source() is None:
+            self.stop_animation()
+            return
+
+        try:
+            if hasattr(self, "canvas") and not self.canvas.winfo_exists():
+                self.stop_animation()
+                return
+        except Exception:
+            self.stop_animation()
+            return
+
+        with self._anim_condition:
+            frame_data = self._anim_buffer.pop() if self._anim_buffer else None
+            self._anim_condition.notify_all()
+
+        if frame_data is not None:
+            try:
+                if self._anim_track_fps:
+                    self._debug_fps()
+                self._display_animation_frame(frame_data)
+            except Exception:
+                log.exception("Failed to render animation frame")
+                self.stop_animation()
+                return
+
+        target_index, remaining_ms = self._animation_timing_at()
+
+        if target_index is None:
+            delay = self._ANIMATION_RETRY_MS
+
+        elif target_index == self._anim_displayed_index:
+            # The current frame is still valid.
+            # Wake up near the next frame boundary instead of polling continuously.
+            delay = max(self._ANIMATION_MIN_DELAY_MS, int(remaining_ms + 0.999))
+        else:
+            # The next frame is due, but it may still be decoding.
+            # Avoid repeatedly flooding Tk's event loop.
+            delay = 8
+
+        self._schedule_animation_callback(delay)
+
+    # Timeline
+
+    def _animation_timing_at(
+        self,
+        now: float | None = None,
+    ) -> tuple[int | None, float | None]:
+        with self._anim_condition:
+            durations = self._anim_frame_durations
+            starts = self._anim_frame_starts
+            total = self._anim_total_duration
+            started_at = self._anim_started_at
+
+        if not durations or not starts or total <= 0 or started_at <= 0:
+            return None, None
+
+        now = time.perf_counter() if now is None else now
+        elapsed_ms = max(0.0, (now - started_at) * 1000)
+        position_ms = elapsed_ms % total
+
+        for index, start in enumerate(starts):
+            remaining = start + durations[index] - position_ms
+            if remaining > 0:
+                return index, remaining
+
+        return 0, float(durations[0])
+
+    def _debug_fps(self) -> None:
+        self._fps_frame_count += 1
+        now = time.perf_counter()
+        elapsed = now - self._fps_last_time
+
+        if elapsed >= 1:
+            print(f"[Animation FPS]: {self._fps_frame_count / elapsed:.1f}")
+            self._fps_frame_count = 0
+            self._fps_last_time = now
+
+    # Background decoder
+
+    def _ensure_animation_worker(self) -> None:
+        if not self._anim_is_running or self._anim_is_paused:
+            return
+
+        with self._anim_condition:
+            if self._anim_worker is not None and self._anim_worker.is_alive():
+                self._anim_condition.notify_all()
+                return
+
+            self._anim_worker_stop = threading.Event()
+            stop_event = self._anim_worker_stop
+            generation = self._anim_generation
+            worker = threading.Thread(
+                target=self._animation_worker,
+                args=(generation, stop_event),
+                name=f"Animation-{id(self)}",
+                daemon=True,
+            )
+            self._anim_worker = worker
+            worker.start()
+
+    def _animation_worker(
+        self,
+        generation: int,
+        stop_event: threading.Event,
+    ) -> None:
+        try:
+            source = self._get_animation_source()
+            if source is None:
+                return
+
+            frame_count = getattr(source, "n_frames", 1)
+            if frame_count <= 1:
+                return
+
+            durations = []
+            for index in range(frame_count):
+                if self._worker_is_obsolete(generation, stop_event):
+                    return
+
+                source.seek(index)
+                duration = source.info.get(
+                    "duration", self._ANIMATION_DEFAULT_FRAME_MS
+                ) or self._ANIMATION_DEFAULT_FRAME_MS
+                durations.append(max(1, int(duration)))
+
+            starts, total = [], 0
+            for duration in durations:
+                starts.append(total)
+                total += duration
+
+            with self._anim_condition:
+                if self._worker_is_obsolete(generation, stop_event):
+                    return
+                self._anim_frame_durations = durations
+                self._anim_frame_starts = starts
+                self._anim_total_duration = total
+                self._anim_condition.notify_all()
+
+            while not self._worker_is_obsolete(generation, stop_event):
+                with self._anim_condition:
+                    while (
+                        not self._worker_is_obsolete(generation, stop_event)
+                        and (
+                            not self._anim_is_running
+                            or self._anim_is_paused
+                            or self._anim_buffer
+                        )
+                    ):
+                        self._anim_condition.wait()
+
+                    if self._worker_is_obsolete(generation, stop_event):
+                        return
+
+                    if not self._anim_started_at:
+                        self._anim_started_at = time.perf_counter()
+
+                    index, remaining = self._animation_timing_at()
+                    if index is None or index == self._anim_displayed_index:
+                        timeout = (
+                            self._ANIMATION_RETRY_MS / 1000
+                            if index is None
+                            else max(0.001, remaining / 1000)
+                        )
+                        self._anim_condition.wait(timeout)
+                        continue
+
+                try:
+                    source.seek(index)
+                    frame = source.convert("RGBA")
+                    prepared = self._prepare_animation_frame(frame)
+                except (EOFError, OSError):
+                    log.warning("Unable to decode animation frame %d", index, exc_info=True)
+                    stop_event.wait(self._ANIMATION_RETRY_MS / 1000)
+                    continue
+
+                with self._anim_condition:
+                    if self._worker_is_obsolete(generation, stop_event):
+                        return
+                    if not self._anim_is_running or self._anim_is_paused:
+                        continue
+
+                    self._anim_buffer.append((index, prepared, durations[index]))
+                    self._anim_condition.notify_all()
+
+        except Exception:
+            log.exception("Unexpected animation worker failure")
+
+            with self._anim_condition:
+                if generation == self._anim_generation:
+                    self._anim_is_running = False
+
+                self._anim_condition.notify_all()
+
+        finally:
+            with self._anim_condition:
+                if self._anim_worker is threading.current_thread():
+                    self._anim_worker = None
+
+                # A newer playback session may have started while this worker
+                # was still exiting; launch its decoder after this one exits.
+                restart = self._anim_is_running and not self._anim_is_paused and generation != self._anim_generation
+                self._anim_condition.notify_all()
+
+            if restart:
+                self._ensure_animation_worker()
+
+
+class UIImage(AnimationMixin, UICanvasWidget, CTkBaseClass):
+    def __init__(
+        self,
+        master: Union[UIWindow, 'UIFrame'],
+        canvas=None,
+        image_path: Optional[Union[Path, Image]] = None,
+        x: int = 0,
+        y: int = 0,
+        width: int = 64,
+        height: int = 64,
+        anchor: str = 'center',
+        opacity: float = 1,
+        brightness: float = 1,
+        fg_color: Optional[Union[str, Tuple[str, str]]] = None,
+        border_radius: int = 0,
+        border_width: int = 0,
+        border_color: Optional[Union[str, Tuple[str, str]]] = None,
+        bg_opacity = 0,
+        padx = None,
+        pady = None,
+        anim_start_delay: int = 0,
+        **kwargs
+    ):
         self.master = master
         self.canvas = canvas or master.canvas
         CTkBaseClass.__init__(self, master=master)
@@ -198,8 +597,12 @@ class UIImage(UICanvasWidget, CTkBaseClass):
         self.image_tag = None
 
         # self._supported_extensions = ['.mp4', '.mkv', '.avi', '.gif', '.webp', '.jpeg', '.png', '.jpg']
-        self._supported_extensions = ['.webp', '.jpeg', '.png', '.jpg']
+        self._supported_extensions = ['.webp', '.jpeg', '.png', '.jpg', '.gif', '.avif', '.apng']
 
+        self._init_animation()
+        self._anim_start_delay = anim_start_delay
+        self._anim_track_fps = False
+        
         # self._video = None
         # self._video_fps = None
         # self._video_frame_time = None
@@ -216,6 +619,9 @@ class UIImage(UICanvasWidget, CTkBaseClass):
         self.bg_opacity = None
         self.padx = None
         self.pady = None
+        self.secondary_fill_color = None
+        self.split = None
+        self.split_direction = None
 
         self.configure(image_path=image_path, x=x, y=y, width=width, height=height, anchor=anchor,
                        opacity=opacity, brightness=brightness, fg_color=fg_color, border_radius=border_radius,
@@ -224,13 +630,26 @@ class UIImage(UICanvasWidget, CTkBaseClass):
         self._apply_theme()
 
     def configure(self, **kwargs):
-        if self._update_attrs(['fg_color', 'border_radius', 'border_width', 'border_color', 'bg_opacity', 'padx', 'pady'], kwargs) or any(x in kwargs for x in ['width', 'height', 'image_path']):
+        if self._update_attrs(['fg_color', 'border_radius', 'border_width', 'border_color', 'bg_opacity', 'padx', 'pady', 'secondary_fill_color', 'split', 'split_direction'], kwargs) or any(x in kwargs for x in ['width', 'height', 'image_path']):
             if self.fg_color or self.border_radius:
                 image_path = kwargs.get('image_path', self.image_path)
                 width = kwargs.get('width', self._width)
                 height = kwargs.get('height', self._height)
-
-                new_image = self.create_rectangle(width, height, self.fg_color, self.border_radius, self.border_width, self.border_color, self.bg_opacity, self.padx, self.pady)
+                new_image = self.create_rectangle(
+                    width=width,
+                    height=height,
+                    fill_color=self.fg_color,
+                    radius=self.border_radius,
+                    border_width=self.border_width,
+                    border_color=self.border_color,
+                    bg_opacity=self.bg_opacity,
+                    padx=self.padx,
+                    pady=self.pady,
+                    # scale=4,
+                    secondary_fill_color=self.secondary_fill_color,
+                    split=self.split,
+                    split_direction=self.split_direction,
+                )
                 width, height = new_image.width, new_image.height
                 if image_path is not None:
                     image_path = self.compose_image_centered(image_path, new_image)
@@ -241,6 +660,8 @@ class UIImage(UICanvasWidget, CTkBaseClass):
                 kwargs['height'] = height
 
         if self._update_attrs(['image_path'], kwargs):
+            self.stop_animation()
+
             if isinstance(self.image_path, Image.Image):
                 self._image = self.image_path
                 self.image_path = None
@@ -278,17 +699,25 @@ class UIImage(UICanvasWidget, CTkBaseClass):
                 self._image = Image.open(str(path))
 
         if self._update_attrs(['width', 'height', 'opacity', 'brightness'], kwargs):
-            self.image = self.create_image(self._image, self._width, self._height, self.opacity, self.brightness)
+
+            self.image = ImageTk.PhotoImage(self._prepare_image(self._image))
+
             if self.image_tag is None:
                 self._update_attrs(['x', 'y', 'anchor'], kwargs)
                 self.image_tag = self.canvas.create_image(self._x, self._y, anchor=self._anchor, **kwargs)
+
             self.set_image(self.image)
+
+            is_animated = getattr(self._image, "is_animated", False) and getattr(self._image, "n_frames", 1) > 1
+            if is_animated and self._anim_start_delay >= 0:
+                self.after(self._anim_start_delay, self.start_animation)
 
         if self._update_attrs(['x', 'y'], kwargs):
             self.move(self._x, self._y)
 
         if self._update_attrs(['anchor'], kwargs):
             self.canvas.itemconfigure(self.image_tag, anchor=self._anchor)
+
 
     # def _buffer_frame(self):
     #     if not self._video_rendering_active:
@@ -409,28 +838,65 @@ class UIImage(UICanvasWidget, CTkBaseClass):
             return int(x)
         return sum(x)
 
-    def create_rectangle(self, width, height, fill_color, radius, border_width, border_color, bg_opacity=0, padx=None, pady=None, scale=4):
+    def create_rectangle(
+        self,
+        width,
+        height,
+        fill_color,
+        radius,
+        border_width,
+        border_color,
+        bg_opacity=0,
+        padx=None,
+        pady=None,
+        scale=4,
+        secondary_fill_color=None,
+        split=0.5,
+        split_direction="vertical",
+    ):
         bg_image = None
         if padx or pady:
             padded_width = width + self.get_pad_sum(padx) * 2
             padded_height = height + self.get_pad_sum(pady) * 2
             bg_opacity = max(0.0, min(1.0, bg_opacity))
-            bg_opacity_int = int(bg_opacity * 255)
-            bg_image = Image.new("RGBA", (padded_width, padded_height), (0, 0, 0, bg_opacity_int))
+            bg_image = Image.new("RGBA", (padded_width, padded_height),(0, 0, 0, int(bg_opacity * 255)))
 
-        image = Image.new('RGBA', (width*scale, height*scale), (0, 0, 0, 0))
+        image = Image.new("RGBA", (width * scale, height * scale), (0, 0, 0, 0))
         border_width *= scale
+
         draw = ImageDraw.Draw(image)
-        draw.rounded_rectangle(
-            [
-                (border_width // 2, border_width // 2),
-                (width*scale - border_width // 2 - 1, height*scale - border_width // 2 - 1)
-            ],
-            radius=radius*scale,
-            outline=border_color,
-            width=border_width,
-            fill=fill_color  # None makes the inside transparent
-        )
+        box = [
+            (border_width // 2, border_width // 2),
+            (width * scale - border_width // 2 - 1,
+             height * scale - border_width // 2 - 1)
+        ]
+
+        if secondary_fill_color is None:
+            fill_color_2 = fill_color
+        else:
+            fill_color_2 = secondary_fill_color
+
+        draw.rounded_rectangle(box, radius=radius * scale, fill=fill_color_2)
+
+        if split and secondary_fill_color is not None:
+            split = max(0.0, min(1.0, split))
+            if split_direction == "vertical":
+                split_pos = int(width * scale * split)
+                draw.rectangle((0, 0, split_pos, height * scale), fill=fill_color)
+            elif split_direction == "horizontal":
+                split_pos = int(height * scale * split)
+                draw.rectangle((0, 0, width * scale, split_pos), fill=fill_color)
+            else:
+                raise ValueError("split_direction must be 'vertical' or 'horizontal'")
+
+            # Restore rounded corners after the rectangular split.
+            mask = Image.new("L", image.size, 0)
+            ImageDraw.Draw(mask).rounded_rectangle(box, radius=radius * scale, fill=255)
+            image.putalpha(mask)
+
+        if border_width:
+            draw = ImageDraw.Draw(image)
+            draw.rounded_rectangle(box, radius=radius * scale, outline=border_color, width=border_width)
 
         if scale != 1:
             image = image.resize((width, height), Image.LANCZOS)
@@ -449,27 +915,58 @@ class UIImage(UICanvasWidget, CTkBaseClass):
         bg.alpha_composite(fg, (x, y))
         return bg
 
-    def create_image(self, image: Image.Image, width, height, opacity: float, brightness: float):
-        # Modify opacity and/or brightness
-        if opacity != 1 or brightness != 1:
-            channels = image.split()
-            output = []
-            for channel_id, channel in enumerate(channels):
-                # RGB
-                if channel_id <= 2 and brightness != 1:
-                    channel = channel.point(lambda p: p * brightness)
-                # Alpha
-                elif channel_id == 3 and opacity != 1:
-                    channel = channel.point(lambda p: p * opacity)
-                output.append(channel)
-            image = Image.merge(image.mode, output)
-        # Modify size and/or brightness
-        width = int(self._apply_widget_scaling(width))
-        height = int(self._apply_widget_scaling(height))
-        if image.width != width or image.height != height:
-            image = image.resize((width, height))
+    def _prepare_image(self, image: Image.Image) -> Image.Image:
+        """Modify image size, opacity and/or brightness."""
+        image = image.convert("RGBA")
 
-        return ImageTk.PhotoImage(image)
+        if self.opacity != 1 or self.brightness != 1:
+            red, green, blue, alpha = image.split()
+
+            if self.brightness != 1:
+                def adjust_brightness(value):
+                    return max(0, min(255, int(value * self.brightness)))
+
+                red = red.point(adjust_brightness)
+                green = green.point(adjust_brightness)
+                blue = blue.point(adjust_brightness)
+
+            if self.opacity != 1:
+                def adjust_opacity(value):
+                    return max(0, min(255, int(value * self.opacity)))
+
+                alpha = alpha.point(adjust_opacity)
+
+            image = Image.merge("RGBA", (red, green, blue, alpha))
+
+        width = max(1, int(self._apply_widget_scaling(self._width)))
+        height = max(1, int(self._apply_widget_scaling(self._height)))
+
+        if image.size != (width, height):
+            image = image.resize((width, height), Image.Resampling.LANCZOS)
+
+        return image
+
+    def _get_animation_source(self) -> Image.Image | None:
+        """Expose the Pillow source used by the animation engine."""
+        return self._image
+
+    def _prepare_animation_frame(self, frame: Image.Image) -> Image.Image:
+        """Apply this widget's visual settings to a decoded animation frame."""
+        return self._prepare_image(frame)
+
+    def _display_animation_frame(self, frame_data: tuple) -> None:
+        """Render a prepared animation frame on the Tk thread."""
+        index, prepared, _duration = frame_data
+
+        photo = ImageTk.PhotoImage(prepared)
+        self.image = photo
+        self.set_image(photo)
+
+        self._anim_index = (index + 1) % self._image.n_frames
+
+        with self._anim_condition:
+            self._anim_displayed_index = index
+            self._anim_condition.notify_all()
 
     def move(self, x, y):
         self._x = int(self._apply_widget_scaling(x))
@@ -478,8 +975,10 @@ class UIImage(UICanvasWidget, CTkBaseClass):
 
     def _show(self):
         self.canvas.itemconfigure(self.image_tag, state='normal')
+        self.resume_animation()
 
     def _hide(self):
+        self.pause_animation()
         self.canvas.itemconfigure(self.image_tag, state='hidden')
 
     def bind(self, *args, **kwargs):
@@ -489,11 +988,18 @@ class UIImage(UICanvasWidget, CTkBaseClass):
         self.canvas.tag_unbind(self.image_tag, *args, **kwargs)
 
     def destroy(self):
-        try:
-            self.canvas.delete(self.image_tag)
-        except:
-            pass
+        self.stop_animation()
+
+        if self.image_tag is not None:
+            try:
+                self.canvas.delete(self.image_tag)
+            except Exception:
+                pass
+            self.image_tag = None
+
         self.image = None
+        self._image = None
+
         super().destroy()
 
 
@@ -652,6 +1158,8 @@ class UIImageButton(UICanvasWidget, CTkBaseClass):
     def _handle_button_press(self, event):
         if self.disabled:
             return
+        if self.tooltip:
+            self.tooltip.hide()
         self.set_selected(True)
 
     def _handle_button_release(self, event):
@@ -821,6 +1329,44 @@ class UILabel(UIWidget, CTkLabel):
             self._canvas.configure(bg=self._apply_appearance_mode(self._bg_color))
 
 
+class ColorizedCTkImage(CTkImage):
+    def __init__(
+        self,
+        template: Image.Image,
+        color,
+    ):
+        self._template = template.convert("RGBA")
+        self._color = color
+
+        super().__init__(
+            light_image=self._colorize(color),
+            dark_image=self._colorize(color),
+        )
+
+    def _colorize(self, color):
+        image = Image.new("RGBA", self._template.size, color)
+        image.putalpha(self._template.getchannel("A"))
+        return image
+
+    def set_color(self, color):
+        self._color = color
+
+        light_image = self._colorize(color)
+        dark_image = self._colorize(color)
+
+        # Update CTkImage's source images without configure(),
+        # because configure() invalidates the PhotoImage cache.
+        self._light_image = light_image
+        self._dark_image = dark_image
+
+        # Update already-created PhotoImages in place.
+        for size, photo in self._scaled_light_photo_images.items():
+            photo.paste(light_image.resize(size))
+
+        for size, photo in self._scaled_dark_photo_images.items():
+            photo.paste(dark_image.resize(size))
+
+
 class UIButton(UIWidget, CTkButton):
     def __init__(self,
                  master: Union[UIWindow, 'UIFrame'],
@@ -828,6 +1374,8 @@ class UIButton(UIWidget, CTkButton):
                  select_color: Optional[Union[str, Tuple[str, str]]] = None,
                  text_color_hovered: Optional[Union[str, Tuple[str, str]]] = None,
                  text_color_selected: Optional[Union[str, Tuple[str, str]]] = None,
+                 fg_color_disabled: Optional[Union[str, Tuple[str, str]]] = None,
+                 border_color_disabled: Optional[Union[str, Tuple[str, str]]] = None,
                  auto_width: bool = False,
                  padx: int = 12,
                  **kwargs):
@@ -836,10 +1384,20 @@ class UIButton(UIWidget, CTkButton):
 
         self._auto_width = auto_width
         self._padx = padx
-        self.image: Optional[CTkImage] = None
+
+        self._image_template = None
+        self.image = None
+
         if image_path is not None:
             self._supported_extensions = ['.webp', '.jpeg', '.png', '.jpg']
-            self.image = CTkImage(Image.open(str(Config.get_resource_path(self, image_path, self._supported_extensions))))
+            path = Config.get_resource_path(self, image_path, self._supported_extensions )
+
+            self._image_template = Image.open(str(path)).convert("RGBA")
+
+            self.image = ColorizedCTkImage(
+                template=self._image_template,
+                color="#ffffff",
+            )
 
         self.is_hovered = False
         self.is_selected = False
@@ -847,6 +1405,8 @@ class UIButton(UIWidget, CTkButton):
         self._select_color: Union[str, Tuple[str, str]] = ThemeManager.theme["CTkButton"]["select_color"] if select_color is None else self._check_color_type(select_color)
         self._text_color_hovered: Union[str, Tuple[str, str]] = ThemeManager.theme["CTkButton"]["text_color_hovered"] if text_color_hovered is None else self._check_color_type(text_color_hovered)
         self._text_color_selected: Union[str, Tuple[str, str]] = ThemeManager.theme["CTkButton"]["text_color_selected"] if text_color_selected is None else self._check_color_type(text_color_selected)
+        self._fg_color_disabled = ThemeManager.theme["CTkButton"].get("fg_color_disabled", None) if fg_color_disabled is None else self._check_color_type(fg_color_disabled)
+        self._border_color_disabled = ThemeManager.theme["CTkButton"].get("border_color_disabled", None) if border_color_disabled is None else self._check_color_type(border_color_disabled)
 
         CTkButton.__init__(self, master, image=self.image, **kwargs)
 
@@ -857,6 +1417,15 @@ class UIButton(UIWidget, CTkButton):
 
         self.unbind('<Button-1>')
 
+    def tk_color_to_rgb(self, color):
+        r, g, b = self.winfo_rgb(color)
+
+        return (
+            r // 256,
+            g // 256,
+            b // 256,
+        )
+
     def configure(self, require_redraw=False, **kwargs):
         if 'select_color' in kwargs:
             self._select_color = self._check_color_type(kwargs.pop('select_color'))
@@ -866,6 +1435,12 @@ class UIButton(UIWidget, CTkButton):
             require_redraw = True
         if 'text_color_selected' in kwargs:
             self._text_color_selected = self._check_color_type(kwargs.pop('text_color_selected'))
+            require_redraw = True
+        if 'fg_color_disabled' in kwargs:
+            self._fg_color_disabled = self._check_color_type(kwargs.pop('fg_color_disabled'))
+            require_redraw = True
+        if 'border_color_disabled' in kwargs:
+            self._border_color_disabled = self._check_color_type(kwargs.pop('border_color_disabled'))
             require_redraw = True
 
         require_auto_width = False
@@ -887,13 +1462,46 @@ class UIButton(UIWidget, CTkButton):
         if require_auto_width:
             self._set_auto_width()
 
-    def _set_auto_width(self):
+    def get_text_width(self) -> int:
+        return round(self._text_label.winfo_reqwidth() / self._apply_widget_scaling(1)) if self._text_label else 0
+
+    def get_auto_width(self) -> int:
         scaling = self._apply_widget_scaling(1)
         offset = self._padx * 2
-        text_width = int(self._text_label.winfo_reqwidth() / scaling)
-        if scaling != 1:
+        if scaling != 1.0:
             offset += self._apply_widget_scaling(2)
-        self.configure(width=text_width + offset)
+        return self.get_text_width() + round(offset)
+
+    def _set_auto_width(self):
+        self.configure(width=self.get_text_width())
+
+    def _get_current_text_color(self):
+        if self._state == tkinter.DISABLED:
+            return self._text_color_disabled
+
+        if self.is_selected:
+            return self._text_color_selected
+
+        if self.is_hovered:
+            return self._text_color_hovered
+
+        return self._text_color
+
+    def _update_image_color(self):
+        if self.image is None:
+            return
+
+        color = self._get_current_text_color()
+
+        if color is None:
+            return
+
+        # Resolve ("light", "dark") correctly.
+        color = self._apply_appearance_mode(color)
+
+        self.image.set_color(self.tk_color_to_rgb(color))
+
+        self._image = self.image
 
     def _draw(self, no_color_updates=False):
         CTkBaseClass._draw(self, no_color_updates)
@@ -912,6 +1520,14 @@ class UIButton(UIWidget, CTkButton):
         else:
             self._canvas.delete("background_parts")
 
+        fg_color = self._fg_color
+        if self._state == tkinter.DISABLED and self._fg_color_disabled:
+            fg_color = self._fg_color_disabled
+
+        border_color = self._border_color
+        if self._state == tkinter.DISABLED and self._border_color_disabled:
+            border_color = self._border_color_disabled
+
         requires_recoloring = self._draw_engine.draw_rounded_rect_with_border(
             self._apply_widget_scaling(self._current_width),
             self._apply_widget_scaling(self._current_height),
@@ -920,22 +1536,26 @@ class UIButton(UIWidget, CTkButton):
 
         if no_color_updates is False or requires_recoloring:
 
+            self._update_image_color()
+
+            self._configure_button_cursors()
+
             self._canvas.configure(bg=self._apply_appearance_mode(self._bg_color))
 
             # set color for the button border parts (outline)
             self._canvas.itemconfig("border_parts",
-                                    outline=self._apply_appearance_mode(self._border_color),
-                                    fill=self._apply_appearance_mode(self._border_color))
+                                    outline=self._apply_appearance_mode(border_color),
+                                    fill=self._apply_appearance_mode(border_color))
 
             # set color for inner button parts
-            if self._fg_color == "transparent":
+            if fg_color == "transparent":
                 self._canvas.itemconfig("inner_parts",
                                         outline=self._apply_appearance_mode(self._bg_color),
                                         fill=self._apply_appearance_mode(self._bg_color))
             else:
                 self._canvas.itemconfig("inner_parts",
-                                        outline=self._apply_appearance_mode(self._fg_color),
-                                        fill=self._apply_appearance_mode(self._fg_color))
+                                        outline=self._apply_appearance_mode(fg_color),
+                                        fill=self._apply_appearance_mode(fg_color))
 
         # create text label if text given
         if self._text is not None and self._text != "":
@@ -957,20 +1577,12 @@ class UIButton(UIWidget, CTkButton):
 
             if no_color_updates is False:
                 # set text_label fg color (text color)
+                self._text_label.configure(fg=self._apply_appearance_mode(self._get_current_text_color()))
 
-                if self.is_selected:
-                    self._text_label.configure(fg=(self._apply_appearance_mode(self._text_color_selected)))
-                elif self.is_hovered:
-                    self._text_label.configure(fg=(self._apply_appearance_mode(self._text_color_hovered)))
-                elif self._state == tkinter.DISABLED:
-                    self._text_label.configure(fg=(self._apply_appearance_mode(self._text_color_disabled)))
-                else:
-                    self._text_label.configure(fg=self._apply_appearance_mode(self._text_color))
-
-                if self._apply_appearance_mode(self._fg_color) == "transparent":
+                if self._apply_appearance_mode(fg_color) == "transparent":
                     self._text_label.configure(bg=self._apply_appearance_mode(self._bg_color))
                 else:
-                    self._text_label.configure(bg=self._apply_appearance_mode(self._fg_color))
+                    self._text_label.configure(bg=self._apply_appearance_mode(fg_color))
 
         else:
             # delete text_label if no text given
@@ -994,10 +1606,10 @@ class UIButton(UIWidget, CTkButton):
 
             if no_color_updates is False:
                 # set image_label bg color (background color of label)
-                if self._apply_appearance_mode(self._fg_color) == "transparent":
+                if self._apply_appearance_mode(fg_color) == "transparent":
                     self._image_label.configure(bg=self._apply_appearance_mode(self._bg_color))
                 else:
-                    self._image_label.configure(bg=self._apply_appearance_mode(self._fg_color))
+                    self._image_label.configure(bg=self._apply_appearance_mode(fg_color))
 
         else:
             # delete text_label if no text given
@@ -1006,73 +1618,81 @@ class UIButton(UIWidget, CTkButton):
                 self._image_label = None
                 self._create_grid()
 
+    def _update_visual_state(self):
+        if self._state == tkinter.DISABLED:
+            return
+
+        if self.is_hovered:
+            text_color = self._text_color_hovered
+            inner_parts_color = self._fg_color if self._hover_color is None else self._hover_color
+
+        elif self.is_selected and not self._click_animation_running:
+            text_color = self._text_color_selected
+            inner_parts_color = self._select_color
+
+        else:
+            text_color = self._text_color
+            if self._fg_color == "transparent":
+                inner_parts_color = self._bg_color
+            else:
+                inner_parts_color = self._fg_color
+
+        text_color = self._apply_appearance_mode(text_color)
+        inner_parts_color = self._apply_appearance_mode(inner_parts_color)
+
+        self._canvas.itemconfig("inner_parts", outline=inner_parts_color, fill=inner_parts_color)
+
+        if self._text_label is not None:
+            self._text_label.configure(
+                fg=text_color,
+                bg=inner_parts_color
+            )
+
+        if self._image_label is not None:
+            self._image_label.configure(bg=inner_parts_color)
+
+        if self.image is not None:
+            self.image.set_color(self.tk_color_to_rgb(text_color))
+
     def _on_enter(self, event=None):
         self.is_hovered = True
 
-        if self.is_hovered:
-            self._text_label.configure(fg=(self._apply_appearance_mode(self._text_color_hovered)))
-        elif self._state == tkinter.DISABLED:
-            self._text_label.configure(fg=(self._apply_appearance_mode(self._text_color_disabled)))
+        if self._state == tkinter.DISABLED:
+            return
 
-        if self._hover is True and self._state == "normal" or self.is_selected:
-            if self.is_selected:
-                inner_parts_color = self._select_color
-                self._text_label.configure(fg=(self._apply_appearance_mode(self._text_color_selected)))
+        self._update_visual_state()
+
+    def _configure_button_cursors(self):
+        if not self._cursor_manipulation_enabled:
+            return
+
+        if self._state == tkinter.NORMAL and self._command is not None:
+            if sys.platform == "darwin":
+                cursor = "pointinghand"
+            elif sys.platform.startswith("win"):
+                cursor = "hand2"
             else:
-                if self._hover_color is None:
-                    inner_parts_color = self._fg_color
-                else:
-                    inner_parts_color = self._hover_color
+                cursor = "arrow"
+        else:
+            cursor = "arrow"
 
-                if self._state != tkinter.DISABLED:
-                    self._text_label.configure(fg=(self._apply_appearance_mode(self._text_color_hovered)))
-                else:
-                    self._text_label.configure(fg=(self._apply_appearance_mode(self._text_color_disabled)))
+        self._canvas.configure(cursor=cursor)
 
-            # set color of inner button parts to hover color
-            self._canvas.itemconfig("inner_parts",
-                                    outline=self._apply_appearance_mode(inner_parts_color),
-                                    fill=self._apply_appearance_mode(inner_parts_color))
+        if self._text_label is not None:
+            self._text_label.configure(cursor=cursor)
 
-            # set text_label bg color to button hover color
-            if self._text_label is not None:
-                self._text_label.configure(bg=self._apply_appearance_mode(inner_parts_color))
-
-            # set image_label bg color to button hover color
-            if self._image_label is not None:
-                self._image_label.configure(bg=self._apply_appearance_mode(inner_parts_color))
-
-        self._set_cursor()
+        if self._image_label is not None:
+            self._image_label.configure(cursor=cursor)
 
     def _on_leave(self, event=None):
         self.is_hovered = False
 
-        self._click_animation_running = False
-
-        self._set_cursor()
-
-        if self.is_selected:
+        if self._state == tkinter.DISABLED:
             return
 
-        if self._fg_color == "transparent":
-            inner_parts_color = self._bg_color
-        else:
-            inner_parts_color = self._fg_color
+        self._click_animation_running = False
 
-        # set color of inner button parts
-        self._canvas.itemconfig("inner_parts",
-                                outline=self._apply_appearance_mode(inner_parts_color),
-                                fill=self._apply_appearance_mode(inner_parts_color))
-
-        # set text_label bg color (label color)
-        if self._text_label is not None:
-            self._text_label.configure(bg=self._apply_appearance_mode(inner_parts_color))
-
-        # set image_label bg color (image bg color)
-        if self._image_label is not None:
-            self._image_label.configure(bg=self._apply_appearance_mode(inner_parts_color))
-
-        self._text_label.configure(fg=(self._apply_appearance_mode(self._text_color)))
+        self._update_visual_state()
 
     def _clicked(self, event=None):
         if not self.is_hovered:
@@ -1085,26 +1705,9 @@ class UIButton(UIWidget, CTkButton):
             return
         super()._create_bindings(sequence)
 
-    def _set_cursor(self):
-        if self._cursor_manipulation_enabled:
-            if self._state == tkinter.DISABLED or not self.is_hovered:
-                if sys.platform == "darwin" and self._command is not None:
-                    self.configure(cursor="arrow")
-                elif sys.platform.startswith("win") and self._command is not None:
-                    self.configure(cursor="arrow")
-
-            elif self._state == tkinter.NORMAL:
-                if sys.platform == "darwin" and self._command is not None:
-                    self.configure(cursor="pointinghand")
-                elif sys.platform.startswith("win") and self._command is not None:
-                    self.configure(cursor="hand2")
-
     def set_selected(self, selected: bool = False):
         self.is_selected = selected
-        if selected:
-            self._on_enter()
-        else:
-            self._on_leave()
+        self._update_visual_state()
 
 
 class UIRadioButton(UIWidget, CTkRadioButton):
@@ -1134,7 +1737,12 @@ class UIEntry(CTkEntry, UIWidget):
     def __init__(self,
                  master: Union[UIWindow, 'UIFrame'],
                  input_filter: Optional[str] = None,
+                 fg_color_disabled: Optional[Union[str, Tuple[str, str]]] = None,
+                 border_color_disabled: Optional[Union[str, Tuple[str, str]]] = None,
+                 text_color_disabled: Optional[Union[str, Tuple[str, str]]] = None,
                  **kwargs):
+
+        self._entry_right_offset = 0
 
         UIWidget.__init__(self, master, **kwargs)
 
@@ -1143,9 +1751,9 @@ class UIEntry(CTkEntry, UIWidget):
         if self._input_filter is not None:
             self.setup_input_filter(master, kwargs)
 
-        self._fg_color_disabled = ThemeManager.theme["CTkEntry"].get("fg_color_disabled", None)
-        self._border_color_disabled = ThemeManager.theme["CTkEntry"].get("border_color_disabled", None)
-        self._text_color_disabled = ThemeManager.theme["CTkEntry"].get("text_color_disabled", None)
+        self._fg_color_disabled = ThemeManager.theme["CTkEntry"].get("fg_color_disabled", None) if fg_color_disabled is None else self._check_color_type(fg_color_disabled)
+        self._border_color_disabled = ThemeManager.theme["CTkEntry"].get("border_color_disabled", None) if border_color_disabled is None else self._check_color_type(border_color_disabled)
+        self._text_color_disabled = ThemeManager.theme["CTkEntry"].get("text_color_disabled", None) if text_color_disabled is None else self._check_color_type(text_color_disabled)
 
         CTkEntry.__init__(self, master, **kwargs)
 
@@ -1233,6 +1841,16 @@ class UIEntry(CTkEntry, UIWidget):
 
     def configure(self, require_redraw=False, **kwargs):
         if "state" in kwargs:
+            require_redraw = True
+
+        if 'fg_color_disabled' in kwargs:
+            self._fg_color_disabled = self._check_color_type(kwargs.pop('fg_color_disabled'))
+            require_redraw = True
+        if 'border_color_disabled' in kwargs:
+            self._border_color_disabled = self._check_color_type(kwargs.pop('border_color_disabled'))
+            require_redraw = True
+        if 'text_color_disabled' in kwargs:
+            self._text_color_disabled = self._check_color_type(kwargs.pop('text_color_disabled'))
             require_redraw = True
 
         font = kwargs.get('font', None)
@@ -1410,6 +2028,26 @@ class UIEntry(CTkEntry, UIWidget):
             self.context_menu.entryconfigure('Copy', command=lambda: self.event_generate('<<Copy>>'))
             self.context_menu.entryconfigure('Paste', command=lambda: self.event_generate('<<Paste>>'))
 
+    def set_right_offset(self, right_offset: int):
+        self._entry_right_offset = right_offset
+        self._create_grid()
+
+    def _create_grid(self):
+        self._canvas.grid(column=0, row=0, sticky="nswe")
+
+        if self._corner_radius >= self._minimum_x_padding:
+            pad_x = min(self._apply_widget_scaling(self._corner_radius), round(self._apply_widget_scaling(self._current_height / 2)))
+            self._entry.grid(column=0, row=0, sticky="nswe",
+                             padx=(pad_x, pad_x + round(self._apply_widget_scaling(self._entry_right_offset))),
+                             pady=(self._apply_widget_scaling(self._border_width),
+                                   self._apply_widget_scaling(self._border_width + 1)))
+        else:
+            pad_x = self._apply_widget_scaling(self._minimum_x_padding)
+            self._entry.grid(column=0, row=0, sticky="nswe",
+                             padx=(pad_x, pad_x + round(self._apply_widget_scaling(self._entry_right_offset))),
+                             pady=(self._apply_widget_scaling(self._border_width),
+                                   self._apply_widget_scaling(self._border_width + 1)))
+
 
 class UICheckbox(CTkCheckBox, UIWidget):
     def __init__(self,
@@ -1420,6 +2058,7 @@ class UICheckbox(CTkCheckBox, UIWidget):
         self._fg_color_disabled = ThemeManager.theme["CTkCheckBox"].get("fg_color_disabled", None)
         self._checkmark_color_disabled = ThemeManager.theme["CTkCheckBox"].get("checkmark_color_disabled", None)
         self._border_color_disabled = ThemeManager.theme["CTkCheckBox"].get("border_color_disabled", None)
+        self._text_color_checked = ThemeManager.theme["CTkCheckBox"].get("text_color_checked", None)
 
         self.is_hovered = False
 
@@ -1480,20 +2119,30 @@ class UICheckbox(CTkCheckBox, UIWidget):
                                         outline=self._apply_appearance_mode(self._bg_color),
                                         fill=self._apply_appearance_mode(self._bg_color))
 
-            if self._state == tkinter.DISABLED:
-                border_color = self._border_color_disabled
-            else:
-                border_color = self._border_color
-            self._canvas.itemconfig("border_parts",
-                                    outline=self._apply_appearance_mode(border_color),
-                                    fill=self._apply_appearance_mode(border_color))
-
-            if self._state == tkinter.DISABLED:
-                self._text_label.configure(fg=(self._apply_appearance_mode(self._text_color_disabled)))
-            else:
-                self._text_label.configure(fg=self._apply_appearance_mode(self._text_color))
-
             self._text_label.configure(bg=self._apply_appearance_mode(self._bg_color))
+
+            self._update_visual_state()
+
+    def _update_visual_state(self):
+        if self._state == tkinter.DISABLED:
+            text_color = self._text_color_disabled
+        elif self.is_hovered and self._text_color_hovered:
+            text_color = self._text_color_hovered
+        elif self._check_state and self._text_color_checked:
+            text_color = self._text_color_checked
+        else:
+            text_color = self._text_color
+
+        if self._state == tkinter.DISABLED:
+            border_color = self._border_color_disabled
+        else:
+            border_color = self._border_color
+
+        text_color = self._apply_appearance_mode(text_color)
+        border_color = self._apply_appearance_mode(border_color)
+
+        self._text_label.configure(fg=text_color)
+        self._canvas.itemconfig("border_parts", outline=border_color, fill=border_color)
 
     def set(self, value):
         if value == self._onvalue:
@@ -1509,6 +2158,9 @@ class UICheckbox(CTkCheckBox, UIWidget):
         if 'text_color_hovered' in kwargs:
             self._text_color_hovered = self._check_color_type(kwargs.pop('text_color_hovered'))
             require_redraw = True
+        if 'text_color_checked' in kwargs:
+            self._text_color_checked = self._check_color_type(kwargs.pop('text_color_checked'))
+            require_redraw = True
 
         font = kwargs.get('font', None)
         if font is not None:
@@ -1522,10 +2174,7 @@ class UICheckbox(CTkCheckBox, UIWidget):
         if self._state == tkinter.DISABLED:
             return
         super()._on_enter(event)
-        self._text_label.configure(fg=self._apply_appearance_mode(self._text_color_hovered))
-        self._canvas.itemconfig("border_parts",
-                                outline=self._apply_appearance_mode(self._border_color),
-                                fill=self._apply_appearance_mode(self._border_color))
+        self._update_visual_state()
 
     def _on_leave(self, event=None):
         self.is_hovered = False
@@ -1533,10 +2182,7 @@ class UICheckbox(CTkCheckBox, UIWidget):
         if self._state == tkinter.DISABLED:
             return
         super()._on_leave(event)
-        self._text_label.configure(fg=self._apply_appearance_mode(self._text_color))
-        self._canvas.itemconfig("border_parts",
-                                outline=self._apply_appearance_mode(self._border_color),
-                                fill=self._apply_appearance_mode(self._border_color))
+        self._update_visual_state()
 
     def toggle(self, event=0):
         if not self.is_hovered:
@@ -1551,7 +2197,7 @@ class UICheckbox(CTkCheckBox, UIWidget):
 
     def _set_cursor(self):
         if self._cursor_manipulation_enabled:
-            if not self.is_hovered:
+            if not self.is_hovered or self._state == tkinter.DISABLED:
                 if sys.platform == "darwin":
                     self._canvas.configure(cursor="arrow")
                     if self._text_label is not None:
@@ -1732,6 +2378,20 @@ class UIOptionMenu(CTkOptionMenu, UIWidget):
 
     def _dropdown_callback(self, value: str):
         super()._dropdown_callback(value)
+
+    def destroy(self):
+        dropdown = getattr(self, '_dropdown_menu', None)
+
+        if dropdown is not None:
+            # Remove it from CustomTkinter's scaling callbacks.
+            CTkScalingBaseClass.destroy(dropdown)
+
+            # Destroy the actual Tk Menu.
+            dropdown.destroy()
+
+            self._dropdown_menu = None
+
+        super().destroy()
 
 
 class UITextbox(CTkTextbox, UIWidget):

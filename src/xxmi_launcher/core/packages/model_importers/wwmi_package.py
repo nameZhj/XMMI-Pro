@@ -1,11 +1,10 @@
-import re
 import os
 import json
 import sqlite3
 import logging
 
 from dataclasses import dataclass, field
-from typing import Dict, Union, Optional, Tuple, List
+from typing import Any
 from pathlib import Path
 
 import core.path_manager as Paths
@@ -16,25 +15,31 @@ from core.locale_manager import L
 from core.package_manager import PackageMetadata
 
 from core.utils.ini_handler import IniHandler, IniHandlerSettings
+from core.config.enums import InjectMode, GameLaunch, WuWaResourceTier
 from core.packages.model_importers.model_importer import ModelImporterPackage, ModelImporterConfig, Version
 from core.packages.migoto_package import MigotoManagerConfig
+from core.platforms.game import Game
+from core.utils.process_manager import LaunchContext
 
 log = logging.getLogger(__name__)
 
 
 @dataclass
 class WWMIConfig(ModelImporterConfig):
-    game_exe_names: List[str] = field(default_factory=lambda: ['Wuthering Waves.exe'])
-    process_exe_names: List[str] = field(default_factory=lambda: ['Client-Win64-Shipping.exe'])
-    game_folder_names: List[str] = field(default_factory=lambda: ['Wuthering Waves Game'])
-    game_folder_children: List[str] = field(default_factory=lambda: ['Client', 'Data'])
+    game: Game = Game.WUTHERING_WAVES
+    game_exe_names: list[str] = field(default_factory=lambda: ['Wuthering Waves.exe'])
+    process_exe_names: list[str] = field(default_factory=lambda: ['Client-Win64-Shipping.exe'])
+    process_exe_rel_paths: list[str] = field(default_factory=lambda: ['Client/Binaries/Win64'])
+    game_folder_names: list[str] = field(default_factory=lambda: ['Wuthering Waves Game'])
+    game_folder_children: list[str] = field(default_factory=lambda: ['Client', 'Data'])
+    game_process_exe: str = "Client-Win64-Shipping.exe"
     importer_folder: str = 'WWMI/'
     use_launch_options: bool = False
     launch_options: str = '-SkipSplash'
+    d3d11_mode_cmd_args: str = "-dx11"
     xxmi_dll_init_delay: int = 500
-    d3dx_ini: Dict[
-        str, Dict[str, Dict[str, Union[str, int, float, Dict[str, Union[str, int, float]]]]]
-    ] = field(default_factory=lambda: {
+    xxmi_dll_inject_mode: InjectMode = InjectMode.DIRECT
+    d3dx_ini: dict[str, dict[str, dict[str, Any]]] = field(default_factory=lambda: {
         'core': {
             'Loader': {
                 'loader': 'XXMI Launcher.exe',
@@ -48,21 +53,6 @@ class WWMIConfig(ModelImporterConfig):
                 'allow_buffer_resize': 1,
             },
         },
-        'calls_logging': {
-            'Logging': {
-                'calls': {'on': 1, 'off': 0},
-            },
-        },
-        'debug_logging': {
-            'Logging': {
-                'debug': {'on': 1, 'off': 0},
-            },
-        },
-        'mute_warnings': {
-            'Logging': {
-                'show_warnings': {'on': 0, 'off': 1},
-            },
-        },
         'enable_hunting': {
             'Hunting': {
                 'hunting': {'on': 2, 'off': 0},
@@ -74,33 +64,13 @@ class WWMIConfig(ModelImporterConfig):
             },
         },
     })
-    apply_perf_tweaks: bool = False
     unlock_fps: bool = False
     force_max_lod_bias: bool = False
     disable_wounded_fx: bool = False
     disable_wounded_fx_warned: bool = False
-    perf_tweaks: Dict[str, Dict[str, Union[str, int, float]]] = field(default_factory=lambda: {
-        'SystemSettings': {
-            'r.Streaming.HLODStrategy': 2,
-            'r.Streaming.PoolSizeForMeshes': -1,
-            'r.XGEShaderCompile': 0,
-            'FX.BatchAsync': 1,
-            'FX.EarlyScheduleAsync': 1,
-            'fx.Niagara.ForceAutoPooling': 1,
-            'wp.Runtime.KuroRuntimeStreamingRangeOverallScale': 0.5,
-            'tick.AllowAsyncTickCleanup': 1,
-            'tick.AllowAsyncTickDispatch': 1,
-        }
-    })
     mesh_lod_distance_lod_base_fov: int = 165
-    mesh_lod_distance_scale: float = 1.0
-    mesh_lod_distance_offset: int = -10
-    texture_streaming_boost: float = 20.0
-    texture_streaming_min_boost: float = 0.0
-    texture_streaming_use_all_mips: bool = True
-    texture_streaming_pool_size: int = 0
-    texture_streaming_limit_to_vram: bool = True
-    texture_streaming_fixed_pool_size: bool = True
+    resource_tier: WuWaResourceTier = WuWaResourceTier.HD
+    resource_tier_warned: bool = False
 
 
 @dataclass
@@ -122,13 +92,12 @@ class WWMIPackage(ModelImporterPackage):
             github_repo_name='WWMI-Package',
             asset_version_pattern=r'.*(\d\.\d\.\d).*',
             asset_name_format='WWMI-PACKAGE-v%s.zip',
-            signature_pattern=r'^## Signature[\r\n]+- ((?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{4}|[A-Za-z0-9+\/]{3}=|[A-Za-z0-9+\/]{2}={2})$)',
+            signature_pattern=r'^## Signature[\r\n]+- ((?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{4}|[A-Za-z0-9+\/]{3}=|[A-Za-z0-9+\/]{2}={2}))\r?$',
             signature_public_key='MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEYac352uRGKZh6LOwK0fVDW/TpyECEfnRtUp+bP2PJPP63SWOkJ3a/d9pAnPfYezRVJ1hWjZtpRTT8HEAN/b4mWpJvqO43SAEV/1Q6vz9Rk/VvRV3jZ6B/tmqVnIeHKEb',
             exit_after_update=False,
             installation_path='WWMI/',
             requirements=['XXMI'],
         ))
-        self.use_hook: bool = False
 
     def get_installed_version(self):
         try:
@@ -146,18 +115,18 @@ class WWMIPackage(ModelImporterPackage):
         game_path_original = game_path
 
         for path in game_path.rglob('*.exe'):
-            if path.is_file() and path.name == 'Wuthering Waves.exe':
+            if path.name == 'Wuthering Waves.exe' and path.is_file():
                 return Path(path).parent
 
         for i in range(len(game_path.parents)):
             game_path = game_path.parent
             for path in game_path.iterdir():
-                if path.is_file() and path.name == 'Wuthering Waves.exe':
+                if path.name == 'Wuthering Waves.exe' and path.is_file():
                     return Path(path).parent
 
         raise ValueError(L('error_wuthering_waves_exe_not_found', 'Failed to normalize path {path}: Wuthering Waves.exe not found!').format(path=game_path_original))
 
-    def autodetect_game_folders(self) -> List[Path]:
+    def autodetect_game_folders(self) -> list[Path]:
         paths = self.reg_search_game_folders(Config.Active.Importer.process_exe_names)
 
         kuro_launcher_path = Path(os.getenv('APPDATA')) / 'KRLauncher'
@@ -218,37 +187,88 @@ class WWMIPackage(ModelImporterPackage):
                 raise ValueError(L('error_game_folder_missing_folder', 'Game folder must contain {dir_name} folder!').format(dir_name=dir_name))
         return game_path
 
-    def validate_game_exe_path(self, game_path: Path) -> Path:
-        for game_exe_name in Config.Active.Importer.process_exe_names:
-            game_exe_path = game_path / 'Client' / 'Binaries' / 'Win64' / game_exe_name
-            if game_exe_path.is_file():
-                return game_exe_path
-        raise ValueError(L('error_game_exe_not_found', 'Game executable {exe_name} not found!').format(
-            exe_name=' / '.join(Config.Active.Importer.game_exe_names)))
+    def override_launch_context(
+        self,
+        launch_context: LaunchContext,
+        game_path: Path | None,
+        game_exe_path: Path | None,
+    ) -> None:
+        if Config.Importers.WWMI.Importer.game_launch != GameLaunch.DIRECT:
+            return
 
-    def get_start_cmd(self, game_path: Path) -> Tuple[Path, List[str], Optional[str]]:
-        game_exe_path = self.validate_game_exe_path(game_path)
-        if Config.Importers.WWMI.Importer.use_launch_options:
-            # Start WW directly to support launch options customization
-            return game_exe_path, ['-dx11'], str(game_exe_path.parent)
+        if not Config.Importers.WWMI.Importer.use_launch_options or "krqlv" not in Config.Importers.WWMI.Importer.launch_options:
+            self.notify_resource_tier()
+            launch_context.target.cmd_args += f" -krqlv={Config.Importers.WWMI.Importer.resource_tier.name.lower()}"
+
+        if not Config.Importers.WWMI.Importer.use_launch_options:
+            # Start WW via wrapper exe (solves crashes for NVidia Optimus and some Steam version users).
+            launch_context.target.exe_path = game_path / "Wuthering Waves.exe"
+            launch_context.work_dir = game_path
         else:
-            # Start WW via wrapper exe (solves crashes for NVidia Optimus and some Steam version users)
-            return game_path / 'Wuthering Waves.exe', ['-dx11'], str(game_path)
+            # Start WW directly to support launch options customization
+            pass
 
-    def initialize_game_launch(self, game_path: Path):
-        # Configure LocalStorage.db
-        if any([Config.Importers.WWMI.Importer.configure_game, Config.Importers.WWMI.Importer.unlock_fps]):
-            self.configure_settings(game_path)
-        # Configure Engine.ini
-        self.update_engine_ini(game_path)
-        # Configure UserEngine.ini
-        self.update_user_engine_ini(game_path)
-        # Configure GameUserSettings.ini
+    @staticmethod
+    def notify_resource_tier():
+        if Config.Importers.WWMI.Importer.resource_tier_warned:
+            return
+
+        resource_tiers = {item: item.value for item in WuWaResourceTier}
+
+        (user_confirmed_resource_tier, resource_tier_id) = Events.Call(Events.Application.ShowWarning(
+            title=L('message_title_resource_tier_selection', "Select Resource Quality"),
+            message=L('message_text_resource_tier_selection', """
+                **{game}** requires **[Resource Quality]({page_link})** to be selected to avoid game crash on loading.
+                
+                For **Steam** and **Epic Games** installations select **{default_tier}**.
+                
+                For **official launcher** installation select **any actually downloaded** tier (default is usually **{default_tier}**):
+            
+                {radio_widget}
+                
+                You can also change it later with **{general_settings_wuwa_resource_tier_label}** in **General Settings**.
+            """).format(
+                game=Config.Importers.WWMI.Importer.game.value,
+                page_link=r"https://wutheringwaves.kurogames.com/en/main/news/detail/5513",
+                default_tier=WuWaResourceTier.HD.value,
+            ),
+            confirm_text=L('message_button_confirm', 'Confirm'),
+            cancel_text=L('message_button_open_settings', 'Open Settings'),
+            radio_options=list(resource_tiers.values()),
+            selected_id=1,
+            modal=True,
+        ))
+
+        if user_confirmed_resource_tier is not None:
+            Config.Importers.WWMI.Importer.resource_tier_warned = True
+
+            if user_confirmed_resource_tier is True:
+                Config.Importers.WWMI.Importer.resource_tier = list(resource_tiers.keys())[resource_tier_id]
+
+    def configure_game_settings(self, game_path: Path | None, game_exe_path: Path | None):
+        # Auto-config below requires reliably detectable installation location.
+        if Config.Importers.WWMI.Importer.game_launch not in [GameLaunch.DIRECT, GameLaunch.STEAM, GameLaunch.EPIC_GAMES]:
+            return
+        if not game_path:
+            return
+
+        # Configure GameUserSettings.ini.
         if Config.Importers.WWMI.Importer.unlock_fps:
             self.update_game_user_settings_ini(game_path)
-        # Prevent further configuration if WWMI isn't going to be used
+
+        # Configure LocalStorage.db.
+        if Config.Importers.WWMI.Importer.configure_game or Config.Importers.WWMI.Importer.unlock_fps:
+            self.configure_settings(game_path)
+
+        # Prevent further configuration if WWMI isn't going to be used.
         if not Config.Active.Importer.is_xxmi_dll_used():
             return
+
+        # Configure Engine.ini.
+        self.update_engine_ini(game_path)
+
+        # Configure UserEngine.ini.
+        self.update_user_engine_ini(game_path)
 
     def configure_settings(self, game_path: Path):
         Events.Fire(Events.Application.StatusUpdate(status=L('status_configuring_settings', 'Configuring in-game settings...')))
@@ -351,13 +371,6 @@ class WWMIPackage(ModelImporterPackage):
 
         ini.remove_option('r.Kuro.SkeletalMesh.DistanceLODBaseFOV', section_name='ConsoleVariables')
 
-        for section_name, section_data in Config.Importers.WWMI.Importer.perf_tweaks.items():
-            for option_name, option_value in section_data.items():
-                if Config.Importers.WWMI.Importer.apply_perf_tweaks:
-                    ini.set_option(section_name, option_name, option_value)
-                else:
-                    ini.remove_option(option_name, section_name=section_name)
-
         if ini.is_modified():
             Paths.App.write_file(engine_ini_path, ini.to_string())
 
@@ -380,25 +393,6 @@ class WWMIPackage(ModelImporterPackage):
         console_variables_options = {
             # Controls minimal camera FOV value when engine switches character LOD0 mesh to LOD1+.
             'r.Kuro.SkeletalMesh.DistanceLODBaseFOV': Config.Importers.WWMI.Importer.mesh_lod_distance_lod_base_fov,
-            # 'r.Kuro.SkeletalMesh.DistanceLODFOV': Config.Importers.WWMI.Importer.mesh_lod_distance_lod_base_fov,
-            # Controls how far game starts to replace weighted meshes with LoDs
-            'r.Kuro.SkeletalMesh.LODDistanceScaleDeviceOffset': Config.Importers.WWMI.Importer.mesh_lod_distance_offset,
-            # Controls how aggressively higher resolution textures are pushed to VRAM
-            # Mods contain texture hashes only for original model and won't apply to LoDs
-            'r.Streaming.Boost': Config.Importers.WWMI.Importer.texture_streaming_boost,
-            # Controls the minimal texture boost floor value
-            'r.Streaming.MinBoost': Config.Importers.WWMI.Importer.texture_streaming_min_boost,
-            # Controls whether texture resolution limits imposed by LOD Bias are applied
-            'r.Streaming.UseAllMips': int(Config.Importers.WWMI.Importer.texture_streaming_use_all_mips),
-            # Controls amount of VRAM used for textures streaming
-            # When set to 0, tends to keep full resolution textures in VRAM, so LoDs don't break mods
-            'r.Streaming.PoolSize': Config.Importers.WWMI.Importer.texture_streaming_pool_size,
-            # Prevents pool size from exceeding VRAM
-            # Doesn't explicitly affect mods, but acts as failsafe for low and mid-range GPUs for PoolSize=0
-            'r.Streaming.LimitPoolSizeToVRAM': int(Config.Importers.WWMI.Importer.texture_streaming_limit_to_vram),
-            # Controls whether pool size can grow/shrink automatically or is locked to a fixed value
-            # When enabled, minimizes mip levels pop in/out at cost of pool size being locked after game start
-            'r.Streaming.UseFixedPoolSize': int(Config.Importers.WWMI.Importer.texture_streaming_fixed_pool_size),
         }
         log.debug(f'Using console variables: {console_variables_options}')
 
@@ -437,7 +431,7 @@ class WWMIPackage(ModelImporterPackage):
 class SettingsManager:
     def __init__(self, game_path: Path):
         self.path = game_path / 'Client' / 'Saved' / 'LocalStorage'
-        self.db: Optional[LocalStorage] = None
+        self.db: LocalStorage | None = None
 
     def __enter__(self):
         Paths.verify_path(self.path)
@@ -465,10 +459,10 @@ class SettingsManager:
     def __exit__(self, exception_type, exception_value, exception_traceback):
         self.db.save()
 
-    def get_setting(self, key: str) -> Union[str, None]:
+    def get_setting(self, key: str) -> str | None:
         return self.db.get_value(key)
 
-    def set_setting(self, key: str, value: Union[int, float, str], lock: bool = False):
+    def set_setting(self, key: str, value: int | float | str, lock: bool = False):
         value = str(value)
         self.db.set_value(key, value)
         if lock:
@@ -636,7 +630,7 @@ class LocalStorage:
         self.disconnect()
         log.debug(f'[{self.path.name}]: File updated')
 
-    def get_value(self, key) -> Union[str, None]:
+    def get_value(self, key) -> str | None:
         result = self.cursor.execute(f"SELECT value FROM LocalStorage WHERE key='{key}'")
         data = result.fetchone()
         if data is None or len(data) != 1:
@@ -664,7 +658,7 @@ class LocalStorage:
         log.debug(f'[{self.path.name}]: Removed {key} value')
         self.modified = True
 
-    def get_trigger(self, name) -> Union[SQLiteTrigger, None]:
+    def get_trigger(self, name) -> SQLiteTrigger | None:
         result = self.cursor.execute(f"SELECT * FROM sqlite_master WHERE type='trigger' AND name='{name}'")
         data = result.fetchone()
         if data is None:
@@ -672,7 +666,7 @@ class LocalStorage:
         else:
             return SQLiteTrigger(name=data[1], table=data[2], body=data[4])
 
-    def get_all_triggers(self) -> Union[List[SQLiteTrigger], None]:
+    def get_all_triggers(self) -> list[SQLiteTrigger] | None:
         result = self.cursor.execute(f"SELECT * FROM sqlite_master WHERE type='trigger'")
         data = result.fetchmany()
         if data is None:

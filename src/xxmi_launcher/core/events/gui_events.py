@@ -1,12 +1,6 @@
-
 from dataclasses import dataclass
-from enum import Enum, auto
 
-
-class Stage(Enum):
-    Ready = auto()
-    Busy = auto()
-    Download = auto()
+from gui.enums import Stage
 
 
 @dataclass
@@ -42,3 +36,11 @@ class GUIEvents:
     @dataclass
     class ReloadGUI:
         reload_theme: bool = False
+
+    @dataclass
+    class PauseAnimations:
+        pass
+
+    @dataclass
+    class ResumeAnimations:
+        pass

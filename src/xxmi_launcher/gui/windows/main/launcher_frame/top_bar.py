@@ -10,7 +10,7 @@ import gui.vars as Vars
 
 from core.locale_manager import L
 
-from gui.events import Stage
+from gui.enums import Stage
 from gui.classes.containers import UIFrame
 from gui.classes.widgets import UIText, UIImageButton
 
@@ -24,10 +24,7 @@ class TopBarFrame(UIFrame):
 
         self.set_background_image(image_path='background-image.png', width=1280, height=80, opacity=0.65)
 
-        self._offset_x = 0
-        self._offset_y = 0
         self.background_image.bind('<Button-1>', self._handle_button_press)
-        self.background_image.bind('<B1-Motion>', self._handle_mouse_move)
 
         for importer_id in Config.Importers.__dict__.keys():
             self.put(ImporterSelectButton(self, importer_id))
@@ -75,11 +72,7 @@ class TopBarFrame(UIFrame):
         return True
 
     def _handle_button_press(self, event):
-        self._offset_x = event.x
-        self._offset_y = event.y
-
-    def _handle_mouse_move(self, event):
-        Events.Fire(Events.Application.MoveWindow(offset_x=self._offset_x, offset_y=self._offset_y))
+        self.winfo_toplevel().begin_window_drag(event)
 
     def handle_toggle_importer(self, event):
         if event is not None:
@@ -179,7 +172,7 @@ class ImporterSelectButton(UIImageButton):
             self.move(x=self.master.get_importer_x(idx))
 
             if order_changed:
-                Config.Config.save()
+                Config.Manager.save()
                 Events.Fire(Events.Application.ConfigUpdate())
             return
 
@@ -379,12 +372,24 @@ class SettingsButton(ControlButton):
             button_disabled_opacity=0.25,
             bg_disabled_opacity=0,
             button_image_path='button-system-settings.png',
-            command=lambda: Events.Fire((Events.Application.OpenSettings())),
+            command=self.open_settings,
             master=master)
         self.stage = None
         self.set_tooltip(L('top_bar_settings_button_tooltip', 'Open Settings'), delay=0.1)
         self.subscribe(Events.Application.LoadImporter, self.handle_load_importer)
         self.subscribe(Events.GUI.LauncherFrame.StageUpdate, self.handle_stage_update)
+        self.subscribe(Events.Application.OpenSettings, self.handle_open_settings)
+        self.subscribe(Events.Application.CloseSettings, self.handle_close_settings)
+
+    def open_settings(self):
+        self.set_disabled(True)
+        Events.Fire(Events.Application.OpenSettings())
+
+    def handle_open_settings(self, event):
+        self.set_disabled(True)
+
+    def handle_close_settings(self, event):
+        self.set_disabled(False)
 
     def handle_load_importer(self, event):
         self.set_disabled(self.stage != Stage.Ready or event.importer_id == 'XXMI')
@@ -418,25 +423,36 @@ class CloseButton(ControlButton):
 
 class UnsafeModeText(UIText):
     def __init__(self, master):
-        super().__init__(x=640,
-                         y=25,
-                         text=L('top_bar_unsafe_mode_text', 'Unsafe Mode'),
-                         font=('Asap', 20),
-                         fill='#ff2929',
-                         activefill='#ff4040',
-                         anchor='n',
-                         master=master)
-        self.subscribe_show(
-            Events.GUI.LauncherFrame.StageUpdate,
-            lambda event: event.stage == Stage.Ready)
-        self.subscribe(
-            Events.Application.ConfigUpdate,
-            self.handle_config_update)
+        super().__init__(
+            x=640,
+            y=25,
+            text=L('top_bar_unsafe_mode_text', 'Unsafe Mode'),
+            font=('Asap', 20),
+            fill='#ff2929',
+            activefill='#ff4040',
+            anchor='n',
+            master=master
+        )
+
+        self.subscribe(Events.Application.ConfigUpdate, self.handle_config_update)
+
         self.set_tooltip(L('top_bar_unsafe_mode_text_tooltip', """
             Usage of 3-rd party 3dmigoto DLLs is allowed.
             Make sure to use ones only from a trusted source!
-        """))
+        """)
+         + "\n\n"
+         + (
+             '<font color="#666666">'
+             f"{L("settings_title", "Settings")} › "
+             f"{L("settings_tab_advanced", "Advanced")} › "
+             f"{L("advanced_settings_custom_libraries_section_label", "Custom Libraries")} › "
+             f"{L("advanced_settings_unsafe_mode_checkbox", "Unsafe Mode")}"
+             "</font>"
+         ))
 
     def handle_config_update(self, event=None):
-        self.enabled = Config.Launcher.active_importer != 'XXMI' and Config.Active.Migoto.unsafe_mode
-        self.show()
+        try:
+            self.enabled = Config.Launcher.active_importer != 'XXMI' and Config.Active.Migoto.unsafe_mode
+            self.show()
+        except Exception:
+            pass

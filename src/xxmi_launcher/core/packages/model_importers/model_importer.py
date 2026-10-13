@@ -4,15 +4,13 @@ import sys
 import shutil
 import winreg
 import ctypes
-
 import winshell
 import pythoncom
 import re
-import time
 
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Union, Dict, List, Tuple
+from typing import Any
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -21,7 +19,10 @@ import core.event_manager as Events
 import core.config_manager as Config
 
 from core.locale_manager import L
+from core.platforms.game import Game
+from core.config.enums import GameLaunch, StartMethod, ProcessStartMethodLegacy, ProcessPriority, WindowMode, InjectMode, InjectModeLegacy, LogLevel
 from core.package_manager import Package, PackageMetadata
+from core.utils.process_manager import LaunchContext
 
 from core.mod_manager import ModManager
 from core.utils.ini_handler import IniHandler, IniHandlerSettings
@@ -36,57 +37,28 @@ class SettingType(Enum):
 
 
 @dataclass
-class ModelImporterEvents:
-
-    @dataclass
-    class Install:
-        pass
-
-    @dataclass
-    class StartGame:
-        pass
-
-    @dataclass
-    class ValidateGameFolder:
-        game_folder: str
-
-    @dataclass
-    class CreateShortcut:
-        pass
-
-    @dataclass
-    class DetectGameFolder:
-        pass
-
-    @dataclass
-    class OptimizeMods:
-        silent: bool = True
-        reset_cache: bool = False
-
-
-@dataclass
 class ModelImporterConfig:
-    game_exe_names: List[str] = field(default_factory=lambda: [])
-    game_folder_names: List[str] = field(default_factory=lambda: [])
-    game_folder_children: List[str] = field(default_factory=lambda: [])
+    game_exe_names: list[str] = field(default_factory=lambda: [])
+    process_exe_names: list[str] = field(default_factory=lambda: [])
+    process_exe_rel_paths: list[str] = field(default_factory=lambda: [])
+    game_folder_names: list[str] = field(default_factory=lambda: [])
+    game_folder_children: list[str] = field(default_factory=lambda: [])
     package_name: str = ''
     importer_folder: str = ''
     game_folder: str = ''
     use_launch_options: bool = True
     overwrite_ini: bool = True
-    process_start_method: str = 'Native'
-    process_priority: str = 'Normal'
+    process_priority: ProcessPriority = ProcessPriority.NORMAL
     process_timeout: int = 30
+    xxmi_dll_inject_mode: InjectMode = InjectMode.HOOK
     xxmi_dll_init_delay: int = 0
-    window_mode: str = 'Borderless'
+    window_mode: WindowMode = WindowMode.BORDERLESS
     run_pre_launch_enabled: bool = False
     run_pre_launch: str = ''
     run_pre_launch_signature: str = ''
     run_pre_launch_wait: bool = True
-    custom_launch_enabled: bool = False
     custom_launch: str = ''
     custom_launch_signature: str = ''
-    custom_launch_inject_mode: str = 'Hook'
     run_post_load_enabled: bool = False
     run_post_load: str = ''
     run_post_load_signature: str = ''
@@ -94,13 +66,27 @@ class ModelImporterConfig:
     extra_libraries_enabled: bool = False
     extra_libraries: str = ''
     extra_libraries_signature: str = ''
-    deployed_migoto_signatures: Dict[str, str] = field(default_factory=lambda: {})
+    deployed_migoto_signatures: dict[str, str] = field(default_factory=lambda: {})
     shortcut_deployed: bool = False
-    d3dx_ini: Dict[
-        str, Dict[str, Dict[str, Union[str, int, float, Dict[str, Union[str, int, float]]]]]
-    ] = field(default_factory=lambda: {})
+    d3dx_ini: dict[str, dict[str, dict[str, Any]]] = field(default_factory=lambda: {})
     configure_game: bool = True
     launch_count: int = -1
+
+    # New
+    game: Game = Game.ARKNIGHTS_ENDFIELD
+    game_launch: GameLaunch = GameLaunch.DIRECT
+    game_process_exe_enabled: bool = False
+    game_process_exe: str = ""
+    start_method: StartMethod = StartMethod.NATIVE
+    configure_platform_launch_options: bool = True
+    skip_platform_game_launcher: bool = True
+    d3d11_mode_cmd_args: str = ""
+    d3d11_mode_cmd_args_warned: bool = False
+
+    # Removed
+    custom_launch_inject_mode: InjectModeLegacy = InjectModeLegacy.OPTION_REMOVED
+    custom_launch_enabled: bool = False
+    process_start_method: ProcessStartMethodLegacy = ProcessStartMethodLegacy.OPTION_REMOVED
 
     @property
     def importer_path(self) -> Path:
@@ -111,7 +97,7 @@ class ModelImporterConfig:
             return Paths.App.Root / importer_path
 
     @property
-    def extra_dll_paths(self) -> List[Path]:
+    def extra_dll_paths(self) -> list[Path]:
         dll_paths = []
         for dll_path in self.extra_libraries.split('\n'):
             if len(dll_path) == 0:
@@ -130,13 +116,10 @@ class ModelImporterConfig:
         return dll_paths
 
     def is_xxmi_dll_used(self) -> bool:
-        # Default Launch - XXMI DLL is always used
-        if not self.custom_launch_enabled:
+        # Always True for HOOK / DIRECT.
+        if self.xxmi_dll_inject_mode != InjectMode.SKIP:
             return True
-        # Custom Launch in Hook/Inject mode - XXMI DLL is always used
-        if self.custom_launch_inject_mode != 'Bypass':
-            return True
-        # Custom Launch in Bypass mode - XXMI DLL may be listed in Extra Libraries
+        # SKIP - XXMI DLL may be listed in Extra Libraries
         return self.is_xxmi_dll_in_extra_libraries()
 
     def is_xxmi_dll_in_extra_libraries(self) -> bool:
@@ -147,6 +130,7 @@ class ModelImporterConfig:
         if self.importer_path / 'd3d11.dll' in self.extra_dll_paths:
             return True
         return False
+
 
 class ModelImporterCommandFileSection(Enum):
     PreInstall = 'PreInstall'
@@ -230,11 +214,10 @@ class ModelImporterPackage(Package):
     def __init__(self, metadata: PackageMetadata):
         super().__init__(metadata)
         self.backups_path = None
-        self.use_hook: bool = True
         self.ini = None
-        self.autodetect_patterns: Dict[str, re.Pattern] = {}
-        self.autodetect_files: Dict[str, List[str]] = {}
-        self.autodetect_known_paths: List[str] = []
+        self.autodetect_patterns: dict[str, re.Pattern] = {}
+        self.autodetect_files: dict[str, list[str]] = {}
+        self.autodetect_known_paths: list[str] = []
 
     def validate_game_path(self, game_folder) -> Path:
         game_path = Path(game_folder)
@@ -247,15 +230,33 @@ class ModelImporterPackage(Package):
         return game_path
 
     def validate_game_exe_path(self, game_path: Path) -> Path:
-        for game_exe_name in Config.Active.Importer.game_exe_names:
+        for game_exe_name in (Config.Active.Importer.process_exe_names or Config.Active.Importer.game_exe_names):
+            # Search game exe directly in game path.
             game_exe_path = game_path / game_exe_name
             if game_exe_path.is_file():
                 return game_exe_path
+
+            # Search game exe in known subfolder(s).
+            for process_exe_rel_path in Config.Active.Importer.process_exe_rel_paths:
+                game_exe_path = game_path / process_exe_rel_path / game_exe_name
+                if game_exe_path.is_file():
+                    return game_exe_path
+
+            # Search game exe in any subfolder. It must be unique to prevent ambiguity.
+            game_exe_paths = list(game_path.rglob(game_exe_name))
+            if len(game_exe_paths) == 1:
+                game_exe_path = game_exe_paths[0]
+                if game_exe_path.is_file():
+                    return game_exe_path
+            if len(game_exe_paths) > 1:
+                raise ValueError(L('error_game_exe_duplicates_found', 'Found {copies_count} copies of game executable {exe_name}').format(
+                    copies_count=len(game_exe_paths),
+                    exe_name=game_exe_name,
+                ))
+
         raise ValueError(L('error_game_exe_not_found', 'Game executable {exe_name} not found!').format(exe_name=' / '.join(Config.Active.Importer.game_exe_names)))
 
     def load(self):
-        self.subscribe(Events.ModelImporter.Install, self.install)
-        self.subscribe(Events.ModelImporter.StartGame, self.start_game)
         self.subscribe(Events.ModelImporter.ValidateGameFolder, lambda event: self.validate_game_folder(event))
         self.subscribe(Events.ModelImporter.CreateShortcut, lambda event: self.create_shortcut())
         self.subscribe(Events.ModelImporter.OptimizeMods, lambda event: self.optimize_mods(event))
@@ -273,7 +274,7 @@ class ModelImporterPackage(Package):
         self.validate_game_exe_path(game_path)
         return game_path
 
-    def validate_game_folders(self, game_folders: List[Path]):
+    def validate_game_folders(self, game_folders: list[Path]):
         cache, known_paths = [], []
         for game_folder in set(game_folders):
             try:
@@ -291,10 +292,11 @@ class ModelImporterPackage(Package):
 
     def notify_game_folder_detection_failure(self):
         user_requested_settings = Events.Call(Events.Application.ShowError(
+            title=L('message_title_game_detection_failed', "Game Installation Not Found"),
             message=L('message_text_game_detection_failed', """
-                Automatic detection of the game installation failed!
-                
-                Please configure it manually with Game Folder option of General Settings.
+                Could not find the game installation on your device.
+    
+                Please set the **{general_settings_game_folder_label}** manually in **General Settings**.
             """),
             confirm_text=L('message_button_open_settings', 'Open Settings'),
             cancel_text=L('message_button_cancel', 'Cancel'),
@@ -308,12 +310,13 @@ class ModelImporterPackage(Package):
         if len(game_folders_index) == 1:
             game_folder_id = 0
             user_confirmed_game_folder = Events.Call(Events.Application.ShowInfo(
+                title=L('message_title_game_detected_single', "Game Installation Found"),
                 message=L('message_text_game_detected_single', """
-                    Detected game installation:
-                    
+                    Please confirm that this is the correct **{general_settings_game_folder_label}**:
+                    ```
                     {game_folder}
-                    
-                    Please check if it is desired Game Folder or change it in General Settings.
+                    ```
+                    Alternatively, set it manually in **General Settings**.
                 """).format(game_folder=game_folders_index[0]),
                 confirm_text=L('message_button_confirm', 'Confirm'),
                 cancel_text=L('message_button_open_settings', 'Open Settings'),
@@ -322,11 +325,14 @@ class ModelImporterPackage(Package):
             if user_confirmed_game_folder is None:
                 user_confirmed_game_folder = True
         else:
+            game_folders_index = [
+                L("detected_installation", "Detected installation") + f" {i + 1}" + f"<pre><code>{game_folder}</code></pre>"
+                for i, game_folder in enumerate(game_folders_index)
+            ]
             (user_confirmed_game_folder, game_folder_id) = Events.Call(Events.Application.ShowWarning(
+                title=L('message_title_game_detected_multiple', "Multiple Game Installations Found"),
                 message=L('message_text_game_detected_multiple', """
-                    Detected game installations:
-                    
-                    Select desired Game Folder from the list below or set it in General Settings:
+                    Please select the correct **{general_settings_game_folder_label}** below, or set it in **General Settings**.
                     
                 """),
                 confirm_text=L('message_button_confirm', 'Confirm'),
@@ -338,10 +344,9 @@ class ModelImporterPackage(Package):
 
     def notify_game_folder_not_configured(self):
         user_requested_settings = Events.Call(Events.Application.ShowError(
+            title=L('message_title_game_folder_not_configured', "Game Installation Folder Not Configured"),
             message=L('message_text_game_folder_not_configured', """
-                Game installation folder is not configured!
-                
-                Please set it with Game Folder option of General Settings.
+                Please set **{general_settings_game_folder_label}** option of **General Settings**.
             """),
             confirm_text=L('message_button_open_settings', 'Open Settings'),
             cancel_text=L('message_button_cancel', 'Cancel'),
@@ -406,38 +411,6 @@ class ModelImporterPackage(Package):
 
         return game_folder, game_path, game_exe_path
 
-    def get_game_paths(self):
-        try:
-            game_path = self.validate_game_path(Config.Active.Importer.game_folder)
-            game_exe_path = self.validate_game_exe_path(game_path)
-        except:
-            game_folder, game_path, game_exe_path = self.detect_game_paths()
-            Config.Active.Importer.game_folder = str(game_folder)
-
-        # Skip installation locations check for Linux
-        if os.name != 'nt' or any(x in os.environ for x in ['WINE', 'WINEPREFIX', 'WINELOADER']):
-            return game_path, game_exe_path
-
-        # Ensure that user didn't install the launcher to the game exe location
-        if str(game_exe_path.parent) in str(Paths.App.Root):
-            raise ValueError(L('error_launcher_in_game_folder', """
-                
-                Launcher must be installed outside of the game folder!
-                
-                Please reinstall the launcher to another location.
-            """))
-
-        # Ensure that user didn't set a model importer folder to the game exe location
-        if str(game_exe_path.parent) in str(Config.Active.Importer.importer_path):
-            raise ValueError(L('error_model_importer_in_game_folder', """
-                
-                {importer} Folder must be located outside of the Game Folder!
-                
-                Please chose another location for Settings > {importer} > {importer} Folder.
-            """).format(importer=Config.Launcher.active_importer))
-
-        return game_path, game_exe_path
-
     def install_latest_version(self, clean):
         Events.Fire(Events.PackageManager.InitializeInstallation())
 
@@ -449,6 +422,12 @@ class ModelImporterPackage(Package):
         xxmi_cmd_handler.execute_command_section(ModelImporterCommandFileSection.PreInstall)
 
         self.move_contents(self.downloaded_asset_path, Config.Active.Importer.importer_path)
+        try:
+            self.verify_files_integrity(Config.Active.Importer.importer_path)
+        except Exception as e:
+            if not Config.Active.Importer.overwrite_ini:
+                self.restore(d3dx_ini_path)
+            raise e
 
         xxmi_cmd_handler = ModelImporterCommandFileHandler(Config.Active.Importer.importer_path / 'Core' / 'auto_update.xcmd')
         xxmi_cmd_handler.execute_command_section(ModelImporterCommandFileSection.PostInstall)
@@ -461,24 +440,10 @@ class ModelImporterPackage(Package):
 
         Paths.verify_path(Config.Active.Importer.importer_path / 'Mods')
 
-    def install(self, event):
-        # Assert installation path
-        try:
-            self.get_game_paths()
-        except UserWarning:
-            return
-        except Exception as e:
-            raise ValueError(L('error_model_importer_installation_failed', """
-                {importer} Installation Failed:
-                {error_text}
-            """).format(importer=Config.Launcher.active_importer, error_text=e)) from e
-        # Install importer package and its requirements
-        Events.Fire(Events.Application.Update(packages=[Config.Launcher.active_importer], force=True, reinstall=True))
+    def configure_game_settings(self, game_path: Path | None, game_exe_path: Path | None):
+        pass
 
-    def initialize_game_launch(self, game_path: Path):
-        raise NotImplementedError
-
-    def update_d3dx_ini(self, game_exe_path: Path):
+    def update_d3dx_ini(self, game_exe_name: str, xxmi_dll_version: str | None):
         Events.Fire(Events.Application.StatusUpdate(status=L('status_updating_ini', 'Updating d3dx.ini...')))
 
         ini_path = Config.Active.Importer.importer_path / 'd3dx.ini'
@@ -492,22 +457,41 @@ class ModelImporterPackage(Package):
         # Set default game exe as target, can be overridden via XXMI Launcher Config.json:
         # 1. Locate "Importers" > "GIMI" > "Importer" > "d3dx_ini"> "core" > "Loader"
         # 2. Add `"target": "GenshinImpact.exe",` line before `"loader": "XXMI Launcher.exe"`
-        ini.set_option('Loader', 'target', game_exe_path.name)
+        ini.set_option('Loader', 'target', game_exe_name)
 
-        ini.set_option('System', 'dll_initialization_delay', Config.Active.Importer.xxmi_dll_init_delay)
-
-        screen_width, screen_height = ctypes.windll.user32.GetSystemMetrics(0), ctypes.windll.user32.GetSystemMetrics(1)
-        ini.set_option('System', 'screen_width', screen_width)
-        ini.set_option('System', 'screen_height', screen_height)
-
-        self.set_default_ini_values(ini, 'core', SettingType.Constant)
-        if Config.Active.Migoto.enforce_rendering:
-            self.set_default_ini_values(ini, 'enforce_rendering', SettingType.Constant)
-        self.set_default_ini_values(ini, 'calls_logging', SettingType.Bool, Config.Active.Migoto.calls_logging)
-        self.set_default_ini_values(ini, 'debug_logging', SettingType.Bool, Config.Active.Migoto.debug_logging)
-        self.set_default_ini_values(ini, 'mute_warnings', SettingType.Bool, Config.Active.Migoto.mute_warnings)
         self.set_default_ini_values(ini, 'enable_hunting', SettingType.Bool, Config.Active.Migoto.enable_hunting)
         self.set_default_ini_values(ini, 'dump_shaders', SettingType.Bool, Config.Active.Migoto.dump_shaders)
+
+        if xxmi_dll_version is None:
+            ini.set_option('Logging', 'calls', (
+                1 if Config.Active.Migoto.log_level in [LogLevel.INFO, LogLevel.DEBUG] else 0
+            ))
+            ini.set_option('Logging', 'debug', (
+                1 if Config.Active.Migoto.log_level == LogLevel.DEBUG else 0
+            ))
+
+        elif xxmi_dll_version >= "1.2.0":
+            ini.set_option('System', 'dll_initialization_delay', Config.Active.Importer.xxmi_dll_init_delay)
+
+            screen_width, screen_height = ctypes.windll.user32.GetSystemMetrics(0), ctypes.windll.user32.GetSystemMetrics(1)
+            ini.set_option('System', 'screen_width', screen_width)
+            ini.set_option('System', 'screen_height', screen_height)
+
+            self.set_default_ini_values(ini, 'core', SettingType.Constant)
+            if Config.Active.Migoto.enforce_rendering:
+                self.set_default_ini_values(ini, 'enforce_rendering', SettingType.Constant)
+
+            ini.set_option('System', 'clear_unknown_settings', 1 if Config.Active.Migoto.clear_unknown_settings else 0)
+
+            ini.set_option('Input', 'input', 1 if Config.Active.Migoto.input else 0)
+            option_values = ini.get_option_values('toggle_input', section_name='Input')
+            if len(option_values) == 0:
+                ini.set_option('Input', 'toggle_input', Config.Active.Migoto.toggle_input)
+
+            ini.set_option('Input', 'input_disable_mode', Config.Active.Migoto.input_disable_mode.name.lower())
+
+            ini.set_option('Logging', 'log_level', Config.Active.Migoto.log_level.name.lower())
+            ini.set_option('Logging', 'show_warnings', 0 if Config.Active.Migoto.mute_warnings else 1)
 
         if ini.is_modified():
             log.debug(f'Writing d3dx.ini...')
@@ -518,9 +502,7 @@ class ModelImporterPackage(Package):
     def set_default_ini_values(self, ini: IniHandler, setting_name: str, setting_type: SettingType, setting_value=None):
         settings = Config.Active.Importer.d3dx_ini.get(setting_name, None)
         if settings is None:
-            raise ValueError(L('error_ini_missing_setting',
-                'Config is missing {setting_name} setting!'
-            ).format(setting_name=setting_name))
+            settings = Config.Active.Importer.__class__().d3dx_ini.get(setting_name, None)
         for section, options in settings.items():
             for option, values in options.items():
 
@@ -547,11 +529,15 @@ class ModelImporterPackage(Package):
                         'Failed to set section {section} option {option} to {value}: {error_text}'
                    ).format(section=section, option=option, key=key, error_text=e)) from e
 
-    def get_start_cmd(self, game_path: Path) -> Tuple[Path, List[str], Optional[str]]:
-        game_exe_path = self.validate_game_exe_path(game_path)
-        return game_exe_path, [], str(game_exe_path.parent)
+    def override_launch_context(
+        self,
+        launch_context: LaunchContext,
+        game_path: Path | None,
+        game_exe_path: Path | None,
+    ) -> None:
+        pass
 
-    def optimize_mods(self, event: ModelImporterEvents.OptimizeMods):
+    def optimize_mods(self, event: Events.ModelImporter.OptimizeMods):
         Events.Fire(Events.Application.StatusUpdate(status=L('optimizing_ini_files_in_folder', 'Optimizing INI files in {folder_name} folder...').format(folder_name='Mods')))
 
         if not event.silent:
@@ -622,32 +608,15 @@ class ModelImporterPackage(Package):
             message=message,
         ))
 
-    def start_game(self, event):
+    def run_pre_launch(self, launch_context: LaunchContext):
         # Ensure package integrity
         self.validate_package_files()
-        
+
         # Execute commands from XXMI command file
         xxmi_cmd_handler = ModelImporterCommandFileHandler(Config.Active.Importer.importer_path / 'Core' / 'auto_update.xcmd')
         xxmi_cmd_handler.execute_command_section(ModelImporterCommandFileSection.PreLaunch)
 
-        # Check if game location is properly configured
-        game_path, game_exe_path = self.get_game_paths()
-
-        # Write configured settings to main 3dmigoto ini file
-        self.update_d3dx_ini(game_exe_path=game_exe_path)
-
-        # Optimize ini files in Mods and ShaderFixes folders
-        Events.Fire(Events.ModelImporter.OptimizeMods())
-
-        # Execute initialization sequence of implemented importer
-        self.initialize_game_launch(game_path)
-
-        start_exe_path, start_args, work_dir = self.get_start_cmd(game_path)
-
-        Events.Fire(Events.MigotoManager.StartAndInject(game_exe_path=game_exe_path, start_exe_path=start_exe_path,
-                                                        start_args=start_args, work_dir=work_dir, use_hook=self.use_hook))
-
-    def reg_search_game_folders(self, game_exe_files: List[str]):
+    def reg_search_game_folders(self, game_exe_files: list[str]):
         paths = []
 
         reg_key_paths = [
@@ -679,7 +648,7 @@ class ModelImporterPackage(Package):
 
         return paths
 
-    def autodetect_game_folders(self) -> List[Path]:
+    def autodetect_game_folders(self) -> list[Path]:
         paths = self.reg_search_game_folders(Config.Active.Importer.game_exe_names)
 
         for file_path_str, search_patterns in self.autodetect_files.items():
@@ -756,7 +725,7 @@ class ModelImporterPackage(Package):
 
         Config.Active.Importer.shortcut_deployed = True
 
-    def get_paths_from_hoyoplay(self, patterns: Union[re.Pattern, List[re.Pattern]], known_children: List[str] = None):
+    def get_paths_from_hoyoplay(self, patterns: re.Pattern | list[re.Pattern], known_children: list[str] = None):
         hoyoplay_path = Path(os.getenv('APPDATA')).parent / 'Roaming' / 'Cognosphere' / 'HYP'
         paths = []
         if hoyoplay_path.is_dir():
@@ -767,7 +736,30 @@ class ModelImporterPackage(Package):
                         paths += self.find_paths_in_file(file_path, patterns, known_children)
         return paths
 
-    def find_paths_in_file(self, file_path: Path, patterns: Union[re.Pattern, List[re.Pattern]], known_children: List[str] = None):
+    @staticmethod
+    def is_epic_hoyoplay_installation(game_exe_path: Path) -> bool:
+        epic_launcher_path = game_exe_path.parent.parent.parent / "launcher_epic.exe"
+
+        if epic_launcher_path.is_file():
+            return True
+
+        config_path = game_exe_path.with_name("config.ini")
+
+        Events.Fire(Events.PathManager.VerifyFileAccess(path=config_path, write=True))
+
+        with open(config_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                result = line.split('=')
+
+                if len(result) != 2:
+                    continue
+
+                if "epic" in result[1].lower():
+                    return True
+
+        return False
+
+    def find_paths_in_file(self, file_path: Path, patterns: re.Pattern | list[re.Pattern], known_children: list[str] = None):
         paths = []
         try:
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:

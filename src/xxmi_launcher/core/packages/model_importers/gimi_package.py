@@ -1,5 +1,5 @@
 import re
-import os
+import time
 import logging
 import shutil
 import winreg
@@ -7,7 +7,7 @@ import json
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, Union, Tuple, Optional, List
+from typing import Any
 from pathlib import Path
 
 import core.path_manager as Paths
@@ -15,26 +15,28 @@ import core.event_manager as Events
 import core.config_manager as Config
 
 from core.locale_manager import L
+from core.config.enums import WindowMode, GameLaunch, InjectMode
 from core.package_manager import PackageMetadata
-from core.utils.ini_handler import IniHandler, IniHandlerSettings
-from core.utils.process_tracker import wait_for_process_exit, WaitResult, ProcessPriority
-from core.packages.model_importers.model_importer import ModelImporterPackage, ModelImporterConfig, Version
+from core.packages.model_importers.model_importer import ModelImporterPackage, ModelImporterConfig, Version, StartMethod
 from core.packages.migoto_package import MigotoManagerConfig
+from core.platforms.game import Game
+from core.utils.process_manager import ProcessManager, LaunchContext, ProcessPriorityClass
 
 log = logging.getLogger(__name__)
 
 
 @dataclass
 class GIMIConfig(ModelImporterConfig):
-    game_exe_names: List[str] = field(default_factory=lambda: ['GenshinImpact.exe', 'YuanShen.exe'])
-    game_folder_names: List[str] = field(default_factory=lambda: ['Genshin Impact Game'])
-    game_folder_children: List[str] = field(default_factory=lambda: ['GenshinImpact_Data'])
+    game: Game = Game.GENSHIN_IMPACT
+    game_exe_names: list[str] = field(default_factory=lambda: ['GenshinImpact.exe', 'YuanShen.exe'])
+    game_folder_names: list[str] = field(default_factory=lambda: ['Genshin Impact Game'])
+    game_folder_children: list[str] = field(default_factory=lambda: ['GenshinImpact_Data'])
+    game_process_exe: str = "GenshinImpact.exe"
     importer_folder: str = 'GIMI/'
     launch_options: str = ''
-    process_start_method: str = 'Shell'
-    d3dx_ini: Dict[
-        str, Dict[str, Dict[str, Union[str, int, float, Dict[str, Union[str, int, float]]]]]
-    ] = field(default_factory=lambda: {
+    start_method: StartMethod = StartMethod.SHELL
+    xxmi_dll_inject_mode: InjectMode = InjectMode.HOOK
+    d3dx_ini: dict[str, dict[str, dict[str, Any]]] = field(default_factory=lambda: {
         'core': {
             'Loader': {
                 'loader': 'XXMI Launcher.exe',
@@ -46,21 +48,6 @@ class GIMIConfig(ModelImporterConfig):
                 'track_texture_updates': 0,
                 'track_region_hashes': 0,
                 'allow_buffer_resize': 1,
-            },
-        },
-        'calls_logging': {
-            'Logging': {
-                'calls': {'on': 1, 'off': 0},
-            },
-        },
-        'debug_logging': {
-            'Logging': {
-                'debug': {'on': 1, 'off': 0},
-            },
-        },
-        'mute_warnings': {
-            'Logging': {
-                'show_warnings': {'on': 0, 'off': 1},
             },
         },
         'enable_hunting': {
@@ -90,13 +77,6 @@ class GIMIPackageConfig:
     )
 
 
-class WindowMode(Enum):
-    Windowed = 'Windowed'
-    Borderless = 'Borderless'
-    Fullscreen = 'Fullscreen'
-    ExclusiveFullscreen = 'Exclusive Fullscreen'
-
-
 class GIMIPackage(ModelImporterPackage):
     def __init__(self):
         super().__init__(PackageMetadata(
@@ -106,7 +86,7 @@ class GIMIPackage(ModelImporterPackage):
             github_repo_name='GIMI-Package',
             asset_version_pattern=r'.*(\d\.\d\.\d).*',
             asset_name_format='GIMI-PACKAGE-v%s.zip',
-            signature_pattern=r'^## Signature[\r\n]+- ((?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{4}|[A-Za-z0-9+\/]{3}=|[A-Za-z0-9+\/]{2}={2})$)',
+            signature_pattern=r'^## Signature[\r\n]+- ((?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{4}|[A-Za-z0-9+\/]{3}=|[A-Za-z0-9+\/]{2}={2}))\r?$',
             signature_public_key='MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAET5SWORxEdlJ3RXWIFiuwMX6oyZedz+DgaxtsbpWyxNQJDgIDj4uKLLJlvhRNpnkFEuQntgJKzJs0SpASBEguPOTE7VSnmp+x5uyDmsQsWzsRSAZip++a02jqR/K2j18H',
             exit_after_update=False,
             installation_path='GIMI/',
@@ -133,26 +113,20 @@ class GIMIPackage(ModelImporterPackage):
         except Exception as e:
             return ''
 
-    def get_start_cmd(self, game_path: Path) -> Tuple[Path, List[str], Optional[str]]:
+    def override_launch_context(
+        self,
+        launch_context: LaunchContext,
+        game_path: Path | None,
+        game_exe_path: Path | None,
+    ) -> None:
+        if Config.Importers.WWMI.Importer.game_launch != GameLaunch.DIRECT:
+            return
+
         if Config.Importers.GIMI.Importer.unlock_fps:
-            game_exe_path = Paths.App.Resources / 'Packages' / 'GI-FPS-Unlocker' / 'unlockfps_nc.exe'
-            work_dir_path = str(game_exe_path.parent)
-        else:
-            game_exe_path = self.validate_game_exe_path(game_path)
-            work_dir_path = str(game_exe_path.parent)
-        return game_exe_path, [], work_dir_path
+            launch_context.target.exe_path = Paths.App.Resources / 'Packages' / 'GI-FPS-Unlocker' / 'unlockfps_nc.exe'
+            launch_context.work_dir = launch_context.target.exe_path.parent
 
-    def initialize_game_launch(self, game_path: Path):
-        if Config.Importers.GIMI.Importer.unlock_fps:
-            try:
-                self.configure_fps_unlocker()
-            except Exception as e:
-                raise Exception(L('error_gimi_fps_unlocker_config_failed', """
-                    Failed to configure FPS Unlocker!
-
-                    {error_text}
-                """).format(error_text=e)) from e
-
+    def configure_game_settings(self, game_path: Path | None, game_exe_path: Path | None):
         if Config.Importers.GIMI.Importer.enable_hdr:
             try:
                 self.enable_hdr()
@@ -162,6 +136,17 @@ class GIMIPackage(ModelImporterPackage):
 
                     {error_text}
                 """).format(error_text=e)) from e
+
+        if Config.Importers.WWMI.Importer.game_launch == GameLaunch.DIRECT:
+            if Config.Importers.GIMI.Importer.unlock_fps:
+                try:
+                    self.configure_fps_unlocker()
+                except Exception as e:
+                    raise Exception(L('error_gimi_fps_unlocker_config_failed', """
+                        Failed to configure FPS Unlocker!
+    
+                        {error_text}
+                    """).format(error_text=e)) from e
 
         if not Config.Active.Importer.is_xxmi_dll_used():
             return
@@ -317,8 +302,12 @@ class GIMIPackage(ModelImporterPackage):
     def configure_fps_unlocker(self):
         Events.Fire(Events.Application.StatusUpdate(status=L('status_configuring_fps_unlocker', 'Configuring FPS Unlocker...')))
 
-        result, pid = wait_for_process_exit('unlockfps_nc.exe', timeout=10, kill_timeout=5)
-        if result == WaitResult.Timeout:
+        manager = ProcessManager(Path("unlockfps_nc.exe"))
+
+        if manager.stop(timeout=10):
+            # Wait a pi more for files to unlock.
+            time.sleep(3.141592653589793)
+        else:
             Events.Fire(Events.Application.ShowError(
                 modal=True,
                 message=L('message_text_fps_unlocker_manual_termination', """
@@ -349,22 +338,19 @@ class GIMIPackage(ModelImporterPackage):
             modified = True
 
         process_priorities = {
-            ProcessPriority.IDLE_PRIORITY_CLASS: 5,
-            ProcessPriority.BELOW_NORMAL_PRIORITY_CLASS: 4,
-            ProcessPriority.NORMAL_PRIORITY_CLASS: 3,
-            ProcessPriority.ABOVE_NORMAL_PRIORITY_CLASS: 2,
-            ProcessPriority.HIGH_PRIORITY_CLASS: 1,
-            ProcessPriority.REALTIME_PRIORITY_CLASS: 0,
+            ProcessPriorityClass.IDLE_PRIORITY_CLASS: 5,
+            ProcessPriorityClass.BELOW_NORMAL_PRIORITY_CLASS: 4,
+            ProcessPriorityClass.NORMAL_PRIORITY_CLASS: 3,
+            ProcessPriorityClass.ABOVE_NORMAL_PRIORITY_CLASS: 2,
+            ProcessPriorityClass.HIGH_PRIORITY_CLASS: 1,
+            ProcessPriorityClass.REALTIME_PRIORITY_CLASS: 0,
         }
-        try:
-            process_priority = ProcessPriority(Config.Active.Importer.process_priority)
-        except Exception as e:
-            process_priority = ProcessPriority.ABOVE_NORMAL_PRIORITY_CLASS
-            Config.Active.Importer.process_priority = process_priority.value
-        process_priority = process_priorities[process_priority]
+        process_priority_class = ProcessPriorityClass(Config.Active.Importer.process_priority)
 
-        if fps_config.get('Priority', None) != process_priority:
-            fps_config['Priority'] = process_priority
+        process_priority_int = process_priorities[process_priority_class]
+
+        if fps_config.get('Priority', None) != process_priority_int:
+            fps_config['Priority'] = process_priority_int
             modified = True
 
         if fps_config.get('AdditionalCommandLine', None) != Config.Active.Importer.launch_options:
@@ -372,34 +358,29 @@ class GIMIPackage(ModelImporterPackage):
             modified = True
 
         window_modes = {
-            WindowMode.Windowed: {
+            WindowMode.WINDOWED: {
                 'PopupWindow': False,
                 'Fullscreen': False,
                 'IsExclusiveFullscreen': False,
             },
-            WindowMode.Borderless: {
+            WindowMode.BORDERLESS: {
                 'PopupWindow': True,
                 'Fullscreen': False,
                 'IsExclusiveFullscreen': False,
             },
-            WindowMode.Fullscreen: {
+            WindowMode.FULLSCREEN: {
                 'PopupWindow': False,
                 'Fullscreen': True,
                 'IsExclusiveFullscreen': False,
             },
-            WindowMode.ExclusiveFullscreen: {
+            WindowMode.EXCLUSIVE_FULLSCREEN: {
                 'PopupWindow': False,
                 'Fullscreen': True,
                 'IsExclusiveFullscreen': True,
             },
         }
-        try:
-            window_mode = WindowMode(Config.Active.Importer.window_mode)
-        except Exception as e:
-            window_mode = WindowMode.Borderless
-            Config.Active.Importer.window_mode = window_mode.value
 
-        for setting, value in window_modes[window_mode].items():
+        for setting, value in window_modes[Config.Active.Importer.window_mode].items():
             if fps_config.get(setting, None) != value:
                 fps_config[setting] = value
                 modified = True

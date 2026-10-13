@@ -36,7 +36,7 @@ class GenshinFpsUnlockerPackage(Package):
             github_repo_name='GI-FPS-Unlocker-Package',
             asset_version_pattern=r'.*(\d\.\d\.\d).*',
             asset_name_format='GENSHIN-FPS-UNLOCK-PACKAGE-v%s.zip',
-            signature_pattern=r'^## Signature[\r\n]+- ((?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{4}|[A-Za-z0-9+\/]{3}=|[A-Za-z0-9+\/]{2}={2})$)',
+            signature_pattern=r'^## Signature[\r\n]+- ((?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{4}|[A-Za-z0-9+\/]{3}=|[A-Za-z0-9+\/]{2}={2}))\r?$',
             signature_public_key='MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEYac352uRGKZh6LOwK0fVDW/TpyECEfnRtUp+bP2PJPP63SWOkJ3a/d9pAnPfYezRVJ1hWjZtpRTT8HEAN/b4mWpJvqO43SAEV/1Q6vz9Rk/VvRV3jZ6B/tmqVnIeHKEb',
             exit_after_update=False,
         ))
@@ -52,6 +52,7 @@ class GenshinFpsUnlockerPackage(Package):
         Events.Fire(Events.PackageManager.InitializeInstallation())
 
         self.move_contents(self.downloaded_asset_path, self.package_path)
+        self.verify_files_integrity(self.package_path)
 
     def validate_package_files(self):
         pass

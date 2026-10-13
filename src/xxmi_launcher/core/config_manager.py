@@ -1,18 +1,19 @@
-import os
 import logging
 import json
 
 from pathlib import Path
-from dataclasses import dataclass, field, fields
-from typing import Union, Dict, Any, Optional, List
-
-from dacite import from_dict
 
 import core.path_manager as Paths
 import core.event_manager as Events
 
 from core.locale_manager import L
-from core.utils.security import Security
+
+from core.config.model import AppConfig, ImportersConfig
+from core.config.security import AppConfigSecurity
+from core.config.serialization import converter
+
+from core.config.enums import GameLaunch, StartMethod, ProcessStartMethodLegacy, InjectMode, InjectModeLegacy
+
 from core import package_manager
 from core.packages import launcher_package
 from core.packages.model_importers import gimi_package
@@ -25,332 +26,296 @@ from core.packages.model_importers import efmi_package
 log = logging.getLogger(__name__)
 
 
-@dataclass
-class ImportersConfig:
-    WWMI: wwmi_package.WWMIPackageConfig = field(default_factory=lambda: wwmi_package.WWMIPackageConfig())
-    ZZMI: zzmi_package.ZZMIPackageConfig = field(default_factory=lambda: zzmi_package.ZZMIPackageConfig())
-    EFMI: efmi_package.EFMIPackageConfig = field(default_factory=lambda: efmi_package.EFMIPackageConfig())
-    SRMI: srmi_package.SRMIPackageConfig = field(default_factory=lambda: srmi_package.SRMIPackageConfig())
-    GIMI: gimi_package.GIMIPackageConfig = field(default_factory=lambda: gimi_package.GIMIPackageConfig())
-    HIMI: himi_package.HIMIPackageConfig = field(default_factory=lambda: himi_package.HIMIPackageConfig())
-
-
-@dataclass
-class SecurityConfig:
-    user_signature: str = ''
-
-
-@dataclass
-class AppConfig:
-    # Config fields
-    Launcher: launcher_package.LauncherManagerConfig = field(
-        default_factory=lambda: launcher_package.LauncherManagerConfig()
-    )
-    Packages: package_manager.PackageManagerConfig = field(
-        default_factory=lambda: package_manager.PackageManagerConfig()
-    )
-    Importers: ImportersConfig = field(
-        default_factory=lambda: ImportersConfig()
-    )
-    Security: SecurityConfig = field(
-        default_factory=lambda: SecurityConfig()
-    )
-    # State fields
-    # Active: Optional[WWMIConfig] = field(init=False, default=None)
-
-    active_theme: Optional[str] = field(init=False, default=None)
-
-    def __post_init__(self):
-        self.active_theme = 'Default'
+class ConfigManager:
+    def __init__(self, config: AppConfig):
+        self.config: AppConfig = config
+        self.security: AppConfigSecurity = AppConfigSecurity(config)
 
     @property
-    def theme_path(self) -> Path:
-        return Paths.App.Themes / Config.active_theme
-
-    @property
-    def config_path(self):
+    def config_path(self) -> Path:
         return Paths.App.Root / 'XXMI Launcher Config.json'
 
-    @property
-    def Active(self) -> Union[gimi_package.GIMIPackageConfig, srmi_package.SRMIPackageConfig,
-                              zzmi_package.ZZMIPackageConfig, wwmi_package.WWMIPackageConfig,
-                              himi_package.HIMIPackageConfig, efmi_package.EFMIPackageConfig]:
-        global Active
-        return Active
+    @staticmethod
+    def config_to_dict(config: AppConfig) -> dict:
+        return converter.unstructure(config)
 
-    def as_dict(self, obj: Any) -> Dict[str, Any]:
-        result = {}
+    @staticmethod
+    def config_from_dict(data: dict) -> AppConfig:
+        return converter.structure(data, AppConfig)
 
-        if hasattr(obj, '__dataclass_fields__'):
-            # Process dataclass object
-            for obj_field in fields(obj):
-                # Fields with 'init=False' contain app state data that isn't supposed to be saved
-                if not obj_field.init:
-                    continue
-                # Recursively process nested dataclass
-                value = getattr(obj, obj_field.name)
+    @classmethod
+    def config_to_json(cls, config: AppConfig) -> str:
+        return json.dumps(cls.config_to_dict(config), indent=4)
 
-                if hasattr(value, '__dataclass_fields__') or isinstance(value, dict | list | tuple):
-                    result[obj_field.name] = self.as_dict(value)
-                else:
-                    result[obj_field.name] = value
+    @classmethod
+    def config_from_json(cls, config_json: str) -> AppConfig:
+        return cls.config_from_dict(json.loads(config_json))
 
-        elif isinstance(obj, dict):
-            # Process dict object
-            for obj_field, value in obj.items():
-                if hasattr(value, '__dataclass_fields__') or isinstance(value, dict | list | tuple):
-                    result[obj_field] = self.as_dict(value)
-                else:
-                    result[obj_field] = value
+    def load(self, config_path: Path | None = None) -> None:
+        config_path = config_path or self.config_path
 
-        elif isinstance(obj, list | tuple):
-            # Process list or tuple object
-            result = []
-            for value in obj:
-                if hasattr(value, '__dataclass_fields__') or isinstance(value, dict | list | tuple):
-                    result.append(self.as_dict(value))
-                else:
-                    result.append(value)
-
-        return result
-
-    def as_json(self):
-        cfg = self.as_dict(self)
-        return json.dumps(cfg, indent=4)
-
-    def from_json(self, config_path: Path):
-        cfg = self.as_dict(self)
-        if config_path.is_file():
-            cfg.update(json.loads(Paths.App.read_text(config_path)))
-        for key, value in from_dict(data_class=AppConfig, data=cfg).__dict__.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-        if self.Launcher.gui_theme:
-            self.active_theme = self.Launcher.gui_theme
-
-    def load(self, cfg_path=None):
         try:
-            Config.from_json(cfg_path or self.config_path)
-        except Exception as e:
-            log.exception(e)
-            raise e
-        finally:
-            global Launcher
-            Launcher = self.Launcher
-            global Packages
-            Packages = self.Packages
-            global Importers
-            Importers = self.Importers
+            if config_path.is_file():
+                config_json = Paths.App.read_text(config_path)
+                loaded_config = self.config_from_json(config_json)
+            else:
+                loaded_config = AppConfig()
 
-    def save(self):
-        Paths.App.write_file(self.config_path, Config.as_json())
+            self.config.__dict__.update(loaded_config.__dict__)
 
-    def run_patch_195(self):
-        importer = self.Importers.__dict__['WWMI']
+            self._update_runtime_state()
+            self._update_globals()
+
+            config_changed = not self._ensure_security()
+
+            if config_changed:
+                self.save()
+
+        except Exception:
+            log.exception("Failed to load configuration")
+            raise
+
+    def save(self) -> None:
         try:
-            if importer.Importer.texture_streaming_boost < 20 or importer.Importer.texture_streaming_boost == 30:
-                importer.Importer.texture_streaming_boost = 20
-        except:
-            pass
+            config_json = self.config_to_json(self.config)
+        except (TypeError, ValueError) as exc:
+            log.exception("Failed to serialize configuration")
+            raise RuntimeError("Failed to serialize configuration") from exc
 
-    def run_patch_201(self):
-        importer = self.Importers.__dict__['WWMI']
         try:
-            importer.Importer.force_max_lod_bias = False
-            importer.Importer.texture_streaming_use_all_mips = True
-            importer.Importer.mesh_lod_distance_scale = 1.0
-            importer.Importer.mesh_lod_distance_offset = -10
-        except:
-            pass
+            Paths.App.write_file(self.config_path, config_json)
+        except OSError as exc:
+            log.exception("Failed to write configuration to %s", self.config_path)
+            raise RuntimeError(f"Failed to write configuration to {self.config_path}") from exc
 
-    def run_patch_216(self):
-        try:
-            importer = self.Importers.__dict__['ZZMI']
-            importer.Importer.game_exe_names = ['ZenlessZoneZero.exe', 'ZenlessZoneZeroBeta.exe']
-        except:
-            pass
+    def validate_config(self):
+        wrong_signatures = self.security.validate_config()
 
-    def run_patch_219(self):
-        for importer in self.Importers.__dict__.values():
-            # Force re-enable rendering setting enforcement to ensure d3dx.ini update
-            importer.Migoto.enforce_rendering = True
-            # Reload enforced rendering settings from package configuration
-            ini_overrides = importer.Importer.d3dx_ini
-            new_config = type(importer)()
-            try:
-                ini_overrides['enforce_rendering'] = new_config.Importer.d3dx_ini['enforce_rendering']
-            except:
-                pass
-
-    def upgrade(self, old_version, new_version):
-        # Save config to file and exit early if old version is empty (aka fresh installation)
-        if not old_version:
-            log.debug(f'Saving new config...')
-            self.Launcher.config_version = new_version
-            self.save()
+        if not wrong_signatures:
             return
 
-        # Apply patches
+        msg = '\n'.join([f'{k}: "{v}"' for k, v in wrong_signatures.items()])
+
+        user_requested_reset = Events.Call(Events.Application.ShowError(
+            modal=True,
+            confirm_text=L('message_button_reset_unsecure_setting', 'Reset'),
+            cancel_text=L('message_button_keep_unsecure_setting', 'Keep'),
+            message=L('message_text_unsecure_setting_validation_failed', """
+                Failed to validate unsecure settings!
+
+                {msg}
+            """).format(msg=msg)
+        ))
+
+        if user_requested_reset:
+            self.security.reset_invalid_settings(wrong_signatures)
+        else:
+            self.security.sign_settings()
+
+    def migrate(self, new_version: str):
+        old_version = self.config.Launcher.config_version
+
+        # Exit early if no version upgrade required.
+        if old_version == new_version:
+            return
+
+        migrator = ConfigMigrator(self.config)
+
+        if migrator.upgrade(old_version, new_version):
+            self.save()
+
+    def sign_settings(self, save_config: bool = True):
+        self.security.sign_settings()
+        if save_config:
+            self.save()
+
+    def _update_runtime_state(self) -> None:
+        if self.config.Launcher.gui_theme:
+            self.config.active_theme = self.config.Launcher.gui_theme
+
+    def _update_globals(self):
+        global Launcher
+        global Packages
+        global Importers
+
+        Launcher = self.config.Launcher
+        Packages = self.config.Packages
+        Importers = self.config.Importers
+
+    def _ensure_security(self) -> bool:
+        if self.security.is_key_pair_valid():
+            return True
+
+        self.security.generate_key_pair()
+        return False
+
+
+class ConfigMigrator:
+    def __init__(self, config: AppConfig):
+        self.config = config
+
+    def upgrade(self, old_version: str, new_version: str) -> bool:
+        # Fresh installation: initialize the version.
+        if not old_version:
+            log.debug('Initializing new config...')
+            self.config.Launcher.config_version = new_version
+            return True
+
+        changed = self._migrate_config(old_version)
+
+        if changed:
+            self.config.Launcher.config_version = new_version
+
+        return changed
+
+    def _migrate_config(self, old_version: str) -> bool:
         patches = {
-            '1.9.5': self.run_patch_195,
-            '2.0.1': self.run_patch_201,
-            '2.1.6': self.run_patch_216,
-            '2.1.9': self.run_patch_219,
+            '2.1.6': self._run_patch_216,
+            '2.1.9': self._run_patch_219,
+            '2.3.0': self._run_patch_230,
         }
-        applied_patches = []
+
+        changed = False
+
         for patch_version, patch_func in patches.items():
             if old_version < patch_version:
                 log.debug(f'Upgrading launcher config from {old_version} to {patch_version}...')
-                patch_func()
-                applied_patches.append(patch_version)
+                changed |= patch_func()
 
-        # Save patched config to file
-        if len(applied_patches) > 0:
-            log.debug(f'Saving patched config...')
-            self.Launcher.config_version = new_version
-            self.save()
+        return changed
 
+    # region Patches
 
-class AppConfigSecurity:
-    def __init__(self):
-        self.security = None
-
-    def load(self, save_config: bool = True):
-        global Config
-
-        self.security = Security()
-
-        keys_path = Paths.App.Resources / 'Security'
-        Paths.verify_path(keys_path)
+    def _run_patch_216(self) -> bool:
         try:
-            self.security.read_key_pair(Paths.App.Resources / keys_path)
-        except Exception as e:
-            pass
+            settings = self.config.Importers.ZZMI.Importer
+            new_game_exe_names = ['ZenlessZoneZero.exe', 'ZenlessZoneZeroBeta.exe']
 
-        if self.security.public_key is None or not self.security.verify(Config.Security.user_signature,
-                                                                        os.getlogin().encode()):
-            self.security.generate_key_pair()
-            self.security.write_key_pair(keys_path)
-            Config.Security.user_signature = self.security.sign(os.getlogin())
-            if save_config:
-                Config.save()
+            if settings.game_exe_names == new_game_exe_names:
+                return False
 
-    def validate_config(self):
-        global Config
+            settings.game_exe_names = new_game_exe_names
+            return True
 
-        unsecure_settings = [
-            Config.Active.Migoto.unsafe_mode,
-            Config.Active.Importer.run_pre_launch,
-            Config.Active.Importer.custom_launch,
-            Config.Active.Importer.run_post_load,
-            Config.Active.Importer.extra_libraries,
-        ]
+        except (AttributeError, TypeError):
+            log.debug('Could not apply config patch 2.1.6', exc_info=True)
+            return False
 
-        if not any(unsecure_settings):
-            return
+    def _run_patch_219(self) -> bool:
+        changed = False
 
-        if self.security is None:
-            self.load()
+        for importer in self.config.Importers.__dict__.values():
+            try:
+                # Force re-enable rendering setting enforcement to ensure d3dx.ini update
+                if importer.Migoto.enforce_rendering is not True:
+                    importer.Migoto.enforce_rendering = True
+                    changed = True
 
-        wrong_signatures = {}
+                # Reload enforced rendering settings from package configuration
+                ini_overrides = importer.Importer.d3dx_ini
+                new_config = type(importer)()
+                new_value = new_config.Importer.d3dx_ini['enforce_rendering']
 
-        if Config.Active.Migoto.unsafe_mode:
-            if not self.security.verify(Config.Active.Migoto.unsafe_mode_signature, os.getlogin().encode()):
-                wrong_signatures['Unsafe Mode'] = 'Enabled'
+                if ini_overrides.get('enforce_rendering') != new_value:
+                    ini_overrides['enforce_rendering'] = new_value
+                    changed = True
 
-        if Config.Active.Importer.run_pre_launch:
-            if not self.security.verify(Config.Active.Importer.run_pre_launch_signature, Config.Active.Importer.run_pre_launch.encode()):
-                wrong_signatures['Run Pre Launch'] = Config.Active.Importer.run_pre_launch
+            except (AttributeError, KeyError, TypeError):
+                log.debug('Could not apply config patch 2.1.9 to importer', exc_info=True)
 
-        if Config.Active.Importer.custom_launch:
-            if not self.security.verify(Config.Active.Importer.custom_launch_signature, Config.Active.Importer.custom_launch.encode()):
-                wrong_signatures['Custom Launch'] = Config.Active.Importer.custom_launch
+        return changed
 
-        if Config.Active.Importer.run_post_load:
-            if not self.security.verify(Config.Active.Importer.run_post_load_signature, Config.Active.Importer.run_post_load.encode()):
-                wrong_signatures['Run Post Load'] = Config.Active.Importer.run_post_load
+    def _run_patch_230(self) -> bool:
+        for importer in self.config.Importers.__dict__.values():
+            importer_name = type(importer).__name__
+            # Handle legacy Custom Launch option.
+            if importer.Importer.custom_launch_enabled:
+                # Migrate Custom Launch option.
+                if importer.Importer.custom_launch:
+                    importer.Importer.game_launch = GameLaunch.CUSTOM
+                    log.debug(f"[{importer_name}]: Migrated CUSTOM_LAUNCH {importer.Importer.custom_launch_enabled} -> {importer.Importer.game_launch}")
 
-        if Config.Active.Importer.extra_libraries:
-            if not self.security.verify(Config.Active.Importer.extra_libraries_signature, Config.Active.Importer.extra_libraries.encode()):
-                wrong_signatures['Extra Libraries'] = Config.Active.Importer.extra_libraries
+                # Handle legacy Inject Mode.
+                match importer.Importer.custom_launch_inject_mode:
+                    # Upgrade HOOK enum.
+                    case InjectModeLegacy.HOOK:
+                        importer.Importer.xxmi_dll_inject_mode = InjectMode.HOOK
+                    # Upgrade INJECT enum.
+                    case InjectModeLegacy.INJECT:
+                        importer.Importer.xxmi_dll_inject_mode = InjectMode.DIRECT
+                    # Handle BYPASS enum removal.
+                    case InjectModeLegacy.BYPASS:
+                        importer.Importer.xxmi_dll_inject_mode = InjectMode.SKIP
+                log.debug(f"[{importer_name}]: Migrated INJECT_MODE {importer.Importer.custom_launch_inject_mode} -> {importer.Importer.xxmi_dll_inject_mode}")
 
-        if len(wrong_signatures) > 0:
-            msg = '\n'.join([f'{k}: "{v}"' for k, v in wrong_signatures.items()])
-            user_requested_reset = Events.Call(Events.Application.ShowError(
-                modal=True,
-                confirm_text=L('message_button_reset_unsecure_setting', 'Reset'),
-                cancel_text=L('message_button_keep_unsecure_setting', 'Keep'),
-                message=L('message_text_unsecure_setting_validation_failed', """
-                    Failed to validate unsecure settings!
-                    
-                    {msg}
-                """).format(msg=msg)
-            ))
-            if user_requested_reset:
-                if 'Unsafe Mode' in wrong_signatures:
-                    Config.Active.Migoto.unsafe_mode = False
-                if 'Run Pre Launch' in wrong_signatures:
-                    Config.Active.Importer.run_pre_launch = ''
-                if 'Custom Launch' in wrong_signatures:
-                    Config.Active.Importer.custom_launch = ''
-                if 'Run Post Load' in wrong_signatures:
-                    Config.Active.Importer.run_post_load = ''
-                if 'Extra Libraries' in wrong_signatures:
-                    Config.Active.Importer.extra_libraries = ''
-            else:
-                self.sign_settings()
+            # Handle legacy start method.
+            match importer.Importer.process_start_method:
+                # Upgrade NATIVE enum.
+                case ProcessStartMethodLegacy.NATIVE:
+                    importer.Importer.start_method = StartMethod.NATIVE
+                    log.debug(f"[{importer_name}]: Migrated START_METHOD {importer.Importer.process_start_method} -> {importer.Importer.start_method}")
+                # Upgrade SHELL enum.
+                case ProcessStartMethodLegacy.SHELL:
+                    importer.Importer.start_method = StartMethod.SHELL
+                    log.debug(f"[{importer_name}]: Migrated START_METHOD {importer.Importer.process_start_method} -> {importer.Importer.start_method}")
+                # Handle MANUAL enum removal.
+                case ProcessStartMethodLegacy.MANUAL:
+                    importer.Importer.game_launch = GameLaunch.MANUAL
+                    log.debug(f"[{importer_name}]: Migrated START_METHOD {importer.Importer.process_start_method} -> {importer.Importer.game_launch}")
 
-    def sign_settings(self, save_config: bool = True):
-        global Active
-        global Config
-        if self.security is None:
-            self.load(save_config=False)
-        if Active.Migoto.unsafe_mode:
-            Active.Migoto.unsafe_mode_signature = self.security.sign(os.getlogin().encode())
-        if Active.Importer.run_pre_launch:
-            Active.Importer.run_pre_launch_signature = self.security.sign(Active.Importer.run_pre_launch.encode())
-        if Active.Importer.custom_launch:
-            Active.Importer.custom_launch_signature = self.security.sign(Active.Importer.custom_launch.encode())
-        if Active.Importer.run_post_load:
-            Active.Importer.run_post_load_signature = self.security.sign(Active.Importer.run_post_load.encode())
-        if Active.Importer.extra_libraries:
-            Active.Importer.extra_libraries_signature = self.security.sign(Active.Importer.extra_libraries.encode())
-        if save_config:
-            Config.save()
+            # Reset legacy options.
+            importer.Importer.custom_launch_enabled = False
+            importer.Importer.process_start_method = ProcessStartMethodLegacy.OPTION_REMOVED
+            importer.Importer.custom_launch_inject_mode = InjectModeLegacy.OPTION_REMOVED
+
+        return True
+
+    # endregion
 
 
 Config: AppConfig = AppConfig()
-ConfigSecurity: AppConfigSecurity = AppConfigSecurity()
+Manager: ConfigManager = ConfigManager(Config)
 
 # Config aliases, intended to shorten dot names
 Launcher: launcher_package.LauncherManagerConfig
 Packages: package_manager.PackageManagerConfig
 Importers: ImportersConfig
-Active: Union[gimi_package.GIMIPackageConfig, srmi_package.SRMIPackageConfig,
-              wwmi_package.WWMIPackageConfig, zzmi_package.ZZMIPackageConfig,
-              himi_package.HIMIPackageConfig, efmi_package.EFMIPackageConfig]
+Active: (
+    gimi_package.GIMIPackageConfig | srmi_package.SRMIPackageConfig
+    | wwmi_package.WWMIPackageConfig | zzmi_package.ZZMIPackageConfig
+    | himi_package.HIMIPackageConfig | efmi_package.EFMIPackageConfig
+)
 
 
-def get_resource_path(element, filename: Union[str, Path], extensions: Optional[Union[str, List[str]]] = None):
+def get_resource_path(element, filename: str | Path, extensions: str | list[str] | None = None):
     filename = Path(filename)
     search_extensions = [filename.suffix]
+
     if extensions is not None:
         search_extensions += [ext for ext in list(extensions) if ext != filename.suffix]
-    class_path = element.get_resource_path() / filename
+
+    if len(filename.parts) > 1:
+        class_path = filename
+    else:
+        class_path = element.get_resource_path() / filename
+
     for extension in search_extensions:
         resource_path = Config.theme_path / class_path.with_suffix(extension)
         if resource_path.is_file():
             return resource_path
+
     resource_path = Paths.App.Themes / 'Default' / class_path
+
     if not resource_path.is_file():
         raise FileNotFoundError(L('error_theme_resource_not_found', """
             Resource not found:
-            
+
             {resource_path}
-            
+
             Hint: You can also use other extensions: {extensions}
         """).format(
             resource_path=resource_path,
-            extensions = ", ".join(extensions or []))
+            extensions=", ".join(extensions or []))
         )
+
     return resource_path

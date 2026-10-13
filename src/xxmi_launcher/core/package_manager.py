@@ -5,9 +5,9 @@ import re
 import zipfile
 import os
 import json
+import hashlib
 
 from dataclasses import dataclass, field, asdict
-from typing import Union, List, Dict, Optional, Tuple
 from pathlib import Path
 from dacite import from_dict
 from win32api import GetFileVersionInfo, HIWORD, LOWORD
@@ -18,8 +18,10 @@ import core.path_manager as Paths
 import core.config_manager as Config
 
 from core.locale_manager import L
+from core.events.package_manager import PackageManagerEvents, PackageState
 from core.utils.security import Security
 from core.utils.github_client import GitHubClient
+from core.utils.process_manager import LaunchContext
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +31,8 @@ class PackageMetadata:
     package_name: str = ''
     auto_load: bool = False
     installation_path: str = ''
-    requirements: List[str] = field(default_factory=lambda: [])
+    requirements: list[str] = field(default_factory=list)
+    required_versions: dict[str, str] = field(default_factory=dict)
     github_repo_owner: str = ''
     github_repo_name: str = ''
     asset_version_pattern: str = ''
@@ -38,7 +41,6 @@ class PackageMetadata:
     signature_public_key: str = ''
     exit_after_update: bool = False
     deploy_name: str = ''
-    required_versions: Dict[str, str] = field(default_factory=lambda: {})
 
 
 @dataclass
@@ -54,7 +56,7 @@ class PackageConfig:
 @dataclass
 class Manifest:
     version: str = ''
-    signatures: Dict[str, str] = field(default_factory=lambda: {})
+    signatures: dict[str, str] = field(default_factory=dict)
 
     def as_json(self):
         return json.dumps(asdict(self), indent=4)
@@ -69,32 +71,41 @@ class Manifest:
 class Package:
     def __init__(self, metadata: PackageMetadata):
         self.metadata = metadata
-        self.cfg: Union[PackageConfig, None] = None
+        self.cfg: PackageConfig | None = None
         self.asset_version_pattern = re.compile(self.metadata.asset_version_pattern)
         self.signature_pattern = re.compile(self.metadata.signature_pattern, re.MULTILINE)
 
         self.security = Security(public_key=self.metadata.signature_public_key)
 
-        self.manager: Optional[PackageManager] = None
+        self.manager: PackageManager | None = None
         self.active = False
         self.installed_version: str = ''
+        self.deployed_version: str = ''
         self.state: PackageConfig
         self.download_url: str = ''
-        self.signature: Union[str, None] = None
+        self.signature: str | None = None
         self.manifest = None
-        self.manifest_url: Optional[str] = None
+        self.manifest_url: str | None = None
         self.download_in_progress = False
 
         self.package_path = Paths.App.Resources / 'Packages' / self.metadata.package_name
-        self.downloaded_asset_path: Union[Path, None] = None
-        self.installed_asset_path: Union[Path, None] = None
+        self.downloaded_asset_path: Path | None = None
+        self.installed_asset_path: Path | None = None
+        self.downloaded_asset_hashes: dict[Path, str] = {}
 
     def get_installed_version(self) -> str:
         raise NotImplementedError(f'Method "get_installed_version" is not implemented for package {self.metadata.package_name}!')
 
+    def get_deployed_version(self) -> str:
+        raise NotImplementedError(f'Method "get_deployed_version" is not implemented for package {self.metadata.package_name}!')
+
     def detect_installed_version(self):
         try:
             self.installed_version = self.get_installed_version()
+            try:
+                self.deployed_version = self.get_deployed_version()
+            except NotImplementedError:
+                self.deployed_version = self.installed_version
         except Exception as e:
             self.installed_version = ''
             raise ValueError(L('error_package_version_detect_failed', """
@@ -103,7 +114,7 @@ class Package:
                 {error_text}
             """).format(package_name=self.metadata.package_name, error_text=e)) from e
 
-    def get_latest_version(self) -> Tuple[str, str, Union[str, None], str, str]:
+    def get_latest_version(self) -> tuple[str, str, str | None, str, str]:
         version, url, signature, release_notes, manifest_url = self.manager.github_client.fetch_latest_release(
             repo_owner=self.metadata.github_repo_owner,
             repo_name=self.metadata.github_repo_name,
@@ -266,23 +277,98 @@ class Package:
             raise ValueError(L('error_missing_signature', '{package_name} manifest file is missing signature for {file_name}!').format(package_name=self.metadata.package_name, file_name=file_path.name))
         return signature
 
-    def validate_files(self, file_paths: List[Path]):
+    def validate_files(self, file_paths: list[Path]):
         for file_path in file_paths:
             self.verify_signature(file_path)
+
+    @staticmethod
+    def get_file_sha256(path: Path) -> str:
+        return hashlib.sha256(Paths.App.read_bytes(path)).hexdigest()
 
     def unpack(self, file_path: Path, destination_path: Path):
         Events.Fire(Events.PackageManager.StartUnpack(asset_name=file_path.name))
 
-        with zipfile.ZipFile(file_path, 'r') as zip:
-            # Extract zip archive
-            zip.extractall(destination_path)
-            # Restore modification dates
+        destination_path = destination_path.resolve()
+
+        self.downloaded_asset_hashes.clear()
+
+        with zipfile.ZipFile(file_path, "r") as zip:
+            # Verify zip archive.
+            bad_file = zip.testzip()
+            if bad_file is not None:
+                raise RuntimeError(f"Corrupt ZIP entry: {bad_file}")
+
             for zip_info in zip.infolist():
-                extracted_file_path = os.path.join(destination_path, zip_info.filename)
+
+                relative_path = Path(zip_info.filename)
+                extracted_file_path = (destination_path / relative_path).resolve()
+
+                # Prevent path traversal outside destination_path.
+                if not extracted_file_path.is_relative_to(destination_path):
+                    raise RuntimeError(f"Invalid ZIP entry path: {zip_info.filename}")
+
+                # Entry is dir. Create directory tree.
+                if zip_info.is_dir():
+                    extracted_file_path.mkdir(parents=True, exist_ok=True)
+                    continue
+
+                # Entry is file. Create parent directory tree.
+                extracted_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+                # Read the ZIP entry and write it to disk.
+                expected_data = zip.read(zip_info)
+                Paths.App.write_file(extracted_file_path, expected_data, silent=True)
+
+                # Calculate zipped data hash.
+                self.downloaded_asset_hashes[relative_path] = hashlib.sha256(expected_data).hexdigest()
+
+                # Restore modification date.
                 timestamp = time.mktime(zip_info.date_time + (0, 0, -1))
                 os.utime(extracted_file_path, (timestamp, timestamp))
 
         Paths.App.remove_path(file_path)
+
+        self.verify_files_integrity(destination_path)
+
+        log.debug(f"Successfully unpacked {len(self.downloaded_asset_hashes)} files from `{file_path}` to `{destination_path}`")
+
+    def verify_files_integrity(self, destination_path: Path, remove_on_failure: bool = True):
+        Events.Fire(Events.PackageManager.StartIntegrityVerification(asset_name=self.metadata.package_name))
+
+        if not self.downloaded_asset_hashes:
+            raise RuntimeError(f"verify_files_integrity called but {self.metadata.package_name} package has no downloaded assets")
+
+        bad_file = None
+
+        for relative_path, original_file_hash in self.downloaded_asset_hashes.items():
+            # Calculate file data hash from destination location.
+            file_path = (destination_path / relative_path).resolve()
+            file_hash = self.get_file_sha256(file_path)
+
+            if file_hash != original_file_hash:
+                bad_file = file_path
+                break
+
+        if bad_file is not None:
+
+            if remove_on_failure:
+                try:
+                    for relative_path in self.downloaded_asset_hashes.keys():
+                        file_path = (destination_path / relative_path).resolve()
+                        Paths.App.remove_path(file_path)
+                except Exception as e:
+                    log.debug(f"Failed to remove file: {e}")
+
+            raise RuntimeError(L('error_files_integrity_verification_failed', """
+                Files integrity verification failed!
+                 
+                Hash mismatch for asset file:
+                `{bad_file}`
+                
+                Please try to run **{launcher_install_button}** again or use **{tool_bar_repair_button}**.
+            """).format(bad_file=bad_file, importer=Config.Launcher.active_importer))
+
+        log.debug(f'Successfully verified integrity of all {len(self.downloaded_asset_hashes)} files in folder {destination_path}')
 
     def move(self, source_path: Path, destination_path: Path):
         Events.Fire(Events.PackageManager.StartFileMove(asset_name=source_path.name))
@@ -300,19 +386,15 @@ class Package:
         return None
 
     def get_file_version(self, file_path, max_parts=4):
-        try:
-            version_info = GetFileVersionInfo(str(file_path), "\\")
+        version_info = GetFileVersionInfo(str(file_path), "\\")
 
-            ms_file_version = version_info['FileVersionMS']
-            ls_file_version = version_info['FileVersionLS']
+        ms_file_version = version_info['FileVersionMS']
+        ls_file_version = version_info['FileVersionLS']
 
-            version = [str(HIWORD(ms_file_version)), str(LOWORD(ms_file_version)),
-                       str(HIWORD(ls_file_version)), str(LOWORD(ls_file_version))]
+        version = [str(HIWORD(ms_file_version)), str(LOWORD(ms_file_version)),
+                   str(HIWORD(ls_file_version)), str(LOWORD(ls_file_version))]
 
-            return '.'.join(version[:max_parts])
-        except Exception as e:
-            log.debug(f"Failed to read file version from {file_path}: {e}")
-            return '1.0.0'
+        return '.'.join(version[:max_parts])
 
     def update(self, clean=False):
         if not self.download_url:
@@ -357,77 +439,25 @@ class Package:
     def uninstall(self):
         pass
 
+    def run_pre_launch(self, launch_context: LaunchContext):
+        raise NotImplementedError()
 
-@dataclass
-class PackageState:
-    installed_version: str
-    latest_version: str
-    skipped_version: str
+    def update_metadata(self):
+        # Update deployed version metadata if it's missing.
+        if self.deployed_version != self.cfg.deployed_version and self.deployed_version == self.cfg.latest_version:
+            self.cfg.deployed_version = self.installed_version
+            self.cfg.deployed_release_notes = self.cfg.latest_release_notes
 
 
 @dataclass
 class PackageManagerConfig:
-    packages: Dict[str, PackageConfig] = field(default_factory=lambda: {})
-
-
-@dataclass
-class PackageManagerEvents:
-
-    @dataclass
-    class NotifyPackageVersions:
-        detect_installed: bool = True
-
-    @dataclass
-    class StartCheckUpdate:
-        pass
-
-    @dataclass
-    class InitializeDownload:
-        pass
-
-    @dataclass
-    class StartDownload:
-        asset_name: str
-
-    @dataclass
-    class UpdateDownloadProgress:
-        downloaded_bytes: int
-        total_bytes: int
-
-    @dataclass
-    class StartIntegrityVerification:
-        asset_name: str
-
-    @dataclass
-    class InitializeInstallation:
-        pass
-
-    @dataclass
-    class StartFileWrite:
-        asset_name: str
-
-    @dataclass
-    class StartFileMove:
-        asset_name: str
-
-    @dataclass
-    class StartUnpack:
-        asset_name: str
-
-    @dataclass
-    class VersionNotification:
-        auto_update: bool
-        package_states: Dict[str, PackageState]
-
-    @dataclass
-    class GetPackage:
-        package_name: str
+    packages: dict[str, PackageConfig] = field(default_factory=lambda: {})
 
 
 class PackageManager:
-    def __init__(self, packages: Optional[List[Package]] = None):
+    def __init__(self, packages: list[Package] | None = None):
         self.github_client = GitHubClient()
-        self.packages: Dict[str, Package] = {}
+        self.packages: dict[str, Package] = {}
         if packages is not None:
             for package in packages:
                 self.register_package(package)
@@ -457,7 +487,7 @@ class PackageManager:
         if package.metadata.auto_load:
             self.load_package(package)
 
-    def load_package(self, package: Union[Package, str]):
+    def load_package(self, package: Package | str):
         package = self.get_package(package)
         # Load required packages
         for required_package in package.metadata.requirements:
@@ -466,17 +496,14 @@ class PackageManager:
         package.load()
         # Detect installed version to do a basic integrity check
         package.detect_installed_version()
-        # Mark installed version as deployed on empty deployed version record
-        if not package.cfg.deployed_version:
-            package.cfg.deployed_version = package.installed_version
 
-    def unload_package(self, package: Union[Package, str]):
+    def unload_package(self, package: Package | str):
         package = self.get_package(package)
         package.unload()
         for required_package in package.metadata.requirements:
             self.unload_package(required_package)
 
-    def get_package(self, package: Union[Package, str]) -> Package:
+    def get_package(self, package: Package | str) -> Package:
         if isinstance(package, str):
             return self.packages[package]
         else:
@@ -488,6 +515,7 @@ class PackageManager:
             package_states={
                 package.metadata.package_name: PackageState(
                     installed_version=package.installed_version,
+                    deployed_version=package.deployed_version,
                     latest_version=package.cfg.latest_version if package.update_available() else package.installed_version,
                     skipped_version=package.cfg.skipped_version,
                 ) for package in self.packages.values() if package.active
@@ -607,6 +635,8 @@ class PackageManager:
         if install:
             package.update(clean=reinstall)
             return True
+
+        package.update_metadata()
 
         return False
 

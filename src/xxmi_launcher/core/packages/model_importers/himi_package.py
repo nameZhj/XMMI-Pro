@@ -1,13 +1,10 @@
 import re
-import os
 import logging
-import shutil
 import winreg
 import json
 
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Dict, Union, Tuple, Optional, List
+from typing import Any
 from pathlib import Path
 
 import core.path_manager as Paths
@@ -17,24 +14,25 @@ import core.config_manager as Config
 from core.locale_manager import L
 from core.package_manager import PackageMetadata
 
-from core.utils.ini_handler import IniHandler, IniHandlerSettings
-from core.utils.process_tracker import wait_for_process_exit, WaitResult, ProcessPriority
+from core.config.enums import InjectMode
 from core.packages.model_importers.model_importer import ModelImporterPackage, ModelImporterConfig, Version
 from core.packages.migoto_package import MigotoManagerConfig
+from core.platforms.game import Game
 
 log = logging.getLogger(__name__)
 
 
 @dataclass
 class HIMIConfig(ModelImporterConfig):
-    game_exe_names: List[str] = field(default_factory=lambda: ['BH3.exe'])
-    game_folder_names: List[str] = field(default_factory=lambda: ['Honkai Impact 3rd game'])
-    game_folder_children: List[str] = field(default_factory=lambda: ['BH3_Data'])
+    game: Game = Game.HONKAI_IMPACT
+    game_exe_names: list[str] = field(default_factory=lambda: ['BH3.exe'])
+    game_folder_names: list[str] = field(default_factory=lambda: ['Honkai Impact 3rd game'])
+    game_folder_children: list[str] = field(default_factory=lambda: ['BH3_Data'])
+    game_process_exe: str = "BH3.exe"
     importer_folder: str = 'HIMI/'
     launch_options: str = ''
-    d3dx_ini: Dict[
-        str, Dict[str, Dict[str, Union[str, int, float, Dict[str, Union[str, int, float]]]]]
-    ] = field(default_factory=lambda: {
+    xxmi_dll_inject_mode: InjectMode = InjectMode.HOOK
+    d3dx_ini: dict[str, dict[str, dict[str, Any]]] = field(default_factory=lambda: {
         'core': {
             'Loader': {
                 'loader': 'XXMI Launcher.exe',
@@ -46,21 +44,6 @@ class HIMIConfig(ModelImporterConfig):
                 'track_texture_updates': 0,
                 'track_region_hashes': 0,
                 'allow_buffer_resize': 1,
-            },
-        },
-        'calls_logging': {
-            'Logging': {
-                'calls': {'on': 1, 'off': 0},
-            },
-        },
-        'debug_logging': {
-            'Logging': {
-                'debug': {'on': 1, 'off': 0},
-            },
-        },
-        'mute_warnings': {
-            'Logging': {
-                'show_warnings': {'on': 0, 'off': 1},
             },
         },
         'enable_hunting': {
@@ -99,7 +82,7 @@ class HIMIPackage(ModelImporterPackage):
             github_repo_name='HIMI-Package',
             asset_version_pattern=r'.*(\d\.\d\.\d).*',
             asset_name_format='HIMI-PACKAGE-v%s.zip',
-            signature_pattern=r'^## Signature[\r\n]+- ((?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{4}|[A-Za-z0-9+\/]{3}=|[A-Za-z0-9+\/]{2}={2})$)',
+            signature_pattern=r'^## Signature[\r\n]+- ((?:[A-Za-z0-9+\/]{4})*(?:[A-Za-z0-9+\/]{4}|[A-Za-z0-9+\/]{3}=|[A-Za-z0-9+\/]{2}={2}))\r?$',
             signature_public_key='MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEeigvK7REsX3f/vb+RRuFkZt/6VRbykI2oQcEU3IiI3N9s6jWqKkxAE2cTC9wKXDlkeSzlHjPxgzrTrKdqwkFzROMjw5T2LixFB5BYaT633aU/cCiHDbArIJ46+GrqemG',
             exit_after_update=False,
             installation_path='HIMI/',
@@ -125,18 +108,7 @@ class HIMIPackage(ModelImporterPackage):
         except Exception as e:
             return ''
 
-    def validate_game_exe_path(self, game_path: Path) -> Path:
-        game_exe_path = game_path / 'BH3.exe'
-        if not game_exe_path.is_file():
-            raise ValueError(L('error_game_exe_not_found', 'Game executable {exe_name} not found!').format(exe_name=game_exe_path.name))
-        return game_exe_path
-
-    def get_start_cmd(self, game_path: Path) -> Tuple[Path, List[str], Optional[str]]:
-        game_exe_path = self.validate_game_exe_path(game_path)
-        work_dir_path = str(game_exe_path.parent)
-        return game_exe_path, [], work_dir_path
-
-    def initialize_game_launch(self, game_path: Path):
+    def configure_game_settings(self, game_path: Path | None, game_exe_path: Path | None):
         if Config.Importers.HIMI.Importer.unlock_fps:
             try:
                 self.unlock_fps()
