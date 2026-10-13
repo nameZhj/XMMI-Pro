@@ -79,6 +79,11 @@ CHARACTER_DATABASE = [
     ('phoebe', '菲比', 'Phoebe', ['feibi', 'phoebe', 'fb'], ['266312']),
     ('brant', '布兰特', 'Brant', ['bulante', 'brant', 'blt'], ['266313']),
     ('colletta', '珂莱塔', 'Colletta', ['kelaita', 'colletta', 'klt'], ['266314']),
+    ('aemeath', '爱弥斯', 'Aemeath', ['aimisi', 'aemeath', 'ams'], ['266315']),
+    ('lumi', '灯灯', 'Lumi', ['dengdeng', 'lumi', 'dd'], ['266316']),
+    ('chisa', '千咲', 'Chisa', ['qianxiao', 'chisa', 'qx'], ['266317']),
+    ('qingxiao', '青宵', 'Qingxiao', ['qingxiao', 'qx'], ['266318']),
+    ('hsin', '心/辛', 'Hsin', ['xin', 'hsin', 'x'], ['266319']),
 
     # --- 原神 (GIMI) ---
     ('raiden', '雷电将军', 'Raiden Shogun', ['leidianjiangjun', 'raiden', 'leishen', 'ldjj'], []),
@@ -170,8 +175,9 @@ class ModRepairOptions:
     fix_rules: bool = True                # 4. 索引规则与 Shapekey 修复 (Rules & Index Replacement)
     fix_resource_override: bool = True    # 5. 追加资源重载检查 (CheckTextureOverride)
     fix_stable_texture: bool = True       # 6. 状态贴图稳定模式 (Stable State Textures)
-    fix_rover_special: bool = False       # 7. 主角材质与风主眼部专属修复 (按需开启，源码 enable_aero_rover_fix 默认为 false)
-    inject_engine_ini: bool = False       # 8. Engine.ini 渲染与防破图参数注入 (修改游戏全局配置，按需开启)
+    fix_rendering_33: bool = True         # 7. Rendering 3.3 管线修复 (COLOR1 顶点掩码属性清理，防黑屏)
+    fix_rover_special: bool = False       # 8. 主角材质与风主眼部专属修复 (按需开启，源码 enable_aero_rover_fix 默认为 false)
+    inject_engine_ini: bool = False       # 9. Engine.ini 渲染与防破图参数注入 (修改游戏全局配置，按需开启)
     clean_trash_files: bool = True        # 清理冗余/临时干扰文件 (.DS_Store, Thumbs.db, etc.)
     normalize_ini: bool = True            # 规范化 .ini 编码 (UTF-8) 与路径反斜杠
     create_backup: bool = True            # 修复前自动创建安全回滚备份
@@ -1014,7 +1020,7 @@ class ModService:
 
     @classmethod
     def get_wuwa_fix_config(cls) -> Dict:
-        """Loads and caches the Wuwa mod fix definitions (115+ characters/weapons)."""
+        """Loads and caches the Wuwa mod fix definitions (119+ characters/weapons)."""
         if cls._fix_config_cache is None:
             try:
                 import json
@@ -1026,14 +1032,21 @@ class ModService:
                     Path(sys.executable).parent / "core" / "wuwa_fix_config.json",
                     Path(sys.executable).parent / "_internal" / "core" / "wuwa_fix_config.json",
                 ]
-                cfg_path = None
+                best_cfg = None
+                best_ver = "0.0.0"
                 for c in candidates:
                     if c and c.exists():
-                        cfg_path = c
-                        break
+                        try:
+                            data = json.loads(c.read_text(encoding='utf-8'))
+                            ver = data.get("version", {}).get("current_version", "0.0.0") if isinstance(data.get("version"), dict) else str(data.get("version", "0.0.0"))
+                            if best_cfg is None or ver >= best_ver:
+                                best_ver = ver
+                                best_cfg = data
+                        except Exception:
+                            pass
 
-                if cfg_path and cfg_path.exists():
-                    cls._fix_config_cache = json.loads(cfg_path.read_text(encoding='utf-8'))
+                if best_cfg:
+                    cls._fix_config_cache = best_cfg
                 else:
                     cls._fix_config_cache = {"characters": {}, "settings": {}}
             except Exception as e:
@@ -1058,8 +1071,9 @@ class ModService:
         urls = [
             'https://raw.githubusercontent.com/Moonholder/Wuwa_Mod_Fixer/main/config.json',
             'https://fastly.jsdelivr.net/gh/Moonholder/Wuwa_Mod_Fixer@main/config.json',
+            'https://testingcf.jsdelivr.net/gh/Moonholder/Wuwa_Mod_Fixer@main/config.json',
+            'https://gcore.jsdelivr.net/gh/Moonholder/Wuwa_Mod_Fixer@main/config.json',
             'https://ghproxy.net/https://raw.githubusercontent.com/Moonholder/Wuwa_Mod_Fixer/main/config.json',
-            'https://raw.gitmirror.com/Moonholder/Wuwa_Mod_Fixer/main/config.json',
         ]
 
         ctx = ssl.create_default_context()
@@ -1427,6 +1441,28 @@ class ModService:
                 fixes.append(f"已优化并保存 {repaired_ini_count} 个 .ini 配置文件的编码与路径规范")
             else:
                 fixes.append(f"已校验全部 {len(ini_files)} 个 .ini 文件（结构完好）")
+
+            # 3.5 Rendering 3.3 pipeline fix (clear invalid COLOR1 vertex mask attributes in TexCoord buffers)
+            if options.fix_rendering_33:
+                r33_count = 0
+                for tc_buf in list(mod_item.path.rglob('*TexCoord*.buf')):
+                    try:
+                        buf_data = bytearray(tc_buf.read_bytes())
+                        stride = 16
+                        if len(buf_data) >= stride and len(buf_data) % stride == 0:
+                            buf_modified = False
+                            for i in range(0, len(buf_data), stride):
+                                if buf_data[i + 4] != 0 or buf_data[i + 6] != 0:
+                                    buf_data[i + 4] = 0
+                                    buf_data[i + 6] = 0
+                                    buf_modified = True
+                            if buf_modified:
+                                tc_buf.write_bytes(buf_data)
+                                r33_count += 1
+                    except Exception as e:
+                        log.debug(f"Error applying Rendering 3.3 fix to {tc_buf}: {e}")
+                if r33_count > 0:
+                    fixes.append(f"已应用 Rendering 3.3 管线修复：清理 {r33_count} 个缓冲文件中的旧版 COLOR1 顶点掩码 (防黑屏)")
 
             # 4. Engine.ini optimization injection for Wuthering Waves
             if options.inject_engine_ini:

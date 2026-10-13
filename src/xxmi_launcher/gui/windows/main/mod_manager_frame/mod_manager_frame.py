@@ -532,6 +532,7 @@ class ModRepairDialog(ctk.CTkToplevel):
         self.var_fix_rules = tk.BooleanVar(value=True)
         self.var_fix_resource_override = tk.BooleanVar(value=True)
         self.var_fix_stable_texture = tk.BooleanVar(value=True)
+        self.var_fix_rendering_33 = tk.BooleanVar(value=True)
         self.var_fix_rover_special = tk.BooleanVar(value=False)
         self.var_inject_engine_ini = tk.BooleanVar(value=False)
         self.var_clean_trash_files = tk.BooleanVar(value=True)
@@ -539,12 +540,13 @@ class ModRepairDialog(ctk.CTkToplevel):
         self.var_create_backup = tk.BooleanVar(value=True)
 
         options_meta = [
-            (self.var_fix_hashes, "游戏版本更新 Hash 替换", "匹配 115+ 角色与武器在版本更新后的主 Hash 与贴图 Hash"),
+            (self.var_fix_hashes, "游戏版本更新 Hash 替换", "匹配 119+ 角色与武器在版本更新后的主 Hash 与贴图 Hash"),
             (self.var_fix_vertex_groups, "骨骼与顶点组重映射 (vg_remap)", "重映射顶点组与骨骼权重，修复白芷、长离等因骨骼变动导致拉扯破皮"),
             (self.var_fix_derive_textures, "衍生贴图与 LOD 远景防黑补全", "自动补全 LOD/Wet/Charged/Injured 衍生重载，解决远距离变黑变色"),
             (self.var_fix_rules, "索引规则与 Shapekey 修复", "修正 match_first_index、match_index_count、面部表情与顶点偏移"),
             (self.var_fix_resource_override, "追加资源重载检查", "追加 CheckTextureOverride 检查，防止多材质重载相互冲突"),
-            (self.var_fix_stable_texture, "状态贴图稳定模式", "稳定处理爱弥斯 (Aemeath)、椿 (Camellya) 等角色的特殊状态贴图"),
+            (self.var_fix_stable_texture, "状态贴图稳定模式", "稳定处理爱弥斯 (Aemeath)、椿 (Camellya)、千咲 (Chisa) 等角色的特殊状态贴图"),
+            (self.var_fix_rendering_33, "Rendering 3.3 管线修复", "清理 TexCoord 缓冲中的旧版 COLOR1 顶点掩码，彻底解决 3.3 管线更新后的模型黑屏与掩码异常"),
             (self.var_fix_rover_special, "主角材质与风主眼部专属修复", "漂泊者 Materialmap 材质自动适配生成，以及风主满充能眼部修复"),
             (self.var_inject_engine_ini, "Engine.ini 渲染与防破图注入", "向游戏 Engine.ini 写入高精模型渲染 LODDistanceScale 与贴图流式优化"),
             (self.var_clean_trash_files, "清理冗余与临时干扰文件", "清除 CheckTexture.ini, References.ini, .DS_Store, Thumbs.db 等干扰文件"),
@@ -667,6 +669,7 @@ class ModRepairDialog(ctk.CTkToplevel):
         self.var_fix_rules.set(True)
         self.var_fix_resource_override.set(True)
         self.var_fix_stable_texture.set(True)
+        self.var_fix_rendering_33.set(True)
         self.var_fix_rover_special.set(False)
         self.var_inject_engine_ini.set(False)
         self.var_clean_trash_files.set(True)
@@ -677,8 +680,8 @@ class ModRepairDialog(ctk.CTkToplevel):
         for v in [
             self.var_fix_hashes, self.var_fix_vertex_groups, self.var_fix_derive_textures,
             self.var_fix_rules, self.var_fix_resource_override, self.var_fix_stable_texture,
-            self.var_fix_rover_special, self.var_inject_engine_ini, self.var_clean_trash_files,
-            self.var_normalize_ini, self.var_create_backup
+            self.var_fix_rendering_33, self.var_fix_rover_special, self.var_inject_engine_ini,
+            self.var_clean_trash_files, self.var_normalize_ini, self.var_create_backup
         ]:
             v.set(True)
 
@@ -686,8 +689,8 @@ class ModRepairDialog(ctk.CTkToplevel):
         for v in [
             self.var_fix_hashes, self.var_fix_vertex_groups, self.var_fix_derive_textures,
             self.var_fix_rules, self.var_fix_resource_override, self.var_fix_stable_texture,
-            self.var_fix_rover_special, self.var_inject_engine_ini, self.var_clean_trash_files,
-            self.var_normalize_ini, self.var_create_backup
+            self.var_fix_rendering_33, self.var_fix_rover_special, self.var_inject_engine_ini,
+            self.var_clean_trash_files, self.var_normalize_ini, self.var_create_backup
         ]:
             v.set(False)
 
@@ -726,6 +729,7 @@ class ModRepairDialog(ctk.CTkToplevel):
             fix_rules=self.var_fix_rules.get(),
             fix_resource_override=self.var_fix_resource_override.get(),
             fix_stable_texture=self.var_fix_stable_texture.get(),
+            fix_rendering_33=self.var_fix_rendering_33.get(),
             fix_rover_special=self.var_fix_rover_special.get(),
             inject_engine_ini=self.var_inject_engine_ini.get(),
             clean_trash_files=self.var_clean_trash_files.get(),

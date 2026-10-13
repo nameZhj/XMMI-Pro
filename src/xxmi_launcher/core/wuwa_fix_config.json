@@ -1,8 +1,8 @@
 {
   "version": {
-    "min_required_version": "3.5.1",
-    "current_version": "3.6.0",
-    "latest_program_version": "3.6.0",
+    "min_required_version": "3.7.0",
+    "current_version": "3.7.0",
+    "latest_program_version": "3.7.0",
     "update_url": "https://github.com/Moonholder/Wuwa_Mod_Fixer/releases/latest",
     "support_url_cn": "https://support.jix.de5.net",
     "support_url_intl": "https://ko-fi.com/moonholder"
@@ -29,20 +29,20 @@
       "en": "This fix tool is applicable when the mods produced by WWMI become ineffective due to the update of the game version.\n"
     },
     "intro": {
-      "zh": "修复更新: 请将XXMI更新至最新版本\n* 修复女主 琳奈 秧秧·玄翎 穗穗\n\n",
-      "en": "Fix Update: Please update XXMI to the latest version.\n* Fixed FRover, Lynae, YangyangXuanling and Suisui.\n\n"
+      "zh": "修复更新: 请将XXMI更新至最新版本\n* 修复主角及其表情（注意：若此前手动修改过 Hash，请先回滚或还原才能触发修复）\n* 修复千咲皮肤\n",
+      "en": "Fix Update: Please update XXMI to the latest version.\n* Fixed Rover and their expressions (Note: If you have manually modified hashes before, please rollback or restore first to trigger this fix)\n* Fixed Chisa outfit\n\n"
     },
     "intro_note": {
-      "zh": "确保画面细节为极高，光追已关闭。若 Engine.ini 中存在 r.RayTracing.LoadConfig，必须将其设为 0。",
-      "en": "Ensure that the LOD Bias are set to Ultra High and Ray Tracing is turned off. If r.RayTracing.LoadConfig exists in Engine.ini, it must be set to 0."
+      "zh": "**游戏资源与 Engine.ini 设置说明：**\n1. **客户端资源质量**：游戏 3.7 版本起将包体资源质量划分为 `SD` / `HD` / `UHD`，当前 Mod 基本运行在 `HD` 下。请在 XXMI「设置/通用/游戏设置/客户端资源质量」中将其设为 **HD**（无需再手动添加启动项 `-krqlv=hd`）。\n2. **Engine.ini 配置**：请在 `Engine.ini` 的 `[SystemSettings]` 下添加以下配置以保证 Mod 贴图正常流送加载：\n   ```ini\n   [SystemSettings]\n   r.Streaming.UsingNewKuroStreaming=0\n   r.Streaming.HiddenPrimitiveScale=25\n   ```\n   *注：若切人时遇到贴图延迟加载，可酌情尝试追加 `r.Streaming.FramesForFullUpdate=0`（非必须项，可能带来额外性能损失或副作用，请按需权衡）。*\n",
+      "en": "**Game Resources & Engine.ini Settings Requirements:**\n1. **Client Resource Quality**: Starting from game version 3.7, package resource quality is divided into `SD` / `HD` / `UHD`. Currently, mods basically run under `HD`. Please set \"Settings / General / Game Settings / Client Resource Quality\" to **HD** in XXMI (no longer need to manually add launch parameter `-krqlv=hd`).\n2. **Engine.ini Configuration**: Please add the following configuration under `[SystemSettings]` in `Engine.ini` to ensure normal texture streaming:\n   ```ini\n   [SystemSettings]\n   r.Streaming.UsingNewKuroStreaming=0\n   r.Streaming.HiddenPrimitiveScale=25\n   ```\n   *Note: If you experience texture streaming delays during character switching, you may optionally try adding `r.Streaming.FramesForFullUpdate=0` (not required, may introduce extra performance overhead or side effects, use at your discretion).*\n"
     },
     "compatibility_note": {
-      "zh": "\n注：wwmi 0.6x版本的旧Mod在WWMI 070版本之后需开启兼容模式才能加载. 开启后有一定性能损失. 开启方式: 游戏内 Alt + F12. 显示 Compatibility Mode: Enabled",
-      "en": "\nNote: The old mods of the WWMI 0.6x version need to have the compatibility mode enabled to be loaded after the WWMI 070 version. Enabling it will result in a certain performance loss. The way to enable it is: press Alt + F12 in the game. It should display 'Compatibility Mode: Enabled'."
+      "zh": "> **兼容模式提示**：WWMI 0.6x 版本的旧 Mod 在 WWMI 0.7.0 之后需开启兼容模式才能加载（游戏内快捷键 `Alt + F12`）。\n",
+      "en": "> **Compatibility Mode Note**: Old mods of WWMI 0.6x version require enabling compatibility mode after WWMI 0.7.0 (in-game shortcut `Alt + F12`).\n"
     },
     "graphics_setting_note": {
-      "zh": "游戏从2.0版本开始不同画面预设的Hash值可能不同，这可能导致Mod贴图错误，请将图形质量预设调整至均衡/画质优先",
-      "en": "Starting from version 2.0, different graphics presets may have different hash values, which may cause mod texture errors. Please set the graphics quality preset to Balanced/Quality."
+      "zh": "",
+      "en": ""
     },
     "found_old_mod": {
       "zh": "发现旧版Mod(wwmi 0.6x)，正在尝试修复...",
@@ -144,7 +144,9 @@
   "settings": {
     "state_texture_removers": [
       "Aemeath",
-      "Camellya"
+      "Camellya",
+      "Carlotta",
+      "Chisa"
     ],
     "enable_aero_rover_fix": false
   },
@@ -349,6 +351,7 @@
           ],
           "derive": {
             "LOD": [
+              "ffccbf31",
               "1fd24d90"
             ],
             "Charged": [
@@ -363,7 +366,13 @@
           },
           "replace": [
             "b3927ca5"
-          ]
+          ],
+          "derive": {
+            "LOD": [
+              "8d0db7a6",
+              "f225423f"
+            ]
+          }
         },
         "262dd8c5": {
           "meta": {
@@ -372,12 +381,24 @@
           },
           "replace": [
             "34d0acfd"
-          ]
+          ],
+          "derive": {
+            "LOD": [
+              "fb7246e2",
+              "b399a4b3"
+            ]
+          }
         },
         "aa69d267": {
           "replace": [
             "109cc560"
-          ]
+          ],
+          "derive": {
+            "LOD": [
+              "2c3f1763",
+              "6d54adc1"
+            ]
+          }
         },
         "1571587a": {
           "meta": {
@@ -386,7 +407,13 @@
           },
           "replace": [
             "e341a037"
-          ]
+          ],
+          "derive": {
+            "LOD": [
+              "c82ec65d",
+              "0af03518"
+            ]
+          }
         },
         "34897ad2": {
           "meta": {
@@ -395,7 +422,13 @@
           },
           "replace": [
             "d01d0380"
-          ]
+          ],
+          "derive": {
+            "LOD": [
+              "b2dfbfd6",
+              "2b311f69"
+            ]
+          }
         },
         "fcc6992c": {
           "meta": {
@@ -405,7 +438,13 @@
           "replace": [
             "0454fc47",
             "75591798"
-          ]
+          ],
+          "derive": {
+            "LOD": [
+              "6ee047e1",
+              "2711d6ed"
+            ]
+          }
         },
         "c154eedc": {
           "meta": {
@@ -414,7 +453,13 @@
           },
           "replace": [
             "79081b2b"
-          ]
+          ],
+          "derive": {
+            "LOD": [
+              "1c0b70fb",
+              "c90fd734"
+            ]
+          }
         },
         "c0c34a21": {
           "meta": {
@@ -423,12 +468,24 @@
           },
           "replace": [
             "fda934b4"
-          ]
+          ],
+          "derive": {
+            "LOD": [
+              "1d9cd406",
+              "b59a10c8"
+            ]
+          }
         },
         "1944212c": {
           "meta": {
             "id": 3,
             "type": "M"
+          },
+          "derive": {
+            "LOD": [
+              "c41bbf0b",
+              "c5673dfc"
+            ]
           }
         },
         "a576ce3e": {
@@ -441,6 +498,7 @@
           ],
           "derive": {
             "LOD": [
+              "78295019",
               "7e6c8d99"
             ],
             "Charged": [
@@ -456,12 +514,24 @@
           "replace": [
             "0eb70c8f",
             "157217af"
-          ]
+          ],
+          "derive": {
+            "LOD": [
+              "1d1a5151",
+              "c33d1139"
+            ]
+          }
         },
         "ef5edd1b": {
           "meta": {
             "id": 4,
             "type": "M"
+          },
+          "derive": {
+            "LOD": [
+              "3201433c",
+              "1cff0950"
+            ]
           }
         },
         "fcdd3e98": {
@@ -480,7 +550,13 @@
           },
           "replace": [
             "1d31d19d"
-          ]
+          ],
+          "derive": {
+            "LOD": [
+              "749b6c17",
+              "b02c8f87"
+            ]
+          }
         },
         "3ce06c9a": {
           "meta": {
@@ -489,7 +565,13 @@
           },
           "replace": [
             "d3387127"
-          ]
+          ],
+          "derive": {
+            "LOD": [
+              "e1bff2bd",
+              "7a909b49"
+            ]
+          }
         },
         "a76caeb5": {
           "meta": {
@@ -498,7 +580,13 @@
           },
           "replace": [
             "2d9235e9"
-          ]
+          ],
+          "derive": {
+            "LOD": [
+              "7a333092",
+              "5015b951"
+            ]
+          }
         },
         "898230f4": {
           "meta": {
@@ -514,27 +602,57 @@
           "replace": [
             "2f18521b",
             "ec96a652"
-          ]
+          ],
+          "derive": {
+            "LOD": [
+              "7b89b3ac",
+              "2abd8735"
+            ]
+          }
         },
         "86c4b5fd": {
           "replace": [
             "f857b2b4"
-          ]
+          ],
+          "derive": {
+            "LOD": [
+              "5b9b2bda",
+              "a83a425d"
+            ]
+          }
         },
         "a54870d2": {
           "replace": [
             "b944ac35"
-          ]
+          ],
+          "derive": {
+            "LOD": [
+              "7817eef5",
+              "5f20f841"
+            ]
+          }
         },
         "9ad693e0": {
           "replace": [
             "7d815cc1"
-          ]
+          ],
+          "derive": {
+            "LOD": [
+              "47890dc7",
+              "6a57f692"
+            ]
+          }
         },
         "7d54a0d5": {
           "replace": [
             "2e5607c2"
-          ]
+          ],
+          "derive": {
+            "LOD": [
+              "a00b3ef2",
+              "03fccdfa"
+            ]
+          }
         },
         "18f84aa4": {
           "replace": [
@@ -544,7 +662,13 @@
         "58d2165a": {
           "replace": [
             "6cf0c8eb"
-          ]
+          ],
+          "derive": {
+            "LOD": [
+              "858d887d",
+              "706ce698"
+            ]
+          }
         },
         "e6fbda6a": {
           "replace": [
@@ -2566,8 +2690,8 @@
           ],
           "derive": {
             "LOD": [
-              "ee654aeb",
-              "803ae598"
+              "d58c7875",
+              "29e02dab"
             ]
           }
         },
@@ -2614,8 +2738,8 @@
           ],
           "derive": {
             "LOD": [
-              "9b652c61",
-              "424e166f"
+              "e7c9ce26",
+              "4efa4faa"
             ]
           }
         },
@@ -4146,6 +4270,16 @@
           ]
         }
       }
+    },
+    "ChisaSkin1": {
+      "main_hashes": [
+        {
+          "old": [
+            "e611d493"
+          ],
+          "new": "95ecef77"
+        }
+      ]
     },
     "Chixia": {
       "main_hashes": [
@@ -6704,7 +6838,9 @@
           "derive": {
             "LOD": [
               "83dfde47",
-              "5d07dc8f"
+              "5d07dc8f",
+              "11f9008a",
+              "b28054bb"
             ]
           }
         },
@@ -6716,7 +6852,7 @@
             "LOD": [
               "ddf2a3ce",
               "f3db3fa2",
-              "61fde16f",
+              "4fd47d03",
               "87c9e488"
             ]
           }
@@ -6801,7 +6937,7 @@
             "LOD": [
               "c1ae9123",
               "827f36d2",
-              "1059e81f",
+              "53884fee",
               "f204c527"
             ]
           }
@@ -6836,7 +6972,7 @@
             "LOD": [
               "35094b5b",
               "0d684ea1",
-              "9f4e906c",
+              "a72f9596",
               "65212889"
             ]
           }
@@ -6860,7 +6996,7 @@
             "LOD": [
               "ffa87c33",
               "4c498150",
-              "de6f5f9d",
+              "6d8ea2fe",
               "65d863d0"
             ]
           }
@@ -7021,7 +7157,13 @@
         "d4c3878d": {
           "replace": [
             "84b5387b"
-          ]
+          ],
+          "derive": {
+            "LOD": [
+              "46e55940",
+              "8d2ea939"
+            ]
+          }
         },
         "13b693db": {
           "replace": [
@@ -7134,6 +7276,38 @@
           ]
         }
       }
+    },
+    "Hsin": {
+      "main_hashes": [
+        {
+          "old": [
+            "48f26bb5"
+          ],
+          "new": "4705b82b"
+        },
+        {
+          "old": [
+            "800e1aa3"
+          ],
+          "new": "67b0a7f4"
+        },
+        {
+          "old": [
+            "6cd1cc5d"
+          ],
+          "new": "d87014b0"
+        }
+      ]
+    },
+    "HsinLiber": {
+      "main_hashes": [
+        {
+          "old": [
+            "f751a490"
+          ],
+          "new": "9bb8b247"
+        }
+      ]
     },
     "Iuno": {
       "main_hashes": [
@@ -8570,40 +8744,6 @@
               "new": "490"
             }
           ]
-        },
-        {
-          "line_prefix": "$\\WWMIv1\\vg_count",
-          "replacements": [
-            {
-              "old": [
-                "62"
-              ],
-              "new": "56"
-            }
-          ]
-        },
-        {
-          "line_prefix": "$\\WWMIv1\\vg_offset",
-          "replacements": [
-            {
-              "old": [
-                "156"
-              ],
-              "new": "150"
-            },
-            {
-              "old": [
-                "264"
-              ],
-              "new": "258"
-            },
-            {
-              "old": [
-                "328"
-              ],
-              "new": "322"
-            }
-          ]
         }
       ],
       "vg_remaps": [
@@ -8614,12 +8754,27 @@
           "vertex_groups": "68:69,69:70,100:101,101:100,102:111,103:102,104:103,105:104,106:105,107:106,108:107,109:108,110:109,111:110,123:122,124:123,125:124,126:125,127:126,128:127,129:128,130:129,131:130,132:131,134:132,135:133,136:134,137:135,138:136,139:137,140:138,141:139,142:140,143:141,144:166,145:165,147:185,149:143,150:144,151:145,152:146,153:147,154:148,156:150,158:152,159:153,160:154,161:155,163:157,164:158,165:159,166:160,167:161,173:167,174:168,177:169,178:170,179:171,180:172,182:174,183:176,184:177,185:178,186:179,187:180,188:181,189:182,190:183,191:184,192:186,193:187,194:188,195:189,197:192,198:191,201:195,202:196,203:197,205:199,206:200,207:201,208:202,212:206,213:207,214:208,215:209,216:210,217:211,218:212,219:217,220:213,221:214,222:215,223:216,225:219,226:220,227:221,228:222,229:223,230:224,231:225,232:226,233:175,234:227,235:228,236:229,237:230,238:231,239:232,240:233,241:234,242:235,243:236,244:237,245:238,246:239,247:240,248:242,249:243,250:244,251:245,252:246,253:247,254:248,255:249,256:250,257:251,258:252,259:253,260:254,261:255,262:256,263:257,264:258,265:259,266:260,267:261,268:262,269:263,270:264,271:265,272:266,273:267,274:268,275:269,276:270,277:271,278:272,279:273,280:274,281:275,282:276,283:277,284:278,285:279,286:280,287:281,288:282,289:283,290:284,291:285,292:286,293:287,294:288,301:295,302:296,303:297,304:298,305:299,306:300,307:301,308:302,309:303,310:304,311:305,313:307,314:308,315:309,316:310,317:311,318:312,319:313,320:314,322:316,323:317,324:318,326:320",
           "component_remap": [
             {
+              "component_index": 1,
+              "indices": "50:51,51:52,52:50"
+            },
+            {
               "component_index": 3,
               "indices": "6:7,7:6,8:17,9:8,10:9,11:10,12:11,13:12,14:13,15:14,16:15,17:16,29:28,30:29,31:30,32:31,33:32,34:33,35:34,36:35,37:36,38:37,40:38,41:39,42:40,43:41,44:42,45:43,46:44,47:45,48:46,49:47,54:48,55:49,56:50,57:51,58:52,59:53,60:54,61:55"
             },
             {
               "component_index": 4,
               "indices": "12:14,13:12,14:15,15:13,20:35,21:19,22:20,23:21,24:22,25:23,26:24,27:26,28:27,29:28,30:29,31:30,32:31,33:32,34:33,35:34,41:42,42:41,63:67,64:63,65:64,66:65,67:66,77:25,78:77,79:78,80:79,81:80,82:81,83:82,84:83,85:84,86:85,87:86,88:87,89:88,90:89,91:90"
+            }
+          ]
+        },
+        {
+          "trigger_hash": [
+            "334d1a92"
+          ],
+          "component_remap": [
+            {
+              "component_index": 4,
+              "indices": "12:13,13:15,14:12,15:14,"
             }
           ]
         }
@@ -9109,10 +9264,6 @@
           }
         },
         "48969ded": {
-          "meta": {
-            "id": 0,
-            "type": "L"
-          },
           "replace": [
             "27308969",
             "a2c25060"
@@ -10048,6 +10199,11 @@
           ]
         }
       ],
+      "fallback_masks": [
+        {
+          "hash": "d63a624a"
+        }
+      ],
       "textures": {
         "7d044e58": {
           "meta": {
@@ -10491,6 +10647,22 @@
             "LOD": [
               "9a800365",
               "eccd0754"
+            ]
+          }
+        },
+        "d63a624a": {
+          "meta": {
+            "slot": [
+              8
+            ]
+          },
+          "replace": [
+            "7f91ca3e"
+          ],
+          "derive": {
+            "LOD": [
+              "994322a0",
+              "241abdb6"
             ]
           }
         }
@@ -11798,8 +11970,13 @@
             "type": "D"
           },
           "replace": [
-            "479a0692"
-          ]
+            "9ac598b5"
+          ],
+          "derive": {
+            "LOD": [
+              "479a0692"
+            ]
+          }
         },
         "d35ec8a5": {
           "replace": [
@@ -12002,10 +12179,6 @@
           }
         },
         "204ed695": {
-          "meta": {
-            "id": 0,
-            "type": "L"
-          },
           "replace": [
             "cd290e05",
             "04c4949f"
@@ -12220,10 +12393,6 @@
       ],
       "textures": {
         "97715493": {
-          "meta": {
-            "id": 0,
-            "type": "L"
-          },
           "replace": [
             "a7bc8074"
           ]
@@ -12247,10 +12416,6 @@
           ]
         },
         "f8d108e3": {
-          "meta": {
-            "id": 1,
-            "type": "L"
-          },
           "replace": [
             "eb978a29"
           ]
@@ -12365,10 +12530,6 @@
           ]
         },
         "d9030f2a": {
-          "meta": {
-            "id": 0,
-            "type": "L"
-          },
           "replace": [
             "feabd438"
           ]
@@ -12489,6 +12650,338 @@
           "replace": [
             "66e6fa10"
           ]
+        }
+      }
+    },
+    "Qingxiao": {
+      "main_hashes": [
+        {
+          "old": [
+            "3d7b9c89"
+          ],
+          "new": "3d7b9c89"
+        }
+      ],
+      "textures": {
+        "263b6f70": {
+          "meta": {
+            "id": 0,
+            "type": "D"
+          },
+          "derive": {
+            "LOD": [
+              "fb64f157",
+              "f92c1b4a"
+            ]
+          }
+        },
+        "377def2e": {
+          "derive": {
+            "LOD": [
+              "ea227109",
+              "c3b0745a"
+            ]
+          }
+        },
+        "02930c0e": {
+          "meta": {
+            "id": 0,
+            "type": "L"
+          },
+          "derive": {
+            "LOD": [
+              "84c5c90a",
+              "92b6c34b"
+            ]
+          }
+        },
+        "1a4a20b1": {
+          "meta": {
+            "id": 1,
+            "type": "D"
+          },
+          "derive": {
+            "LOD": [
+              "c715be96",
+              "2322d374"
+            ]
+          }
+        },
+        "ca0cb173": {
+          "derive": {
+            "LOD": [
+              "17532f54",
+              "b6c7fdef"
+            ]
+          }
+        },
+        "33b3509d": {
+          "meta": {
+            "id": 1,
+            "type": "L"
+          },
+          "derive": {
+            "LOD": [
+              "b5e59599",
+              "1fde429e"
+            ]
+          }
+        },
+        "0ab623ac": {
+          "meta": {
+            "id": 2,
+            "type": "D"
+          },
+          "derive": {
+            "LOD": [
+              "d7e9bd8b",
+              "832db37b"
+            ]
+          }
+        },
+        "49fd7c02": {
+          "derive": {
+            "LOD": [
+              "94a2e225",
+              "d8e98128"
+            ]
+          }
+        },
+        "dbf9f5a9": {
+          "meta": {
+            "id": 3,
+            "type": "D"
+          },
+          "derive": {
+            "LOD": [
+              "06a66b8e",
+              "420727cb"
+            ]
+          }
+        },
+        "10d05b83": {
+          "derive": {
+            "LOD": [
+              "cd8fc5a4",
+              "152c6286"
+            ]
+          }
+        },
+        "0acb6ff3": {
+          "meta": {
+            "id": 3,
+            "type": "L"
+          },
+          "derive": {
+            "LOD": [
+              "d794f1d4",
+              "dffa6279"
+            ]
+          }
+        },
+        "70f02d8c": {
+          "meta": {
+            "id": 3,
+            "type": "N"
+          },
+          "derive": {
+            "LOD": [
+              "adafb3ab",
+              "ca23bf83"
+            ]
+          }
+        },
+        "2ba4a81b": {
+          "meta": {
+            "id": 3,
+            "type": "M"
+          },
+          "derive": {
+            "LOD": [
+              "f6fb363c",
+              "bb2a5aa6"
+            ]
+          }
+        },
+        "1b9a329e": {
+          "meta": {
+            "id": 4,
+            "type": "D"
+          },
+          "derive": {
+            "LOD": [
+              "c6c5acb9",
+              "531baca3"
+            ]
+          }
+        },
+        "8b372338": {
+          "derive": {
+            "LOD": [
+              "5668bd1f",
+              "675eb05b"
+            ]
+          }
+        },
+        "9b20ef18": {
+          "meta": {
+            "id": 4,
+            "type": "L"
+          },
+          "derive": {
+            "LOD": [
+              "467f713f",
+              "ca358a83"
+            ]
+          }
+        },
+        "3ca8cabe": {
+          "meta": {
+            "id": 4,
+            "type": "N"
+          },
+          "derive": {
+            "LOD": [
+              "e1f75499",
+              "9901a3ac"
+            ]
+          }
+        },
+        "5d7c27a8": {
+          "meta": {
+            "id": 4,
+            "type": "M"
+          },
+          "derive": {
+            "LOD": [
+              "8023b98f",
+              "f89c4cdc"
+            ]
+          }
+        },
+        "7ebcc2e7": {
+          "meta": {
+            "id": 5,
+            "type": "D"
+          },
+          "derive": {
+            "LOD": [
+              "a3e35cc0",
+              "e4e57add"
+            ]
+          }
+        },
+        "78394be4": {
+          "meta": {
+            "id": 5,
+            "type": "L"
+          },
+          "derive": {
+            "LOD": [
+              "a566d5c3",
+              "40592d70"
+            ]
+          }
+        },
+        "3c9ac51a": {
+          "meta": {
+            "id": 5,
+            "type": "N"
+          },
+          "derive": {
+            "LOD": [
+              "e1c55b3d",
+              "9286d86e"
+            ]
+          }
+        },
+        "365fcc23": {
+          "meta": {
+            "id": 5,
+            "type": "M"
+          },
+          "derive": {
+            "LOD": [
+              "eb005204",
+              "a146ed36"
+            ]
+          }
+        },
+        "817e4f24": {
+          "meta": {
+            "id": 6,
+            "type": "D"
+          },
+          "derive": {
+            "LOD": [
+              "135891e9",
+              "df3331e4"
+            ]
+          }
+        },
+        "49e654da": {
+          "derive": {
+            "LOD": [
+              "dbc08a17",
+              "5bf6f769"
+            ]
+          }
+        },
+        "462fa1f3": {
+          "meta": {
+            "id": 7,
+            "type": "D"
+          },
+          "derive": {
+            "LOD": [
+              "9b703fd4",
+              "82f6848e"
+            ]
+          }
+        },
+        "73104b5e": {
+          "derive": {
+            "LOD": [
+              "ae4fd579",
+              "0ce9451a"
+            ]
+          }
+        },
+        "8fbd28a3": {
+          "meta": {
+            "id": 7,
+            "type": "L"
+          },
+          "derive": {
+            "LOD": [
+              "52e2b684",
+              "83c1f809"
+            ]
+          }
+        },
+        "d0209e8b": {
+          "meta": {
+            "id": 7,
+            "type": "N"
+          },
+          "derive": {
+            "LOD": [
+              "0d7f00ac",
+              "7d816424"
+            ]
+          }
+        },
+        "232680dc": {
+          "meta": {
+            "id": 7,
+            "type": "M"
+          },
+          "derive": {
+            "LOD": [
+              "fe791efb",
+              "a710b736"
+            ]
+          }
         }
       }
     },
@@ -12699,9 +13192,10 @@
             "4d3d06a6",
             "25a5716a",
             "680c3e35",
-            "2330a489"
+            "2330a489",
+            "a38211d3"
           ],
-          "new": "a38211d3"
+          "new": "b7b6abd9"
         },
         {
           "old": [
@@ -12721,7 +13215,57 @@
         }
       ],
       "checksum": "2742",
+      "shapekey_fix": {
+        "trigger_hash": [
+          "ac681fc1",
+          "a0a808af",
+          "3877f0da",
+          "2330a489",
+          "a38211d3"
+        ],
+        "offset_stride": 12,
+        "custom_values_array": 64,
+        "expression_remap": "0:0L,0:1R,0:11,1:2L,1:3R,1:12,2:5R,2:6L,2:13,3:4L,3:7R,3:14,4:8,5:16L,5:17R,5:133,6:18L,6:19R,6:134,7:20L,7:21R,7:135,8:24L,8:25R,8:136,9:26L,9:27R,9:137,10:138,11:139,12:28L,12:29R,12:140,13:30L,13:31R,13:141,14:32L,14:33R,14:142,15:32L,15:34L,16:33R,16:35R,17:38L,17:39R,17:143,18:40L,18:41R,18:144,19:42,20:43,21:9L,21:10R,21:15,21:36L,21:37R,22:44,23:45,24:46,25:47,26:48,27:49,28:51,28:55L,29:52,29:56R,30:53,31:54,32:57,33:58,34:59,35:60,36:61,37:63,38:64,39:65,40:66,41:76,42:77,43:78,44:79",
+        "section_rewrites": [
+          {
+            "old_section": "CommandListSetupShapeKeys",
+            "new_content": "[CommandListSetupShapeKeysBatch]\n$\\WWMIv1\\shapekey_checksum_batch0 = 1398\n$\\WWMIv1\\shapekey_vertex_offset_original_batch0 = 0\n$\\WWMIv1\\shapekey_vertex_offset_custom_batch0 = $shapekey_vertex_offset_batch0\n$\\WWMIv1\\shapekey_checksum_batch1 = 705\n$\\WWMIv1\\shapekey_vertex_offset_original_batch1 = 49931\n$\\WWMIv1\\shapekey_vertex_offset_custom_batch1 = $shapekey_vertex_offset_batch1\ncs-t33 = ResourceShapeKeyOffsetBuffer\ncs-u5 = ResourceCustomShapeKeyValuesRW\ncs-u6 = ResourceShapeKeyCBRW\nrun = CustomShader\\WWMIv1\\ShapeKeyBatchOverrider\n"
+          },
+          {
+            "old_section": "CommandListLoadShapeKeys",
+            "new_content": "[CommandListLoadShapeKeysBatch]\n$\\WWMIv1\\shapekey_dispatch_size_y_original_batch0 = 1561\n$\\WWMIv1\\shapekey_vertex_count_batch0 = $shapekey_vertex_count_batch0\n$\\WWMIv1\\shapekey_dispatch_size_y_original_batch1 = 555\n$\\WWMIv1\\shapekey_vertex_count_batch1 = $shapekey_vertex_count_batch1\ncs-t0 = ResourceShapeKeyVertexIdBuffer\ncs-t1 = ResourceShapeKeyVertexOffsetBuffer\ncs-u6 = ResourceShapeKeyCBRW\nrun = CommandList\\WWMIv1\\LoadShapeKeysBatch\n"
+          }
+        ]
+      },
+      "hair_fix": {
+        "trigger_hash": [
+          "6aac203f",
+          "04192868"
+        ]
+      },
       "rules": [
+        {
+          "line_prefix": "run",
+          "replacements": [
+            {
+              "old": [
+                "CommandListSetupShapeKeys"
+              ],
+              "new": "CommandListSetupShapeKeysBatch"
+            }
+          ]
+        },
+        {
+          "line_prefix": "run",
+          "replacements": [
+            {
+              "old": [
+                "CommandListLoadShapeKeys"
+              ],
+              "new": "CommandListLoadShapeKeysBatch"
+            }
+          ]
+        },
         {
           "line_prefix": "match_first_index",
           "replacements": [
@@ -12876,6 +13420,20 @@
               "indices": "8:12,9:8,10:9,11:10,12:11,15:18,16:19,17:20,18:22,19:23,20:16,21:17,22:15,23:25,24:26,25:24,26:33,27:34,28:21,29:27,30:28,31:29,32:30,33:31,34:32"
             }
           ]
+        }
+      ],
+      "materialmap_adapt": [
+        {
+          "material_hash": "f813702e",
+          "component_id": 3,
+          "skin_value": 64,
+          "clothing_value": 0
+        },
+        {
+          "material_hash": "e40b43c4",
+          "component_id": 4,
+          "skin_value": 4,
+          "clothing_value": 0
         }
       ],
       "textures": {
@@ -13095,9 +13653,10 @@
             "b22dacf9",
             "8b386efa",
             "1e003b5a",
-            "101e8dbb"
+            "101e8dbb",
+            "b8b24b6c"
           ],
-          "new": "b8b24b6c"
+          "new": "52c1090e"
         },
         {
           "old": [
@@ -13122,6 +13681,24 @@
       "skip_components": [
         4
       ],
+      "hair_fix": {
+        "trigger_hash": [
+          "b4855e43",
+          "7de9f13a"
+        ],
+        "match_first_index": "144738",
+        "match_index_count": "32112",
+        "vg_offset": 139,
+        "vg_count": 24
+      },
+      "materialmap_adapt": [
+        {
+          "material_hash": "faf5e483",
+          "component_id": 2,
+          "skin_value": 0,
+          "clothing_value": 4
+        }
+      ],
       "stride_fix": {
         "trigger_hash": [
           "d53c2cc7",
@@ -13132,7 +13709,51 @@
           "f8375eb4"
         ]
       },
+      "shapekey_fix": {
+        "trigger_hash": [
+          "3ab7c4d1",
+          "f8375eb4",
+          "ec747460",
+          "67650e1c",
+          "b8b24b6c"
+        ],
+        "offset_stride": 12,
+        "custom_values_array": 64,
+        "expression_remap": "0:0L,0:1R,0:11,1:2L,1:3R,1:12,2:5R,2:6L,2:13,3:4L,3:7R,3:14,4:8,5:16L,5:17R,5:133,6:18L,6:19R,6:134,7:20L,7:21R,7:135,8:24L,8:25R,8:136,9:26L,9:27R,9:137,10:138,11:139,12:28L,12:29R,12:140,13:30L,13:31R,13:141,14:32L,14:33R,14:142,15:32L,15:34L,16:33R,16:35R,17:38L,17:39R,17:143,18:40L,18:41R,18:144,21:9L,21:10R,21:15,21:36L,21:37R,19:42,20:43,22:44,23:45,24:46,25:47,26:48,27:49,27:50,28:51,29:52,30:53,31:54,32:57,33:58,34:59,35:60,36:61,37:63,38:64,39:65,40:66,41:76,42:77,43:78,44:79,45:80,46:81,47:82,48:83,49:84,50:85,51:86,52:87,53:88,54:89,55:90,56:145,58:94,59:146,60:97,61:103,62:104,63:105,64:106,65:107,66:108,66:109,67:108,67:109,68:110,69:111,70:112,71:113,72:114,73:115,74:116,75:117,76:118,77:119,78:120,79:121,80:122,81:123,82:124,83:125,84:126,85:127,86:128,87:129,88:130,89:131,90:132,91:147,92:148,93:149,94:150,95:151,96:152,97:153,98:154,99:155,100:156,101:157,102:158,103:159,104:160",
+        "section_rewrites": [
+          {
+            "old_section": "CommandListSetupShapeKeys",
+            "new_content": "[CommandListSetupShapeKeysBatch]\n$\\WWMIv1\\shapekey_checksum_batch0 = 873\n$\\WWMIv1\\shapekey_vertex_offset_original_batch0 = 0\n$\\WWMIv1\\shapekey_vertex_offset_custom_batch0 = $shapekey_vertex_offset_batch0\n$\\WWMIv1\\shapekey_checksum_batch1 = 1341\n$\\WWMIv1\\shapekey_vertex_offset_original_batch1 = 45917\n$\\WWMIv1\\shapekey_vertex_offset_custom_batch1 = $shapekey_vertex_offset_batch1\ncs-t33 = ResourceShapeKeyOffsetBuffer\ncs-u5 = ResourceCustomShapeKeyValuesRW\ncs-u6 = ResourceShapeKeyCBRW\nrun = CustomShader\\WWMIv1\\ShapeKeyBatchOverrider\n"
+          },
+          {
+            "old_section": "CommandListLoadShapeKeys",
+            "new_content": "[CommandListLoadShapeKeysBatch]\n$\\WWMIv1\\shapekey_dispatch_size_y_original_batch0 = 1435\n$\\WWMIv1\\shapekey_vertex_count_batch0 = $shapekey_vertex_count_batch0\n$\\WWMIv1\\shapekey_dispatch_size_y_original_batch1 = 517\n$\\WWMIv1\\shapekey_vertex_count_batch1 = $shapekey_vertex_count_batch1\ncs-t0 = ResourceShapeKeyVertexIdBuffer\ncs-t1 = ResourceShapeKeyVertexOffsetBuffer\ncs-u6 = ResourceShapeKeyCBRW\nrun = CommandList\\WWMIv1\\LoadShapeKeysBatch\n"
+          }
+        ]
+      },
       "rules": [
+        {
+          "line_prefix": "run",
+          "replacements": [
+            {
+              "old": [
+                "CommandListSetupShapeKeys"
+              ],
+              "new": "CommandListSetupShapeKeysBatch"
+            }
+          ]
+        },
+        {
+          "line_prefix": "run",
+          "replacements": [
+            {
+              "old": [
+                "CommandListLoadShapeKeys"
+              ],
+              "new": "CommandListLoadShapeKeysBatch"
+            }
+          ]
+        },
         {
           "line_prefix": "match_first_index",
           "replacements": [
@@ -13323,7 +13944,12 @@
           },
           "replace": [
             "9ac598b5"
-          ]
+          ],
+          "derive": {
+            "LOD": [
+              "89a47019"
+            ]
+          }
         },
         "8d8851ff": {
           "meta": {
@@ -14041,10 +14667,6 @@
           }
         },
         "0442ed26": {
-          "meta": {
-            "id": 0,
-            "type": "L"
-          },
           "replace": [
             "63c807fe",
             "d153e37f"
@@ -15443,10 +16065,6 @@
           }
         },
         "2d7889b7": {
-          "meta": {
-            "id": 0,
-            "type": "L"
-          },
           "replace": [
             "65f5a746",
             "59f0cae9"
@@ -15699,7 +16317,6 @@
           "d70fa623",
           "b43ab901"
         ],
-        "new_vertex_count": 49041,
         "offset_stride": 12,
         "custom_values_array": 64,
         "expression_remap": "14:25,15:26,16:27,17:28,18:22,19:147,20:148,21:149,22:150,23:151,24:152,25:153,26:154,27:155,28:156,29:48,30:49,31:157,32:158,33:56,34:57,35:29,36:58,37:59,38:60,39:61,40:62,41:63,42:65,43:66,44:67,45:68,46:71,47:72,48:73,49:74,50:75,51:77,52:78,53:79,54:80,55:90,56:91,57:92,58:93,59:94,60:95,61:96,62:97,63:98,64:99,65:100,66:101,67:102,68:103,69:104,70:105,71:107,72:108,73:160,74:111,79:121,80:122",
@@ -15715,28 +16332,6 @@
         ]
       },
       "rules": [
-        {
-          "line_prefix": "$mesh_vertex_count",
-          "replacements": [
-            {
-              "old": [
-                "30051"
-              ],
-              "new": "30050"
-            }
-          ]
-        },
-        {
-          "line_prefix": "$shapekey_vertex_count",
-          "replacements": [
-            {
-              "old": [
-                "27913"
-              ],
-              "new": "49041"
-            }
-          ]
-        },
         {
           "line_prefix": "run",
           "replacements": [

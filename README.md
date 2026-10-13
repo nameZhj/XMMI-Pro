@@ -10,10 +10,11 @@
 
 <p align="center">
   <a href="#简体中文">简体中文</a> •
+  <a href="#-鸣潮模组深度修复引擎-wuwa-mod-fixer-使用指南">修复引擎使用指南</a> •
   <a href="#english">English</a> •
   <a href="#免责声明--disclaimers">免责声明 / Disclaimers</a> •
   <a href="#开源许可--license">开源许可 / License</a> •
-  <a href="#致谢与开源引用--acknowledgments--credits">致谢与引用 / Acknowledgments & Credits</a>
+  <a href="#开源引用--credits">致谢与引用 / Credits</a>
 </p>
 
 ---
@@ -44,10 +45,11 @@
 - 📦 **沉浸式可视化模组卡片**：
   - 支持高清 Contain 等比完整展示模组预览图，不拉伸、不裁剪。
   - 动态响应式卡片网格布局，根据窗口尺寸自适应 2~5 列排版。
-- 🔧 **深度模组修复与版本适配引擎 (基于 [Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer))**：
-  - 覆盖 115+ 角色与武器数据库，一键自动修复游戏版本更新 Hash、骨骼与顶点组重映射 (`vg_remap`)、衍生贴图与 LOD 远景防黑材质补全、绘制索引与 Shapekey 规则。
-  - **可视化多维度修复选项**：提供 8 大独立修复开关（Hash、顶点组、衍生贴图、规则、主角/风主专属、状态贴图、Engine.ini 等），支持单个修复与全库批量一键修复。
-  - **一键回滚备份**：修复前自动创建安全快照，随时一键撤销并还原至初始文件。
+- 🔧 **深度模组修复与版本适配引擎 (基于 [Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer) v3.7.0)**：
+  - 覆盖 **119+ 角色与全量武器规则数据库**（全面支持爱弥斯 Aemeath、千咲 Chisa、青宵 Qingxiao、心/辛 Hsin 等最新角色/武器适配）。
+  - 支持 **Rendering 3.3 管线修复**：自动识别并清理 `*TexCoord*.buf` 缓冲中的旧版 COLOR1 顶点掩码属性，彻底解决 3.3 管线更新后的模型黑屏与顶点遮罩崩溃。
+  - **可视化多维度修复选项**：提供 11 项精细化独立修复开关（Hash 更新、骨骼与顶点组重映射、衍生贴图/LOD 防黑补全、Shapekey 与规则修复、状态贴图稳定、Rendering 3.3 管线修复、主角专属材质、Engine.ini 渲染注入等），支持单模组独立修复与全库批量一键深度修复。
+  - **无损安全快照与一键回滚**：修复前自动创建 `.backup` 安全快照，随时一键撤销并还原至初始状态。
 - 📂 **角色二级分类与多维深度检索**：
   - 智能解析 Mod 角色归属，生成左侧分类导航树及动态数量角标。
   - 支持 **拼音全拼/首字母、中文角色名、英文名、GUID、文件夹名** 毫秒级多维模糊搜索。
@@ -56,6 +58,53 @@
   - 模组启用/禁用/修复时，自动向运行中的游戏进程发送重载信号（F10），实现游戏内状态秒级热更新。
 - 🔄 **完善的格式导入支持**：
   - 支持 `.zip`、`.7z`、`.rar` 压缩包批量解压导入以及本地文件夹一键导入。
+
+### 🛠️ 鸣潮模组深度修复引擎 (Wuwa Mod Fixer) 使用指南
+
+XMMI-Pro 深度集成了基于 [Moonholder/Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer) v3.7.0 演进的原生 Python 修复引擎。无论是单项快速处理还是全库批量适配，均可在启动器内无缝完成。
+
+#### 1. 适用场景与常见问题
+- 🎮 **游戏版本大更新后失效**：更新后模型不显示、骨骼错位拉伸、贴图破皮或显示红白方块。
+- 👁️ **远景变黑 / 材质丢失**：模型在拉远视角时身体变黑或透明（缺失 LOD / Wet / Charged 衍生贴图）。
+- 🖥️ **Rendering 3.3 管线黑屏问题**：游戏升级 Rendering 3.3 管线后，模型在游戏中导致画面变黑或崩溃（由旧版 COLOR1 顶点掩码字节引起）。
+- 💃 **特定角色状态异常**：爱弥斯 (Aemeath)、椿 (Camellya)、千咲 (Chisa) 等角色的特殊状态贴图异常，或白芷、长离骨骼权重不匹配。
+
+#### 2. 修复模式与操作步骤
+
+- **模式 A：单模组定向修复（推荐调试单个 Mod 时使用）**
+  1. 在模组卡片上右键点击，在快捷菜单中选择 **“🔧 深度修复”**（或选中模组后在右侧详情面板底部点击 **“🔧 深度修复”**）。
+  2. 在弹出的修复设置窗口中检查修复选项（默认已配置最佳预设）。
+  3. 点击 **“🚀 开始修复”**，右侧实时日志将显示逐步修复详情与统计结果。
+  4. 修复完成后，Mod 将自动保存并同步至游戏（若游戏正在运行，将自动触发 F10 实时重载）。
+
+- **模式 B：全库批量一键修复（推荐游戏大版本更新后使用）**
+  1. 在模组管理页面顶部操作栏，点击 **“⚡ 批量修复”** 按钮。
+  2. 确认修复配置后点击启动，系统将依次扫描并自动修复当前已启用的全部模组，并在日志窗口中输出汇总报告。
+
+- **模式 C：无损还原与安全回滚**
+  - 在单模组修复设置窗口中，若当前模组曾经进行过修复且存在安全备份，底部 **“⏪ 还原初始 (回滚备份)”** 按钮将点亮可用。
+  - 点击即可将该模组一键恢复至初始状态，完全避免误修改或损坏原始资产。
+
+#### 3. 核心修复选项深度解析
+
+| 修复选项 | 说明与技术原理 | 推荐配置 |
+| :--- | :--- | :---: |
+| **游戏版本更新 Hash 替换** | 自动匹配并更新 119+ 角色与武器在版本迭代后的主 Hash 与贴图 Hash，恢复正常渲染定位 | ✅ 默认开启 |
+| **骨骼与顶点组重映射 (`vg_remap`)** | 重新计算并映射顶点组索引与骨骼权重，解决白芷、长离等因骨骼更新引发的破皮与拉扯 | ✅ 默认开启 |
+| **衍生贴图与 LOD 远景防黑补全** | 智能补全缺少的分级贴图重载 (`LOD`, `Wet`, `Charged`, `Injured`)，解决视角拉远后变黑 | ✅ 默认开启 |
+| **索引规则与 Shapekey 修复** | 修正 `match_first_index`、`match_index_count`，校准面部表情与顶点偏移数据 | ✅ 默认开启 |
+| **追加资源重载检查** | 追加 `CheckTextureOverride` 拦截校验，防止多材质或同类型贴图重载相互冲突 | ✅ 默认开启 |
+| **状态贴图稳定模式** | 针对爱弥斯 (Aemeath)、椿 (Camellya)、千咲 (Chisa) 等角色状态贴图进行防脱落稳定处理 | ✅ 默认开启 |
+| **Rendering 3.3 管线修复** | 自动扫描 `*TexCoord*.buf`，清除旧版残余的 COLOR1 顶点掩码字节，彻底解决 3.3 管线黑屏问题 | ✅ 默认开启 |
+| **主角材质与风主眼部专属修复** | 为漂泊者生成专属 Materialmap 材质映射，并单独修复风主满充能状态下的眼部贴图 | ⚪ 按需开启 |
+| **Engine.ini 渲染与防破图注入** | 向游戏 `Engine.ini` 写入 `LODDistanceScale` 高精渲染与纹理流式加载优化，改善微卡顿 | ⚪ 按需开启 |
+| **清理冗余与临时干扰文件** | 深度清除 `References.ini`, `CheckTexture.ini`, `.DS_Store`, `Thumbs.db` 等冗余或冲突文件 | ✅ 默认开启 |
+| **规范化 INI 编码与路径反斜杠** | 统一转换为 UTF-8 编码并修复 Windows 路径分隔符，避免解析器乱码或丢失路径 | ✅ 默认开启 |
+| **创建安全回滚备份** | 在执行任何文件修改前，自动打包生成 `.backup` 备份快照，确保随时可无损还原 | ✅ 强烈推荐 |
+
+#### 4. 在线规则库自动更新
+- 启动器内置了最新的 **v3.7.0 完整离线规则库**（覆盖 119+ 角色与武器配置）。
+- 启动器还内置了智能多节点在线更新机制，优先通过国内高速 CDN 镜像（Fastly / jsDelivr / Cloudflare / ghproxy）静默检测并同步远程修复规则，保证第一时间适配游戏未来更新。
 
 ### 🚀 快速开始
 
@@ -90,17 +139,18 @@ python build_release.py
 ## English
 
 ### 📖 About XMMI-Pro
-**XMMI-Pro** is an enhanced, visual mod management tool and launcher based on the open-source project [SpectrumQT/XXMI-Launcher](https://github.com/SpectrumQT/XXMI-Launcher). It brings a next-generation UI, automated health checks, deep repair engines (powered by Wuwa_Mod_Fixer), and real-time game synchronization.
+**XMMI-Pro** is an enhanced, visual mod management tool and launcher based on the open-source project [SpectrumQT/XXMI-Launcher](https://github.com/SpectrumQT/XXMI-Launcher). It brings a next-generation UI, automated health checks, deep repair engines (powered by Wuwa_Mod_Fixer v3.7.0), and real-time game synchronization.
 
 ### 🌟 Key Features
 
 - 📦 **Visual Mod Grid with Aspect-Fit Previews**:
   - Displays mod thumbnails with exact aspect containment (no distortion or cropping).
   - Responsive column auto-layout (2 to 5 columns) based on viewport width.
-- 🔧 **Deep Mod Repair Engine & Options (Powered by [Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer))**：
-  - Supports 115+ characters and weapons with automated version hash replacement, vertex group remapping (`vg_remap`), derivative/LOD texture completion, and rule/index adjustments.
-  - **Interactive Repair Options**: Modular toggles for hash fix, bone remap, LOD textures, special character fixes, and Engine.ini optimizations.
-  - **Backup & Instant Rollback**: Automatic snapshots before repairs with 1-click restore.
+- 🔧 **Deep Mod Repair Engine & Options (Powered by [Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer) v3.7.0)**:
+  - Supports **119+ characters and weapons** with automated version hash replacement, vertex group remapping (`vg_remap`), derivative/LOD texture completion, and rule/index adjustments.
+  - **Rendering 3.3 Pipeline Fix**: Automatically cleans legacy COLOR1 vertex mask attributes in `*TexCoord*.buf` buffers, preventing black screens and shader crashes.
+  - **Interactive Repair Options**: 11 modular toggles for hash fix, bone remap, LOD textures, stable state textures, special character fixes, and Engine.ini optimizations.
+  - **Backup & Instant Rollback**: Automatic `.backup` snapshots before repairs with 1-click restore.
 - 📂 **Character Navigation & Multi-Dimensional Search**:
   - Automatic character category mapping with live item counter badges.
   - Ultra-fast search across Chinese names, English names, Pinyin, GUIDs, and file names.
@@ -145,8 +195,8 @@ XMMI-Pro is built upon and inspired by the remarkable contributions of the open-
 
 - **Upstream Launcher Project**: [SpectrumQT/XXMI-Launcher](https://github.com/SpectrumQT/XXMI-Launcher) by [SpectrumQT](https://github.com/SpectrumQT)
 - **Mod Repair & Compatibility Engine**:
-  - **[Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer)** by [Moonholder](https://github.com/Moonholder): 本项目内置的鸣潮 Mod 深度修复与版本更新适配算法（Hash 更新规则、顶点组权重修复 `vg_remap`、衍生贴图/LOD 防黑补全、Shapekey 与索引重构等）参考并整合了社区开源项目 [Moonholder/Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer) 的算法架构与规则逻辑。特此向其开发者表示衷心感谢与致敬！
-  - *The deep mod repair algorithms, hash database, vertex group remapping, texture LOD fixes, and rule parsing mechanisms integrated in this project are based upon and derived from the open-source community project [Moonholder/Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer).*
+  - **[Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer)** by [Moonholder](https://github.com/Moonholder): 本项目内置的鸣潮 Mod 深度修复与版本更新适配算法（Hash 更新规则、顶点组权重修复 `vg_remap`、衍生贴图/LOD 防黑补全、Shapekey 与索引重构、Rendering 3.3 管线修复等）参考并整合了社区开源项目 [Moonholder/Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer) (v3.7.0) 的算法架构与规则逻辑。特此向其开发者表示衷心感谢与致敬！
+  - *The deep mod repair algorithms, hash database, vertex group remapping, texture LOD fixes, Rendering 3.3 pipeline fixes, and rule parsing mechanisms integrated in this project are based upon and derived from the open-source community project [Moonholder/Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer).*
 - **Model Importers & Community Developers**:
   - **WWMI / EFMI**: [SpectrumQT](https://github.com/SpectrumQT)
   - **ZZMI**: [LeoTorrez](https://github.com/leotorrez), [Scyll](https://gamebanana.com/members/2644630), [SilentNightSound](https://github.com/SilentNightSound), [SinsOfSeven](https://github.com/SinsOfSeven), [Gustav0](https://github.com/Seris0), [Satan1c](https://gamebanana.com/members/2789093)
@@ -157,4 +207,5 @@ XMMI-Pro is built upon and inspired by the remarkable contributions of the open-
 ## 开源许可 / License
 
 本项目基于 **[GNU General Public License v3.0 (GPLv3)](LICENSE)** 开源。根据 GPLv3 协议条款，任何基于此项目的衍生作品均须保持相同开源协议。
+
 
