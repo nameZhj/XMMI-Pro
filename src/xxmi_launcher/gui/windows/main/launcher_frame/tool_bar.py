@@ -16,7 +16,7 @@ class ToolBarFrame(UIFrame):
     def __init__(self, master, canvas, **kwargs):
         super().__init__(master=master, canvas=canvas, **kwargs)
 
-        self.set_background_image(width=100, height=226, x=1230, y=595, anchor='se',
+        self.set_background_image(width=100, height=260, x=1230, y=595, anchor='se',
                                   fg_color='#000000', border_color='#000000', border_radius=16, border_width=1,
                                   brightness=1.0, opacity=0.7, dim_opacity=0.0)
 
@@ -29,6 +29,7 @@ class ToolBarFrame(UIFrame):
         self.hide_on_leave_running = False
         self.hide_on_leave_locked = False
 
+        self.put(HotUpdateButton(self))
         self.put(VisualModManagerButton(self))
         self.put(RepairXXMIButton(self))
         self.put(CheckForUpdatesButton(self))
@@ -129,6 +130,16 @@ class ToolsBarButton(UIImageButton):
         else:
             self.master.locked = False
         super()._handle_button_release(event)
+
+
+class HotUpdateButton(ToolsBarButton):
+    def __init__(self, master):
+        super().__init__(
+            y=360,
+            button_image_path='button-tool-check-for-updates.png',
+            text=L('tool_bar_hot_update_button', 'Hot Update & Sync'),
+            command=lambda: Events.Fire(Events.Application.OpenHotUpdate()),
+            master=master)
 
 
 class VisualModManagerButton(ToolsBarButton):

@@ -25,6 +25,10 @@ class ApplicationEvents:
         pass
 
     @dataclass
+    class OpenHotUpdate:
+        pass
+
+    @dataclass
     class LoadImporter:
         importer_id: str
         reload: bool = False

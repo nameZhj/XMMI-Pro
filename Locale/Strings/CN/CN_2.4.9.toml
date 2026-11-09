@@ -181,3 +181,11 @@ loc = """
 * 通常命名为：{folder_names:bold:or_list}。
 * 包含以下文件：{folder_files:bold:or_list}。
 """
+
+[tool_bar_hot_update_button]
+src = "Hot Update & Sync"
+loc = "热更新与同步"
+
+[tool_bar_visual_mod_manager_button]
+src = "Visual Mod Manager"
+loc = "可视化模组管理"

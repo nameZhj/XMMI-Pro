@@ -45,11 +45,15 @@
 - 📦 **沉浸式可视化模组卡片**：
   - 支持高清 Contain 等比完整展示模组预览图，不拉伸、不裁剪。
   - 动态响应式卡片网格布局，根据窗口尺寸自适应 2~5 列排版。
-- 🔧 **深度模组修复与版本适配引擎 (基于 [Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer) v3.7.0)**：
-  - 覆盖 **119+ 角色与全量武器规则数据库**（全面支持爱弥斯 Aemeath、千咲 Chisa、青宵 Qingxiao、心/辛 Hsin 等最新角色/武器适配）。
+- 🔧 **深度模组修复与版本适配引擎 (基于 [Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer) v3.7.1)**：
+  - 覆盖 **120+ 角色与全量武器规则数据库**（全面支持景燃 Jingran、莫宁 Mornye、千咲 Chisa、爱弥斯 Aemeath、青宵 Qingxiao、心/辛 Hsin 等最新角色/武器适配）。
   - 支持 **Rendering 3.3 管线修复**：自动识别并清理 `*TexCoord*.buf` 缓冲中的旧版 COLOR1 顶点掩码属性，彻底解决 3.3 管线更新后的模型黑屏与顶点遮罩崩溃。
   - **可视化多维度修复选项**：提供 11 项精细化独立修复开关（Hash 更新、骨骼与顶点组重映射、衍生贴图/LOD 防黑补全、Shapekey 与规则修复、状态贴图稳定、Rendering 3.3 管线修复、主角专属材质、Engine.ini 渲染注入等），支持单模组独立修复与全库批量一键深度修复。
   - **无损安全快照与一键回滚**：修复前自动创建 `.backup` 安全快照，随时一键撤销并还原至初始状态。
+- ⚡ **软件热更新与规则同步中心 (Hot Update & Sync)**：
+  - **规则库一键动态更新**：内置多源国内与国际 CDN 镜像（fastly、jsdelivr、ghproxy 等），无需重启启动器即可毫秒级热拉取上游最新角色与武器修复规则。
+  - **WWMI-Package 智能导入与同步**：支持直连上游 [SpectrumQT/WWMI-Package](https://github.com/SpectrumQT/WWMI-Package) 自动下载解包导入，同时支持从本地 `.zip` 压缩包或解压目录一键导入并热装载。
+  - **上游代码与补丁同步**：已全量整合 [SpectrumQT/XXMI-Launcher](https://github.com/SpectrumQT/XXMI-Launcher) 上游最新至 v2.4.9 的核心特性（含动画性能优化、Steam/GRYPHLINK 启动器识别与异常修复、多语言更新等）。
 - 📂 **角色二级分类与多维深度检索**：
   - 智能解析 Mod 角色归属，生成左侧分类导航树及动态数量角标。
   - 支持 **拼音全拼/首字母、中文角色名、英文名、GUID、文件夹名** 毫秒级多维模糊搜索。
@@ -61,7 +65,7 @@
 
 ### 🛠️ 鸣潮模组深度修复引擎 (Wuwa Mod Fixer) 使用指南
 
-XMMI-Pro 深度集成了基于 [Moonholder/Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer) v3.7.0 演进的原生 Python 修复引擎。无论是单项快速处理还是全库批量适配，均可在启动器内无缝完成。
+XMMI-Pro 深度集成了基于 [Moonholder/Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer) v3.7.1 演进的原生 Python 修复引擎。无论是单项快速处理还是全库批量适配，均可在启动器内无缝完成。
 
 #### 1. 适用场景与常见问题
 - 🎮 **游戏版本大更新后失效**：更新后模型不显示、骨骼错位拉伸、贴图破皮或显示红白方块。
@@ -89,7 +93,7 @@ XMMI-Pro 深度集成了基于 [Moonholder/Wuwa_Mod_Fixer](https://github.com/Mo
 
 | 修复选项 | 说明与技术原理 | 推荐配置 |
 | :--- | :--- | :---: |
-| **游戏版本更新 Hash 替换** | 自动匹配并更新 119+ 角色与武器在版本迭代后的主 Hash 与贴图 Hash，恢复正常渲染定位 | ✅ 默认开启 |
+| **游戏版本更新 Hash 替换** | 自动匹配并更新 120+ 角色与武器在版本迭代后的主 Hash 与贴图 Hash，恢复正常渲染定位 | ✅ 默认开启 |
 | **骨骼与顶点组重映射 (`vg_remap`)** | 重新计算并映射顶点组索引与骨骼权重，解决白芷、长离等因骨骼更新引发的破皮与拉扯 | ✅ 默认开启 |
 | **衍生贴图与 LOD 远景防黑补全** | 智能补全缺少的分级贴图重载 (`LOD`, `Wet`, `Charged`, `Injured`)，解决视角拉远后变黑 | ✅ 默认开启 |
 | **索引规则与 Shapekey 修复** | 修正 `match_first_index`、`match_index_count`，校准面部表情与顶点偏移数据 | ✅ 默认开启 |
@@ -102,9 +106,10 @@ XMMI-Pro 深度集成了基于 [Moonholder/Wuwa_Mod_Fixer](https://github.com/Mo
 | **规范化 INI 编码与路径反斜杠** | 统一转换为 UTF-8 编码并修复 Windows 路径分隔符，避免解析器乱码或丢失路径 | ✅ 默认开启 |
 | **创建安全回滚备份** | 在执行任何文件修改前，自动打包生成 `.backup` 备份快照，确保随时可无损还原 | ✅ 强烈推荐 |
 
-#### 4. 在线规则库自动更新
-- 启动器内置了最新的 **v3.7.0 完整离线规则库**（覆盖 119+ 角色与武器配置）。
+#### 4. 在线规则库与 WWMI 热更新
+- 启动器内置了最新的 **v3.7.1 完整离线规则库**（覆盖 120+ 角色与武器配置，含景燃、莫宁等最新修复）。
 - 启动器还内置了智能多节点在线更新机制，优先通过国内高速 CDN 镜像（Fastly / jsDelivr / Cloudflare / ghproxy）静默检测并同步远程修复规则，保证第一时间适配游戏未来更新。
+- 点击操作栏 **“⚡ 热更新与同步”** 即可一键拉取最新规则、在线同步或本地导入 **WWMI-Package**。
 
 ### 🚀 快速开始
 
@@ -146,11 +151,15 @@ python build_release.py
 - 📦 **Visual Mod Grid with Aspect-Fit Previews**:
   - Displays mod thumbnails with exact aspect containment (no distortion or cropping).
   - Responsive column auto-layout (2 to 5 columns) based on viewport width.
-- 🔧 **Deep Mod Repair Engine & Options (Powered by [Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer) v3.7.0)**:
-  - Supports **119+ characters and weapons** with automated version hash replacement, vertex group remapping (`vg_remap`), derivative/LOD texture completion, and rule/index adjustments.
+- 🔧 **Deep Mod Repair Engine & Options (Powered by [Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer) v3.7.1)**:
+  - Supports **120+ characters and weapons** with automated version hash replacement, vertex group remapping (`vg_remap`), derivative/LOD texture completion, and rule/index adjustments.
   - **Rendering 3.3 Pipeline Fix**: Automatically cleans legacy COLOR1 vertex mask attributes in `*TexCoord*.buf` buffers, preventing black screens and shader crashes.
   - **Interactive Repair Options**: 11 modular toggles for hash fix, bone remap, LOD textures, stable state textures, special character fixes, and Engine.ini optimizations.
   - **Backup & Instant Rollback**: Automatic `.backup` snapshots before repairs with 1-click restore.
+- ⚡ **Integrated Hot Update & WWMI-Package Sync**:
+  - Live rule sync via multi-region high-speed CDNs.
+  - Direct upstream import & local zip/directory deployment for [SpectrumQT/WWMI-Package](https://github.com/SpectrumQT/WWMI-Package).
+  - Synced upstream [SpectrumQT/XXMI-Launcher](https://github.com/SpectrumQT/XXMI-Launcher) v2.4.9 codebase enhancements.
 - 📂 **Character Navigation & Multi-Dimensional Search**:
   - Automatic character category mapping with live item counter badges.
   - Ultra-fast search across Chinese names, English names, Pinyin, GUIDs, and file names.
@@ -195,10 +204,10 @@ XMMI-Pro is built upon and inspired by the remarkable contributions of the open-
 
 - **Upstream Launcher Project**: [SpectrumQT/XXMI-Launcher](https://github.com/SpectrumQT/XXMI-Launcher) by [SpectrumQT](https://github.com/SpectrumQT)
 - **Mod Repair & Compatibility Engine**:
-  - **[Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer)** by [Moonholder](https://github.com/Moonholder): 本项目内置的鸣潮 Mod 深度修复与版本更新适配算法（Hash 更新规则、顶点组权重修复 `vg_remap`、衍生贴图/LOD 防黑补全、Shapekey 与索引重构、Rendering 3.3 管线修复等）参考并整合了社区开源项目 [Moonholder/Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer) (v3.7.0) 的算法架构与规则逻辑。特此向其开发者表示衷心感谢与致敬！
+  - **[Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer)** by [Moonholder](https://github.com/Moonholder): 本项目内置的鸣潮 Mod 深度修复与版本更新适配算法（Hash 更新规则、顶点组权重修复 `vg_remap`、衍生贴图/LOD 防黑补全、Shapekey 与索引重构、Rendering 3.3 管线修复等）参考并整合了社区开源项目 [Moonholder/Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer) (v3.7.1) 的算法架构与规则逻辑。特此向其开发者表示衷心感谢与致敬！
   - *The deep mod repair algorithms, hash database, vertex group remapping, texture LOD fixes, Rendering 3.3 pipeline fixes, and rule parsing mechanisms integrated in this project are based upon and derived from the open-source community project [Moonholder/Wuwa_Mod_Fixer](https://github.com/Moonholder/Wuwa_Mod_Fixer).*
 - **Model Importers & Community Developers**:
-  - **WWMI / EFMI**: [SpectrumQT](https://github.com/SpectrumQT)
+  - **WWMI / WWMI-Package / EFMI**: [SpectrumQT](https://github.com/SpectrumQT)
   - **ZZMI**: [LeoTorrez](https://github.com/leotorrez), [Scyll](https://gamebanana.com/members/2644630), [SilentNightSound](https://github.com/SilentNightSound), [SinsOfSeven](https://github.com/SinsOfSeven), [Gustav0](https://github.com/Seris0), [Satan1c](https://gamebanana.com/members/2789093)
   - **SRMI / GIMI / HIMI**: [SilentNightSound](https://github.com/SilentNightSound), [LeoTorrez](https://github.com/leotorrez), [SinsOfSeven](https://github.com/SinsOfSeven), [Gustav0](https://github.com/Seris0), [Nurarihyon](https://github.com/NurarihyonMaou)
 

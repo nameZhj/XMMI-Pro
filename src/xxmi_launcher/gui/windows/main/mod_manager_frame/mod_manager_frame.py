@@ -1366,6 +1366,20 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
         )
         self.repair_all_btn.pack(side="left", padx=2)
 
+        self.hot_update_btn = CTkButton(
+            self.actions_frame,
+            text="⚡ 热更新与同步",
+            width=110,
+            height=32,
+            corner_radius=6,
+            font=("Microsoft YaHei", 11, "bold"),
+            fg_color="#0d9488",
+            hover_color="#0f766e",
+            text_color="#ffffff",
+            command=self._open_hot_update_dialog
+        )
+        self.hot_update_btn.pack(side="left", padx=2)
+
         self.refresh_btn = CTkButton(
             self.actions_frame,
             text="🔄 刷新",
@@ -2048,6 +2062,12 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
             all_mods=all_mods_list,
             on_finished_callback=self.refresh_mods
         )
+
+    def _open_hot_update_dialog(self):
+        """Opens interactive Hot Update and Upstream Sync modal dialog."""
+        from gui.windows.hot_update_dialog import HotUpdateDialog
+        dialog = HotUpdateDialog(parent=self.winfo_toplevel())
+        dialog.focus()
 
     def _restore_mod(self, mod_item: ModItem):
         """Restores mod to original pre-repair snapshot."""

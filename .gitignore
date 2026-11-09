@@ -66,3 +66,7 @@ ENV/
 /XMMI-Pro-Release/
 *.exe.spec
 XMMI-Pro-Release/
+
+# Agent Workspace
+.agent_workspace/cache/
+.agent_workspace/tmp/

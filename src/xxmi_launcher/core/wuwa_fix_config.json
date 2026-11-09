@@ -1,7 +1,7 @@
 {
   "version": {
     "min_required_version": "3.7.0",
-    "current_version": "3.7.0",
+    "current_version": "3.7.1",
     "latest_program_version": "3.7.0",
     "update_url": "https://github.com/Moonholder/Wuwa_Mod_Fixer/releases/latest",
     "support_url_cn": "https://support.jix.de5.net",
@@ -29,8 +29,8 @@
       "en": "This fix tool is applicable when the mods produced by WWMI become ineffective due to the update of the game version.\n"
     },
     "intro": {
-      "zh": "修复更新: 请将XXMI更新至最新版本\n* 修复主角及其表情（注意：若此前手动修改过 Hash，请先回滚或还原才能触发修复）\n* 修复千咲皮肤\n",
-      "en": "Fix Update: Please update XXMI to the latest version.\n* Fixed Rover and their expressions (Note: If you have manually modified hashes before, please rollback or restore first to trigger this fix)\n* Fixed Chisa outfit\n\n"
+      "zh": "修复更新: 请将XXMI更新至最新版本\n* 修复主角及其表情（注意：若此前手动修改过 Hash，请先回滚或还原才能触发修复）\n* 修复千咲皮肤和景燃\n* 纠正莫宁 Component3 Materialmap hash 的错误引用（建议回滚后重新修复）\n",
+      "en": "Fix Update: Please update XXMI to the latest version.\n* Fixed Rover and their expressions (Note: If you have manually modified hashes before, please rollback or restore first to trigger this fix)\n* Fixed Chisa outfit and Jingran\n* Corrected Mornye Component3 Materialmap hash reference (it is recommended to roll back and re-fix)\n\n"
     },
     "intro_note": {
       "zh": "**游戏资源与 Engine.ini 设置说明：**\n1. **客户端资源质量**：游戏 3.7 版本起将包体资源质量划分为 `SD` / `HD` / `UHD`，当前 Mod 基本运行在 `HD` 下。请在 XXMI「设置/通用/游戏设置/客户端资源质量」中将其设为 **HD**（无需再手动添加启动项 `-krqlv=hd`）。\n2. **Engine.ini 配置**：请在 `Engine.ini` 的 `[SystemSettings]` 下添加以下配置以保证 Mod 贴图正常流送加载：\n   ```ini\n   [SystemSettings]\n   r.Streaming.UsingNewKuroStreaming=0\n   r.Streaming.HiddenPrimitiveScale=25\n   ```\n   *注：若切人时遇到贴图延迟加载，可酌情尝试追加 `r.Streaming.FramesForFullUpdate=0`（非必须项，可能带来额外性能损失或副作用，请按需权衡）。*\n",
@@ -8389,6 +8389,16 @@
         }
       }
     },
+    "Jingran": {
+      "main_hashes": [
+        {
+          "old": [
+            "99f2dc5d"
+          ],
+          "new": "48ccdc7a"
+        }
+      ]
+    },
     "Lingyang": {
       "main_hashes": [
         {
@@ -11197,10 +11207,7 @@
         "47708382": {
           "meta": {
             "id": 4,
-            "type": "L",
-            "slot": [
-              9
-            ]
+            "type": "L"
           },
           "replace": [
             "da119917",
@@ -11339,18 +11346,15 @@
             ]
           }
         },
-        "2dd3d65d": {
+        "fb7a0fd2": {
           "meta": {
             "id": 3,
             "type": "M"
           },
-          "replace": [
-            "75ce0c21"
-          ],
           "derive": {
             "LOD": [
-              "f08c487a",
-              "d3992a2a"
+              "262591f5",
+              "1596428b"
             ]
           }
         },
@@ -11359,7 +11363,7 @@
             "id": 4,
             "type": "D",
             "slot": [
-              10
+              8
             ]
           },
           "replace": [
@@ -11377,10 +11381,7 @@
         "e9ac4474": {
           "meta": {
             "id": 4,
-            "type": "N",
-            "slot": [
-              8
-            ]
+            "type": "N"
           },
           "replace": [
             "d6cdd4cf",
@@ -11479,10 +11480,7 @@
         "a2b39668": {
           "meta": {
             "id": 7,
-            "type": "D",
-            "slot": [
-              11
-            ]
+            "type": "D"
           },
           "replace": [
             "45658d90",
@@ -11551,11 +11549,14 @@
             "e9ec3443"
           ]
         },
-        "fb7a0fd2": {
+        "2dd3d65d": {
+          "replace": [
+            "75ce0c21"
+          ],
           "derive": {
             "LOD": [
-              "262591f5",
-              "1596428b"
+              "f08c487a",
+              "d3992a2a"
             ]
           }
         },

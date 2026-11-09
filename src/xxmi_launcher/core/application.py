@@ -146,6 +146,7 @@ class Application:
 
         Events.Subscribe(Events.Application.OpenSettings, self.handle_open_settings)
         Events.Subscribe(Events.Application.OpenModManager, self.handle_open_mod_manager)
+        Events.Subscribe(Events.Application.OpenHotUpdate, self.handle_open_hot_update)
 
         # Quick launch mode
         if self.args.nogui:
@@ -222,6 +223,12 @@ class Application:
             mod_manager_frame = self.gui.launcher_frame.grab('ModManagerFrame')
             if mod_manager_frame:
                 mod_manager_frame.open_mod_manager()
+
+    def handle_open_hot_update(self, event=None):
+        from gui.windows.hot_update_dialog import HotUpdateDialog
+        top = self.gui if self.gui else None
+        dlg = HotUpdateDialog(parent=top)
+        dlg.focus()
 
     def load_config(self):
         cfg_backup_path = Paths.App.Backups / Config.Manager.config_path.name
