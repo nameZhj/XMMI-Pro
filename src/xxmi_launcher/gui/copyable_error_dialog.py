@@ -4,6 +4,7 @@
 @exports CopyableErrorDialog, show_copyable_error, show_warning, show_info, ask_confirm, ModernModalDialog
 """
 import sys
+import threading
 import tkinter as tk
 import customtkinter as ctk
 from typing import Optional
@@ -40,9 +41,16 @@ class CopyableErrorDialog(ctk.CTkToplevel):
         self.full_message = str(message).strip()
         self.is_fatal = is_fatal
 
+        top_parent = None
         if parent is not None:
             try:
-                self.transient(parent)
+                top_parent = parent.winfo_toplevel()
+            except Exception:
+                top_parent = parent
+
+        if top_parent is not None:
+            try:
+                self.transient(top_parent)
                 self.grab_set()
             except Exception:
                 pass
@@ -50,11 +58,20 @@ class CopyableErrorDialog(ctk.CTkToplevel):
         # Center on screen
         self.update_idletasks()
         try:
-            sw = self.winfo_screenwidth()
-            sh = self.winfo_screenheight()
-            x = max(0, (sw - 640) // 2)
-            y = max(0, (sh - 440) // 2 - 20)
-            self.geometry(f"640x440+{x}+{y}")
+            target = top_parent if top_parent is not None else parent
+            if target is not None:
+                px = target.winfo_rootx()
+                py = target.winfo_rooty()
+                pw = target.winfo_width()
+                ph = target.winfo_height()
+                x = px + (pw - 640) // 2
+                y = py + (ph - 440) // 2
+            else:
+                sw = self.winfo_screenwidth()
+                sh = self.winfo_screenheight()
+                x = max(0, (sw - 640) // 2)
+                y = max(0, (sh - 440) // 2 - 20)
+            self.geometry(f"640x440+{max(0, x)}+{max(0, y)}")
         except Exception:
             pass
 
@@ -210,8 +227,9 @@ class CopyableErrorDialog(ctk.CTkToplevel):
         self.destroy()
         if self.parent_window is not None:
             try:
-                self.parent_window.lift()
-                self.parent_window.focus_force()
+                top = getattr(self.parent_window, "winfo_toplevel", lambda: self.parent_window)()
+                top.lift()
+                top.focus_force()
             except Exception:
                 pass
 
@@ -219,26 +237,54 @@ class CopyableErrorDialog(ctk.CTkToplevel):
 def show_copyable_error(title: str, message: str, parent=None, is_fatal: bool = False):
     """
     Shows a copyable error modal dialog. Works in standalone mode or on top of parent window.
+    Thread-safe: dispatches to main thread if called from worker threads.
     """
-    created_root = False
-    root = parent
-    if root is None:
-        try:
-            root = ctk._get_default_root()
-        except Exception:
-            root = None
+    def _run():
+        created_root = False
+        root = parent
         if root is None:
-            root = ctk.CTk()
-            root.withdraw()
-            created_root = True
+            try:
+                root = ctk._get_default_root()
+            except Exception:
+                root = None
+            if root is None:
+                root = ctk.CTk()
+                root.withdraw()
+                created_root = True
 
-    dlg = CopyableErrorDialog(
-        title=title,
-        message=message,
-        parent=root if not created_root else None,
-        is_fatal=is_fatal
-    )
-    if created_root:
-        root.mainloop()
+        dlg = CopyableErrorDialog(
+            title=title,
+            message=message,
+            parent=root if not created_root else None,
+            is_fatal=is_fatal
+        )
+        if created_root:
+            root.mainloop()
+        else:
+            dlg.wait_window()
+
+    if threading.current_thread() == threading.main_thread():
+        _run()
     else:
-        dlg.wait_window()
+        root = None
+        if parent is not None and hasattr(parent, "winfo_toplevel"):
+            try:
+                root = parent.winfo_toplevel()
+            except Exception:
+                pass
+        if root is None:
+            try:
+                root = ctk._get_default_root()
+            except Exception:
+                root = None
+        if root and hasattr(root, "after"):
+            evt = threading.Event()
+            def _runner():
+                try:
+                    _run()
+                finally:
+                    evt.set()
+            root.after(0, _runner)
+            evt.wait()
+        else:
+            _run()

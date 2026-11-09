@@ -27,10 +27,23 @@ class GameBananaDownloadDialog(CTkToplevel):
         self.cancel_download = False
         self.is_downloading = False
 
-        self.transient(parent)
-        self.grab_set()
+        top_parent = None
+        if parent is not None:
+            try:
+                top_parent = parent.winfo_toplevel()
+            except Exception:
+                top_parent = parent
+
+        if top_parent is not None:
+            try:
+                self.transient(top_parent)
+                self.grab_set()
+            except Exception:
+                pass
 
         self._build_ui()
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.bind("<Escape>", lambda e: self._on_close())
 
         if initial_url:
             self.entry_url.insert(0, initial_url)
@@ -266,4 +279,16 @@ class GameBananaDownloadDialog(CTkToplevel):
     def _on_close(self):
         if self.is_downloading:
             self.cancel_download = True
+        try:
+            self.grab_release()
+        except Exception:
+            pass
         self.destroy()
+        parent = getattr(self, "master", None)
+        if parent is not None:
+            try:
+                top = getattr(parent, "winfo_toplevel", lambda: parent)()
+                top.lift()
+                top.focus_force()
+            except Exception:
+                pass

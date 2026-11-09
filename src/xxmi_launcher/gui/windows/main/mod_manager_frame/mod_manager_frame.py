@@ -330,15 +330,26 @@ class ImportProgressDialog(ctk.CTkToplevel):
         self.status_lbl.pack(fill="x", padx=24, pady=(4, 16))
 
     def update_progress(self, text: str, progress: float):
+        if threading.current_thread() != threading.main_thread():
+            try:
+                self.after(0, lambda: self.update_progress(text, progress))
+            except Exception:
+                pass
+            return
         try:
             self.label.configure(text=text)
             self.progress_bar.set(progress)
             self.status_lbl.configure(text=f"进度: {int(progress * 100)}%")
-            self.update()
         except Exception:
             pass
 
     def finish_close(self):
+        if threading.current_thread() != threading.main_thread():
+            try:
+                self.after(0, self.finish_close)
+            except Exception:
+                pass
+            return
         try:
             self.grab_release()
             self.destroy()
@@ -346,8 +357,9 @@ class ImportProgressDialog(ctk.CTkToplevel):
             pass
         if self.parent_window is not None:
             try:
-                self.parent_window.lift()
-                self.parent_window.focus_force()
+                top = getattr(self.parent_window, "winfo_toplevel", lambda: self.parent_window)()
+                top.lift()
+                top.focus_force()
             except Exception:
                 pass
 

@@ -1,8 +1,10 @@
 """
-Modern Dark-Themed Modal Dialogs for XMMI Pro.
-Prevents parent window focus loss or falling behind other windows on close.
+@file modern_dialogs.py
+@brief Thread-safe modern dark-themed modal dialogs for XMMI Pro
+@exports ModernModalDialog, show_info, show_warning, ask_confirm
 """
 import sys
+import threading
 import tkinter as tk
 import customtkinter as ctk
 from typing import Optional
@@ -21,9 +23,16 @@ class ModernModalDialog(ctk.CTkToplevel):
         self.result = False
         self.dialog_type = dialog_type  # "info", "warning", "confirm"
 
+        top_parent = None
         if parent is not None:
             try:
-                self.transient(parent)
+                top_parent = parent.winfo_toplevel()
+            except Exception:
+                top_parent = parent
+
+        if top_parent is not None:
+            try:
+                self.transient(top_parent)
                 self.grab_set()
             except Exception:
                 pass
@@ -31,11 +40,12 @@ class ModernModalDialog(ctk.CTkToplevel):
         # Center on parent or screen
         self.update_idletasks()
         try:
-            if parent is not None:
-                px = parent.winfo_rootx()
-                py = parent.winfo_rooty()
-                pw = parent.winfo_width()
-                ph = parent.winfo_height()
+            target = top_parent if top_parent is not None else parent
+            if target is not None:
+                px = target.winfo_rootx()
+                py = target.winfo_rooty()
+                pw = target.winfo_width()
+                ph = target.winfo_height()
                 x = px + (pw - 460) // 2
                 y = py + (ph - 220) // 2
             else:
@@ -162,26 +172,61 @@ class ModernModalDialog(ctk.CTkToplevel):
         # Lift and refocus parent window so it NEVER falls behind
         if self.parent_window is not None:
             try:
-                self.parent_window.lift()
-                self.parent_window.focus_force()
+                top = getattr(self.parent_window, "winfo_toplevel", lambda: self.parent_window)()
+                top.lift()
+                top.focus_force()
             except Exception:
                 pass
 
 
+def _safe_dispatch(func, parent=None):
+    if threading.current_thread() == threading.main_thread():
+        return func()
+    root = None
+    if parent is not None and hasattr(parent, "winfo_toplevel"):
+        try:
+            root = parent.winfo_toplevel()
+        except Exception:
+            pass
+    if root is None:
+        try:
+            root = ctk._get_default_root()
+        except Exception:
+            root = None
+    if root and hasattr(root, "after"):
+        evt = threading.Event()
+        res = [None]
+        def _runner():
+            try:
+                res[0] = func()
+            finally:
+                evt.set()
+        root.after(0, _runner)
+        evt.wait()
+        return res[0]
+    return func()
+
+
 def show_info(title: str, message: str, parent=None):
     """Shows modern info popup without losing parent focus."""
-    dlg = ModernModalDialog(title=title, message=message, parent=parent, dialog_type="info")
-    dlg.wait_window()
+    def _call():
+        dlg = ModernModalDialog(title=title, message=message, parent=parent, dialog_type="info")
+        dlg.wait_window()
+    _safe_dispatch(_call, parent=parent)
 
 
 def show_warning(title: str, message: str, parent=None):
     """Shows modern warning popup without losing parent focus."""
-    dlg = ModernModalDialog(title=title, message=message, parent=parent, dialog_type="warning")
-    dlg.wait_window()
+    def _call():
+        dlg = ModernModalDialog(title=title, message=message, parent=parent, dialog_type="warning")
+        dlg.wait_window()
+    _safe_dispatch(_call, parent=parent)
 
 
 def ask_confirm(title: str, message: str, parent=None) -> bool:
     """Shows modern confirmation dialog, returning True if confirmed, False otherwise."""
-    dlg = ModernModalDialog(title=title, message=message, parent=parent, dialog_type="confirm")
-    dlg.wait_window()
-    return getattr(dlg, "result", False)
+    def _call():
+        dlg = ModernModalDialog(title=title, message=message, parent=parent, dialog_type="confirm")
+        dlg.wait_window()
+        return getattr(dlg, "result", False)
+    return bool(_safe_dispatch(_call, parent=parent))

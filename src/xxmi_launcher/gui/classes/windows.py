@@ -135,11 +135,14 @@ class UIWindow(UIElement):
                 break
 
     def get_top_level(self, locking=False):
+        if not self.top_levels:
+            return self
         if locking:
             for window_id in reversed(range(len(self.top_levels))):
                 window = self.top_levels[window_id]
                 if hasattr(window, 'lock_master') and window.lock_master:
                     return window
+            return self
         return self.top_levels[-1]
 
     def begin_window_drag(self, event):
@@ -316,16 +319,26 @@ class UIToplevel(UIWindow, CTkToplevel):
     def _close(self):
         self.master.remove_top_level(self)
         if self.lock_master:
-            top_level = self.master.get_top_level(locking=True)
-            top_level.attributes('-disabled', 0)
-        self.destroy()
+            try:
+                top_level = self.master.get_top_level(locking=True)
+                if top_level and hasattr(top_level, 'attributes'):
+                    top_level.attributes('-disabled', 0)
+            except Exception:
+                pass
+        try:
+            self.destroy()
+        except Exception:
+            pass
         log.debug('TopLevel closed')
 
     def open(self):
         if self.lock_master:
-            top_level = self.master.get_top_level(locking=True)
-            top_level.attributes('-disabled', 1)
-            # self.transient(top_level)
+            try:
+                top_level = self.master.get_top_level(locking=True)
+                if top_level and hasattr(top_level, 'attributes'):
+                    top_level.attributes('-disabled', 1)
+            except Exception:
+                pass
         self.master.add_top_level(self)
         self.show()
 

@@ -31,14 +31,21 @@ class HotUpdateDialog(ctk.CTkToplevel):
         self._refresh_status()
 
     def _init_window(self) -> None:
+        top_parent = None
         if self.parent_window is not None:
             try:
-                self.transient(self.parent_window)
+                top_parent = self.parent_window.winfo_toplevel()
+            except Exception:
+                top_parent = self.parent_window
+        if top_parent is not None:
+            try:
+                self.transient(top_parent)
                 self.grab_set()
             except Exception:
                 pass
         self._center_window()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.bind("<Escape>", lambda e: self._on_close())
 
     def _center_window(self) -> None:
         self.update_idletasks()
@@ -245,4 +252,15 @@ class HotUpdateDialog(ctk.CTkToplevel):
     def _on_close(self) -> None:
         if self._is_busy:
             self._append_log("⚠️ 任务仍在后台运行，窗口已最小化关闭")
+        try:
+            self.grab_release()
+        except Exception:
+            pass
         self.destroy()
+        if self.parent_window is not None:
+            try:
+                top = getattr(self.parent_window, "winfo_toplevel", lambda: self.parent_window)()
+                top.lift()
+                top.focus_force()
+            except Exception:
+                pass

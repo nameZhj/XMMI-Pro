@@ -5,6 +5,7 @@
 """
 import json
 import logging
+import threading
 import pyglet
 
 import core.path_manager as Paths
@@ -350,6 +351,18 @@ class MainWindow(UIMainWindow):
     def show_messagebox(self, event=None, **kwargs):
         if not self.exists:
             return False
+
+        if threading.current_thread() != threading.main_thread():
+            res = [False]
+            evt = threading.Event()
+            def _runner():
+                try:
+                    res[0] = self.show_messagebox(event=event, **kwargs)
+                finally:
+                    evt.set()
+            self.after(0, _runner)
+            evt.wait()
+            return res[0]
 
         if event is not None:
             kwargs = vars(event)
