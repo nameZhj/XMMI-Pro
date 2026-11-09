@@ -4,9 +4,18 @@ import time
 import tkinter
 import re
 import threading
-import av
+try:
+    import av
+    HAS_PYAV = True
+    AVBlockingIOError = av.error.BlockingIOError
+    AVEOFError = av.error.EOFError
+except ImportError:
+    av = None
+    HAS_PYAV = False
+    class AVBlockingIOError(Exception): pass
+    class AVEOFError(Exception): pass
 
-from typing import Union, Tuple, List, Dict, Optional, Callable, Deque, Iterator
+from typing import Union, Tuple, List, Dict, Optional, Callable, Deque, Iterator, Any
 from pathlib import Path
 from collections import deque
 from dataclasses import dataclass
@@ -522,7 +531,7 @@ class AnimationMixin:
     # region Background Worker Lifecycle
 
     def _ensure_animation_worker(self) -> None:
-        if not self._anim_is_running or self._anim_is_paused:
+        if not HAS_PYAV or not self._anim_is_running or self._anim_is_paused:
             return
 
         with self._anim_condition:
@@ -547,6 +556,8 @@ class AnimationMixin:
         generation: int,
         stop_event: threading.Event,
     ) -> None:
+        if not HAS_PYAV:
+            return
         try:
             if self._worker_is_obsolete(generation, stop_event):
                 return
@@ -590,7 +601,7 @@ class AnimationMixin:
     # region PyAV Video Decoding
 
     @staticmethod
-    def _get_video_stream(container: av.container.InputContainer, source: _PyAVVideoSource):
+    def _get_video_stream(container: Any, source: _PyAVVideoSource):
         streams = container.streams.video
         if not streams:
             return None
@@ -599,7 +610,7 @@ class AnimationMixin:
         stream_index = 1 if source.path.lower().endswith(".avif") and len(streams) > 1 else 0
         return streams[stream_index]
 
-    def _get_video_fps(self, video_stream: av.video.stream.VideoStream) -> float:
+    def _get_video_fps(self, video_stream: Any) -> float:
         rate = video_stream.average_rate or video_stream.guessed_rate or video_stream.base_rate or 30.0
         return max(1.0, float(rate))
 
@@ -614,12 +625,14 @@ class AnimationMixin:
 
     def _create_video_filter_graph(
         self,
-        video_stream: av.video.stream.VideoStream,
+        video_stream: Any,
         output_size: tuple[int, int],
         *,
         fps: float | None = None,
-    ) -> av.filter.Graph:
+    ) -> Any:
         """Build a PyAV graph that scales frames and converts them to RGBA."""
+        if not HAS_PYAV or av is None:
+            raise RuntimeError("PyAV is not installed")
         width, height = self._validate_output_size(output_size)
         graph = av.filter.Graph()
         previous = graph.add_buffer(template=video_stream)
@@ -642,6 +655,8 @@ class AnimationMixin:
 
     def _decode_first_video_frame(self, source: _PyAVVideoSource) -> Image.Image:
         """Decode the first frame synchronously for initial widget presentation."""
+        if not HAS_PYAV or av is None:
+            raise RuntimeError("PyAV is not installed")
         with av.open(source.path) as container:
             video_stream = self._get_video_stream(container, source)
             if video_stream is None:
@@ -652,39 +667,36 @@ class AnimationMixin:
                 graph.push(decoded_frame)
                 try:
                     return graph.pull().to_image().convert("RGBA" if self._anim_enable_alpha else "RGB")
-                except av.error.BlockingIOError:
+                except AVBlockingIOError:
                     continue
 
             # Flush filters in case the first frame was buffered by the graph.
             graph.push(None)
             try:
                 return graph.pull().to_image().convert("RGBA" if self._anim_enable_alpha else "RGB")
-            except (av.error.BlockingIOError, av.error.EOFError):
+            except (AVBlockingIOError, AVEOFError):
                 raise ValueError(f"No decodable video frames: {source.path}") from None
-
-
-            from itertools import chain
 
     @staticmethod
     def _iter_filtered_frames(
-        container: av.container.InputContainer,
-        video_stream: av.video.stream.VideoStream,
-        graph: av.filter.Graph,
-    ) -> Iterator[av.VideoFrame]:
+        container: Any,
+        video_stream: Any,
+        graph: Any,
+    ) -> Iterator[Any]:
         """Yield all available graph output, including delayed frames at EOF."""
         for decoded_frame in container.decode(video_stream):
             graph.push(decoded_frame)
             while True:
                 try:
                     yield graph.pull()
-                except av.error.BlockingIOError:
+                except AVBlockingIOError:
                     break
 
         graph.push(None)
         while True:
             try:
                 yield graph.pull()
-            except (av.error.BlockingIOError, av.error.EOFError):
+            except (AVBlockingIOError, AVEOFError):
                 break
 
     def _wait_and_buffer_video_frame(
@@ -980,10 +992,15 @@ class UIImage(AnimationMixin, UICanvasWidget, CTkBaseClass):
                     image = Image.open(str(path))
                     is_animated = getattr(image, "is_animated", False) and getattr(image, "n_frames", 1) > 1
 
-                if is_animated:
+                if is_animated and HAS_PYAV:
                     self._image = _PyAVVideoSource(path)
-                else:
+                elif image is not None:
                     self._image = image
+                else:
+                    try:
+                        self._image = Image.open(str(path))
+                    except Exception:
+                        self._image = Image.new("RGBA", (1, 1), (0, 0, 0, 0))
 
         if self._update_attrs(['width', 'height', 'opacity', 'brightness'], kwargs):
             # In configure()

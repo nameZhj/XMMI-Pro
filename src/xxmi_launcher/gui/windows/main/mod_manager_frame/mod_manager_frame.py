@@ -2169,7 +2169,44 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
             show_info("拖拽导入提示", "未检测到有效的模组压缩包（.zip / .7z / .rar / .tar 等）或文件夹。", parent=self.winfo_toplevel())
             return
 
-        self._process_batch_import(valid_paths)
+        regular_paths = []
+        for p in valid_paths:
+            if self._is_wwmi_package_candidate(p):
+                confirm = ask_confirm(
+                    "导入 WWMI-Package 运行包",
+                    f"检测到拖入的文件可能为 WWMI-Package 核心加载包：\n【{p.name}】\n\n是否立即将其部署至鸣潮 WWMI 运行环境？",
+                    parent=self.winfo_toplevel()
+                )
+                if confirm:
+                    from core.wwmi_importer import WWMIImporter
+                    res = WWMIImporter.import_from_zip(p) if p.is_file() else WWMIImporter.import_from_folder(p)
+                    if res.success:
+                        show_info("导入成功", f"WWMI-Package 导入成功 (版本: v{res.version})", parent=self.winfo_toplevel())
+                    else:
+                        show_warning("导入提示", res.message, parent=self.winfo_toplevel())
+                    continue
+            regular_paths.append(p)
+
+        if regular_paths:
+            self._process_batch_import(regular_paths)
+
+    @staticmethod
+    def _is_wwmi_package_candidate(p: Path) -> bool:
+        """Determines if a dropped path is a WWMI-Package archive or directory."""
+        if "wwmi" not in p.name.lower():
+            return False
+        if p.is_dir():
+            return (p / "Core" / "WWMI" / "WuWa-Model-Importer.ini").exists() or (p / "WWMI" / "Core").exists()
+        if p.suffix.lower() == ".zip":
+            try:
+                import zipfile
+                with zipfile.ZipFile(p, "r") as zf:
+                    for name in zf.namelist()[:30]:
+                        if "WuWa-Model-Importer.ini" in name or "Core/WWMI" in name:
+                            return True
+            except Exception:
+                pass
+        return False
 
     def _process_batch_import(self, paths: List[Path]):
         """Unified background batch importer for dropped files or selected archives/folders."""

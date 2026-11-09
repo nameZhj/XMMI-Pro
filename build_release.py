@@ -82,8 +82,11 @@ def build(tag: str = "v1.0.0"):
         "--hidden-import", "tkinterdnd2",
         "--hidden-import", "rarfile",
         "--hidden-import", "core.mod_service",
+        "--hidden-import", "core.hot_update_service",
+        "--hidden-import", "core.wwmi_importer",
         "--hidden-import", "core.drag_drop",
         "--hidden-import", "gui.copyable_error_dialog",
+        "--hidden-import", "gui.windows.hot_update_dialog",
         "--hidden-import", "gui.windows.main.mod_manager_frame.mod_manager_frame",
         "--hidden-import", "dacite",
         "--hidden-import", "darkdetect",
@@ -104,6 +107,11 @@ def build(tag: str = "v1.0.0"):
         "--hidden-import", "ctypes.wintypes",
         "--add-data", f"{SRC_DIR / 'core' / 'wuwa_fix_config.json'}{os.pathsep}core",
     ]
+    try:
+        import av
+        cmd.extend(["--collect-all", "av", "--hidden-import", "av"])
+    except ImportError:
+        pass
     if version_file.exists():
         cmd.extend(["--version-file", str(version_file)])
     cmd.append(str(SRC_DIR / "app.py"))
