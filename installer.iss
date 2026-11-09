@@ -2,7 +2,9 @@
 ; Modern Fluent Chinese Installer Wizard
 
 #define MyAppName "XMMI-Pro"
+#ifndef MyAppVersion
 #define MyAppVersion "1.0.0"
+#endif
 #define MyAppPublisher "XMMI-Pro Team"
 #define MyAppURL "https://github.com/nameZhj/XMMI-Pro"
 #define MyAppExeName "XXMI Launcher.exe"
@@ -33,7 +35,6 @@ UninstallDisplayIcon={app}\Resources\Bin\{#MyAppExeName}
 
 ; High-DPI & Visual Styling
 WizardStyle=modern
-WizardResizable=no
 WizardSizePercent=115,115
 Compression=lzma2/ultra64
 SolidCompression=yes
