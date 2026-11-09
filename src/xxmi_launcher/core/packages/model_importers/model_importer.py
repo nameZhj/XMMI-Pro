@@ -43,9 +43,12 @@ class ModelImporterConfig:
     process_exe_rel_paths: list[str] = field(default_factory=lambda: [])
     game_folder_names: list[str] = field(default_factory=lambda: [])
     game_folder_children: list[str] = field(default_factory=lambda: [])
+    launcher_folder_names: list[str] = field(default_factory=lambda: [])
+    launcher_folder_files: list[str] = field(default_factory=lambda: [])
     package_name: str = ''
     importer_folder: str = ''
     game_folder: str = ''
+    launcher_folder: str = ''
     use_launch_options: bool = True
     overwrite_ini: bool = True
     process_priority: ProcessPriority = ProcessPriority.NORMAL
@@ -221,7 +224,7 @@ class ModelImporterPackage(Package):
 
     def validate_game_path(self, game_folder) -> Path:
         game_path = Path(game_folder)
-        if not str(game_folder):
+        if not str(game_folder) or str(game_folder) == '.':
             raise ValueError(L('error_model_importer_game_folder_not_specified',
                                'Game installation folder is not specified!'))
         if not game_path.is_absolute() or not game_path.is_dir():
@@ -261,6 +264,8 @@ class ModelImporterPackage(Package):
         self.subscribe(Events.ModelImporter.CreateShortcut, lambda event: self.create_shortcut())
         self.subscribe(Events.ModelImporter.OptimizeMods, lambda event: self.optimize_mods(event))
         self.subscribe(Events.ModelImporter.DetectGameFolder, lambda event: self.detect_game_paths(supress_errors=True))
+        self.subscribe(Events.ModelImporter.DetectLauncherFolder, lambda event: self.detect_game_launcher_folder())
+        self.subscribe(Events.ModelImporter.ValidateLauncherFolder, lambda event: self.validate_game_launcher_folder(event.launcher_folder))
         super().load()
         if self.get_installed_version() != '' and not Config.Active.Importer.shortcut_deployed:
             self.create_shortcut()
@@ -440,6 +445,12 @@ class ModelImporterPackage(Package):
 
         Paths.verify_path(Config.Active.Importer.importer_path / 'Mods')
 
+    def validate_game_launcher_folder(self, launcher_folder_path: Path):
+        pass
+
+    def detect_game_launcher_folder(self):
+        pass
+
     def configure_game_settings(self, game_path: Path | None, game_exe_path: Path | None):
         pass
 
@@ -459,8 +470,20 @@ class ModelImporterPackage(Package):
         # 2. Add `"target": "GenshinImpact.exe",` line before `"loader": "XXMI Launcher.exe"`
         ini.set_option('Loader', 'target', game_exe_name)
 
+        self.set_default_ini_values(ini, 'core', SettingType.Constant)
+        if Config.Active.Migoto.enforce_rendering:
+            self.set_default_ini_values(ini, 'enforce_rendering', SettingType.Constant)
+
         self.set_default_ini_values(ini, 'enable_hunting', SettingType.Bool, Config.Active.Migoto.enable_hunting)
         self.set_default_ini_values(ini, 'dump_shaders', SettingType.Bool, Config.Active.Migoto.dump_shaders)
+
+        ini.set_option('System', 'dll_initialization_delay', Config.Active.Importer.xxmi_dll_init_delay)
+
+        screen_width, screen_height = ctypes.windll.user32.GetSystemMetrics(0), ctypes.windll.user32.GetSystemMetrics(1)
+        ini.set_option('System', 'screen_width', screen_width)
+        ini.set_option('System', 'screen_height', screen_height)
+
+        ini.set_option('Logging', 'show_warnings', 0 if Config.Active.Migoto.mute_warnings else 1)
 
         if xxmi_dll_version is None:
             ini.set_option('Logging', 'calls', (
@@ -471,15 +494,6 @@ class ModelImporterPackage(Package):
             ))
 
         elif xxmi_dll_version >= "1.2.0":
-            ini.set_option('System', 'dll_initialization_delay', Config.Active.Importer.xxmi_dll_init_delay)
-
-            screen_width, screen_height = ctypes.windll.user32.GetSystemMetrics(0), ctypes.windll.user32.GetSystemMetrics(1)
-            ini.set_option('System', 'screen_width', screen_width)
-            ini.set_option('System', 'screen_height', screen_height)
-
-            self.set_default_ini_values(ini, 'core', SettingType.Constant)
-            if Config.Active.Migoto.enforce_rendering:
-                self.set_default_ini_values(ini, 'enforce_rendering', SettingType.Constant)
 
             ini.set_option('System', 'clear_unknown_settings', 1 if Config.Active.Migoto.clear_unknown_settings else 0)
 
@@ -491,7 +505,6 @@ class ModelImporterPackage(Package):
             ini.set_option('Input', 'input_disable_mode', Config.Active.Migoto.input_disable_mode.name.lower())
 
             ini.set_option('Logging', 'log_level', Config.Active.Migoto.log_level.name.lower())
-            ini.set_option('Logging', 'show_warnings', 0 if Config.Active.Migoto.mute_warnings else 1)
 
         if ini.is_modified():
             log.debug(f'Writing d3dx.ini...')
@@ -620,7 +633,7 @@ class ModelImporterPackage(Package):
         paths = []
 
         reg_key_paths = [
-            (winreg.HKEY_CLASSES_ROOT, 'Local Settings\\Software\\Microsoft\\Windows\\Shell\\MuiCache'),
+            (winreg.HKEY_CURRENT_USER, 'SOFTWARE\\Classes\\Local Settings\\Software\\Microsoft\\Windows\\Shell\\MuiCache'),
             (winreg.HKEY_CURRENT_USER, 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FeatureUsage\\AppSwitched'),
             (winreg.HKEY_CURRENT_USER, 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FeatureUsage\\ShowJumpView'),
         ]

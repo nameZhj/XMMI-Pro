@@ -181,10 +181,11 @@ class OptionWidgetLabel(UILabel):
 
 
 class OptionWidgetErrorLabel(UILabel):
-    def __init__(self, master):
+    def __init__(self, master, wraplength: int):
         super().__init__(
             master=master,
             text='Unknown error!',
+            wraplength=wraplength,
         )
 
     def _show(self):
@@ -198,6 +199,7 @@ class OptionWidgetLabelButton(UIButton):
             master=master,
             height=36,
             auto_width=True,
+            padx=10,
             **kwargs
         )
 
@@ -207,7 +209,7 @@ class OptionWidgetValueInputButton(UIButton):
         super().__init__(
             master=master,
             auto_width=True,
-            padx=6,
+            padx=0,
             height=28,
             **kwargs
         )
@@ -506,6 +508,23 @@ class SettingsOptionFrame(UIFrame):
             case OptionWidget.CHECKBOX:
                 widget.grid(row=0, column=0, padx=(pad_left, 0), pady=(5, 5), sticky='w')
 
+            case OptionWidget.INPUT_INT | OptionWidget.INPUT_FLOAT:
+                if not option.toggle_variable:
+                    label.grid(row=0, column=0, padx=(pad_left, 0), pady=(5, 5), sticky='w')
+                widget.grid(row=0, column=1, padx=(0, pad_right), pady=(5, 5), sticky='e')
+
+                # Optional button to the right of input option name.
+                if option.button_command:
+                    label_button = OptionWidgetLabelButton(
+                        master=self,
+                        text=option.button_text,
+                        command=option.button_command,
+                    )
+                    self.put(label_button).grid(row=0, column=2, padx=(pad_left, pad_right - 3), pady=(5, 5), sticky='e')
+                    # Set optional tooltip.
+                    if option.button_tooltip:
+                        label_button.set_tooltip(option.button_tooltip)
+
             case OptionWidget.INPUT_STR | OptionWidget.INPUT_TEXT:
                 # self.grid_columnconfigure(3, weight=100)
 
@@ -522,7 +541,7 @@ class SettingsOptionFrame(UIFrame):
                         command=option.input_button_command,
                     )
                     self.put(input_button).grid(row=1, column=0, padx=(pad_left, pad_right + 5), pady=(5, 5), sticky='e', columnspan=4)
-                    widget.set_right_offset(input_button.get_auto_width())
+                    widget.set_right_offset(input_button.get_auto_width() + 10)
                     # Set optional tooltip.
                     if option.input_button_tooltip:
                         input_button.set_tooltip(option.input_button_tooltip)
@@ -560,6 +579,7 @@ class SettingsOptionFrame(UIFrame):
         if option.value_validate_command and option.value_variable:
             error_label = OptionWidgetErrorLabel(
                 master=self,
+                wraplength=620,
             )
             self.put(error_label)
 

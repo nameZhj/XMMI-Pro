@@ -13,7 +13,7 @@ import core.path_manager as Paths
 import gui.vars as Vars
 
 from core.locale_manager import L, Locale
-from core.config.enums import UpdateChannel, ProxyType
+from core.config.enums import UpdateChannel, ProxyType, WindowScale
 
 from gui.windows.settings.settings_content_frame import SettingsContentFrame, SettingsSection, SettingsOption, OptionWidget, Condition
 
@@ -32,10 +32,13 @@ class LauncherSettingsFrame(SettingsContentFrame):
                             widget=OptionWidget.CHECKBOX,
                             value_variable="Vars.Launcher.auto_close",
                             tooltip=L("launcher_settings_auto_close_checkbox_tooltip", """
-                                Enabled: Launcher will close itself once the game has started and 3dmigoto injection has been confirmed.
-                                Disabled: Launcher will keep itself running.
+                                Choose what the launcher should do after the game starts and XXMI DLL injection is confirmed.
+                                
+                                * **Enabled:** Automatically close the launcher.
+                                * **Disabled:** Keep the launcher running.
                             """),
                         ),
+
                         SettingsOption(
                             label_text=L("launcher_settings_theme_label", "UI Theme"),
                             widget=OptionWidget.DROPDOWN,
@@ -57,19 +60,56 @@ class LauncherSettingsFrame(SettingsContentFrame):
                                 - Animated images: {animated_extensions:list}.
                                     * For best animation performance and storage efficiency, use `.avif` format.
                                     * Animated images are supported only in `LauncherFrame` and its subfolders for now.
-                                    * To avoid GUI lag caused by image scaling, make sure animated backgrounds have the same resolution as the launcher window.
                             """).format(
-                                static_extensions = ["`.jpg`", "`.jpeg`", "`.png`", "`.webp`"],
-                                animated_extensions = ["`.apng`", "`.avif`", "`.gif`", "`.webp`"],
+                                static_extensions = ["`.avif`", "`.jpg`", "`.jpeg`", "`.png`", "`.webp`"],
+                                animated_extensions = ["`.avif`", "`.gif`", "`.mp4`", "`.webm`", "`.webp`"],
                             ),
                         ),
+
                         SettingsOption(
-                            label_text=L("launcher_settings_dev_mode_checkbox", "Dev Mode"),
+                            label_text=L("launcher_settings_window_scale_label", "Window Scale"),
+                            widget=OptionWidget.DROPDOWN,
+                            value_variable="Vars.Launcher.window_scale",
+                            dropdown_values=WindowScale,
+                            dropdown_command=self.update_window_scale,
+                            tooltip=L("launcher_settings_window_scale_tooltip", """
+                                Select the size of the launcher window.
+                                
+                                * **{launcher_settings_window_scale_auto}**: Select optimal DPI scaling automatically.
+                                * **{launcher_settings_window_scale_custom}**: Specify custom window scale percentage.
+                            """),
+                        ),
+
+                        SettingsOption(
+                            label_text=L("launcher_settings_custom_window_scale_label", "Custom Scale"),
+                            widget=OptionWidget.INPUT_INT,
+                            value_variable="Vars.Launcher.custom_window_scale",
+                            button_command=self.apply_custom_window_scale,
+                            button_text=L("launcher_settings_custom_window_scale_button_label", "➔ Apply"),
+                            button_tooltip=L("launcher_settings_custom_window_scale_button_tooltip",
+                                "Apply specified scale to the window."
+                            ),
+                            tooltip=L("launcher_settings_custom_window_scale_tooltip", """
+                                Set the window scale percentage.
+                                
+                                * `100`% corresponds to the native launcher resolution of **1280x720**.
+                                * The window scale is limited to a minimum of `50`% and a maximum of your monitor's resolution.
+                            """),
+                            visible_if=Condition(
+                                variables=("Vars.Launcher.window_scale",),
+                                predicate=lambda: Vars.Launcher.window_scale.get() == WindowScale.CUSTOM,
+                            ),
+                        ),
+
+                        SettingsOption(
+                            label_text=L("launcher_settings_dev_mode_checkbox", "Theme Developer Mode"),
                             widget=OptionWidget.CHECKBOX,
                             value_variable="Vars.Launcher.theme_dev_mode",
                             tooltip=L("launcher_settings_dev_mode_checkbox_tooltip", """
-                                Enabled: Launcher will track changes in `custom-tkinter-theme.json` and apply them on the fly.
-                                Disabled: Theme changes will not be tracked.
+                                Enables utilities for theme development.
+
+                                * **Hot reload:** Automatically detect changes to `custom-tkinter-theme.json` and apply them.
+                                * **FPS counter:** Display animated background FPS information at the bottom of the main window.
                             """),
                             on_value_update_command=self.toggle_theme_dev_mode,
                         ),
@@ -281,10 +321,25 @@ class LauncherSettingsFrame(SettingsContentFrame):
             Events.Fire(Events.Application.CloseSettings(save=True))
             Events.Fire(Events.Application.Busy())
             self.after_idle(lambda: Events.Fire(Events.GUI.ReloadGUI(reload_theme=True)))
-            self.after_idle(lambda: Events.Fire(Events.Application.OpenSettings(tab_name="LAUNCHER_TAB")))
             self.after_idle(lambda: Events.Fire(Events.Application.Ready()))
+            self.after_idle(lambda: Events.Fire(Events.Application.OpenSettings(tab_name="LAUNCHER_TAB")))
         else:
             Vars.Launcher.gui_theme.set("Default")
+
+    def apply_custom_window_scale(self):
+        self._update_window_scale()
+
+    def update_window_scale(self, new_value: str | None = None):
+        if Vars.Launcher.window_scale.get() == WindowScale.CUSTOM:
+            return
+        self._update_window_scale()
+
+    def _update_window_scale(self):
+        Events.Fire(Events.Application.CloseSettings(save=True))
+        Events.Fire(Events.Application.Busy())
+        Events.Fire(Events.GUI.ScaleWindow())
+        Events.Fire(Events.Application.Ready())
+        self.after_idle(lambda: Events.Fire(Events.Application.OpenSettings(tab_name="LAUNCHER_TAB")))
 
     @staticmethod
     def post_process_proxy_host(var, value):
