@@ -69,10 +69,7 @@ class AdaptiveModConfig:
         }
 
     def __getitem__(self, key: str) -> Any:
-        d = self.to_dict()
-        if key in d:
-            return d[key]
-        raise KeyError(key)
+        return self.to_dict()[key]
 
     def get(self, key: str, default: Any = None) -> Any:
         return self.to_dict().get(key, default)
@@ -161,20 +158,12 @@ class SystemHardwareProfiler:
         try:
             out = subprocess.check_output(
                 ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader,nounits"],
-                creationflags=c_flags,
-                timeout=3,
-                text=True,
-                encoding="utf-8",
-                errors="ignore",
-                stderr=subprocess.DEVNULL
+                creationflags=c_flags, timeout=3, text=True, encoding="utf-8", errors="ignore", stderr=subprocess.DEVNULL
             ).strip()
             if out:
-                first_line = out.splitlines()[0]
-                parts = [p.strip() for p in first_line.split(",")]
+                parts = [p.strip() for p in out.splitlines()[0].split(",")]
                 if len(parts) >= 2:
-                    specs.gpu_name = parts[0]
-                    specs.gpu_vendor = "NVIDIA"
-                    specs.vram_mb = int(float(parts[1]))
+                    specs.gpu_name, specs.gpu_vendor, specs.vram_mb = parts[0], "NVIDIA", int(float(parts[1]))
                     specs.is_integrated_gpu = False
                     return
         except Exception:
@@ -256,27 +245,16 @@ class SystemHardwareProfiler:
         cfg = AdaptiveModConfig()
         cfg.tier = specs.tier
 
-        # 1. 显存档位对应参数
-        if specs.tier == "Ultra":
-            cfg.streaming_pool_size = 5120
-            cfg.lod_distance_scale = 25
-            cfg.hidden_primitive_scale = 16
-            cfg.use_lightweight_transparency_fix = False
-        elif specs.tier == "High":
-            cfg.streaming_pool_size = 3584
-            cfg.lod_distance_scale = 20
-            cfg.hidden_primitive_scale = 12
-            cfg.use_lightweight_transparency_fix = False
-        elif specs.tier == "Mid":
-            cfg.streaming_pool_size = 2048
-            cfg.lod_distance_scale = 12
-            cfg.hidden_primitive_scale = 8
-            cfg.use_lightweight_transparency_fix = True
-        else:  # Low
-            cfg.streaming_pool_size = 1280
-            cfg.lod_distance_scale = 8
-            cfg.hidden_primitive_scale = 6
-            cfg.use_lightweight_transparency_fix = True
+        # 1. 显存档位对应参数 (pool, lod, hidden, fix)
+        tier_presets = {
+            "Ultra": (5120, 25, 16, False),
+            "High": (3584, 20, 12, False),
+            "Mid": (2048, 12, 8, True),
+            "Low": (1280, 8, 6, True),
+        }
+        pool, lod, hidden, fix = tier_presets.get(specs.tier, tier_presets["Mid"])
+        cfg.streaming_pool_size, cfg.lod_distance_scale = pool, lod
+        cfg.hidden_primitive_scale, cfg.use_lightweight_transparency_fix = hidden, fix
 
         # 2. d3dx.ini delay (高频 CPU 注入过早崩溃保护)
         base_delay = 500 if specs.cpu_threads >= 12 else 350
@@ -293,29 +271,6 @@ class SystemHardwareProfiler:
         cfg.extra_launch_args = args
 
         return cfg
-
-
-def detect_hardware(game_install_path: Optional[str] = None) -> HardwareSpecs:
-    """快捷入口：探测当前 PC 硬件配置"""
-    try:
-        return SystemHardwareProfiler.detect_hardware(game_install_path)
-    except Exception as e:
-        log.warning(f"Unexpected error in detect_hardware: {e}")
-        return HardwareSpecs()
-
-
-def build_adaptive_config(
-    specs: HardwareSpecs,
-    has_reshade: bool = False,
-    has_heavy_mods: bool = False
-) -> AdaptiveModConfig:
-    """快捷入口：根据硬件规格生成自适应配置参数字典/对象"""
-    try:
-        return SystemHardwareProfiler.build_adaptive_config(specs, has_reshade, has_heavy_mods)
-    except Exception as e:
-        log.warning(f"Unexpected error in build_adaptive_config: {e}")
-        return AdaptiveModConfig()
-
 
 
 def detect_hardware(game_install_path: Optional[str] = None) -> HardwareSpecs:

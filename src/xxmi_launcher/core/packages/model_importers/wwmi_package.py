@@ -226,12 +226,31 @@ class WWMIPackage(ModelImporterPackage):
                 raise ValueError(L('error_game_folder_missing_folder', 'Game folder must contain {dir_name} folder!').format(dir_name=dir_name))
         return game_path
 
+    @staticmethod
+    def _resolve_shipping_exe(game_path: Path | None) -> Path | None:
+        """解析鸣潮核心主执行程序 Client-Win64-Shipping.exe 路径"""
+        if not game_path:
+            return None
+        candidates = [
+            game_path / "Client" / "Binaries" / "Win64" / "Client-Win64-Shipping.exe",
+            game_path / "Wuthering Waves Game" / "Client" / "Binaries" / "Win64" / "Client-Win64-Shipping.exe",
+            game_path.parent / "Wuthering Waves Game" / "Client" / "Binaries" / "Win64" / "Client-Win64-Shipping.exe",
+            game_path.parent / "Client" / "Binaries" / "Win64" / "Client-Win64-Shipping.exe",
+        ]
+        for cand in candidates:
+            if cand.is_file():
+                return cand
+        for p in game_path.glob("**/Client-Win64-Shipping.exe"):
+            if p.is_file():
+                return p
+        return None
+
     def _apply_hardware_optimization_and_repair(
         self,
         launch_context: LaunchContext,
         game_path: Path | None,
     ) -> None:
-        """根据硬件配置自动优化 Engine.ini / d3dx.ini / 启动参数，并深度修复 Mod 冲突"""
+        """根据硬件配置自动优化 Engine.ini / d3dx.ini / 启动参数，检测版本更新自愈，并启动防崩守护线程"""
         try:
             target_game_path = game_path or Path(Config.Importers.WWMI.Importer.game_folder)
             wwmi_root = Path(Config.Importers.WWMI.Importer.importer_path)
@@ -244,8 +263,10 @@ class WWMIPackage(ModelImporterPackage):
                 return
 
             from core.packages.model_importers.wwmi_fixer import WWMIRepairAndOptimizer
+            from core.packages.model_importers.launch_safety_guard import LaunchSafetyGuard
             optimizer = WWMIRepairAndOptimizer(target_game_path, wwmi_root)
 
+            # 硬件自适应优化与参数写入
             specs, adaptive_cfg, opt_logs = optimizer.apply_hardware_adaptive_optimization()
             for log_line in opt_logs:
                 log.info(log_line)
@@ -254,10 +275,15 @@ class WWMIPackage(ModelImporterPackage):
             if hasattr(Config.Active, 'Importer'):
                 Config.Active.Importer.xxmi_dll_init_delay = adaptive_cfg.init_delay_ms
 
+            # 通过 LaunchSafetyGuard 安全过滤并注入引擎启动参数
+            safe_extra_args = LaunchSafetyGuard.filter_launch_args_for_exe(
+                getattr(launch_context.target, "exe_path", None),
+                adaptive_cfg.extra_launch_args
+            )
             if isinstance(launch_context.target, ExecutableLaunch):
                 existing_parts = launch_context.target.cmd_args.split()
                 existing_keys = {p.split("=")[0].lower() for p in existing_parts}
-                for arg in adaptive_cfg.extra_launch_args:
+                for arg in safe_extra_args:
                     arg_clean = arg.strip()
                     arg_key = arg_clean.split("=")[0].lower()
                     if arg_clean and arg_key not in existing_keys:
@@ -275,7 +301,12 @@ class WWMIPackage(ModelImporterPackage):
                 )
             ))
 
-            report = optimizer.scan_and_repair_mods(purge_shader_cache=False, auto_disable_conflicts=True)
+            # 检测鸣潮版本更新并自愈着色器编译缓存
+            is_version_updated = optimizer.check_game_version_updated()
+            if is_version_updated:
+                log.info("[版本更新自愈] 检测到鸣潮客户端版本更新，自动清空陈旧着色器缓存以防 UE4 Fatal Error")
+
+            report = optimizer.scan_and_repair_mods(purge_shader_cache=is_version_updated, auto_disable_conflicts=True)
             if report.get("disabled_conflict_folders"):
                 isolated_cnt = len(report["disabled_conflict_folders"])
                 Events.Fire(Events.Application.StatusUpdate(
@@ -286,6 +317,9 @@ class WWMIPackage(ModelImporterPackage):
                 ))
                 log.warning(f"Auto-isolated {isolated_cnt} conflicting mod folders: {report['disabled_conflict_folders']}")
 
+            # 启动 25 秒防崩监控与自动回滚守护线程
+            LaunchSafetyGuard.start_crash_monitor_thread(target_game_path, wwmi_root)
+
         except Exception as e:
             log.warning(f"Error during WWMI auto optimization and repair: {e}", exc_info=True)
 
@@ -295,6 +329,13 @@ class WWMIPackage(ModelImporterPackage):
         game_path: Path | None,
         game_exe_path: Path | None,
     ) -> None:
+        # 固定拉起目标为真正的 Client-Win64-Shipping.exe，防止外层引导程序丢参数与注入
+        shipping_exe = self._resolve_shipping_exe(game_path) or game_exe_path
+        if shipping_exe and shipping_exe.exists():
+            launch_context.target.exe_path = shipping_exe
+            launch_context.work_dir = shipping_exe.parent
+            launch_context.process_name = shipping_exe.name
+
         self._apply_hardware_optimization_and_repair(launch_context, game_path)
 
         if Config.Importers.WWMI.Importer.game_launch != GameLaunch.DIRECT:
@@ -305,20 +346,19 @@ class WWMIPackage(ModelImporterPackage):
             if "-krqlv=" not in launch_context.target.cmd_args.lower():
                 launch_context.target.cmd_args += f" -krqlv={Config.Importers.WWMI.Importer.resource_tier.name.lower()}"
 
-        if not Config.Importers.WWMI.Importer.use_launch_options:
-            # Start WW via wrapper exe (solves crashes for NVidia Optimus and some Steam version users).
-            wrapper_exe = game_path / "Wuthering Waves.exe"
-            if not wrapper_exe.exists() and (game_path.parent / "Wuthering Waves.exe").exists():
-                wrapper_exe = game_path.parent / "Wuthering Waves.exe"
-            if not wrapper_exe.exists():
-                wrapper_exe = game_path / "Client" / "Binaries" / "Win64" / "Client-Win64-Shipping.exe"
-            launch_context.target.exe_path = wrapper_exe
-            launch_context.work_dir = wrapper_exe.parent
-        else:
-            shipping_exe = game_path / "Client" / "Binaries" / "Win64" / "Client-Win64-Shipping.exe"
-            if shipping_exe.exists():
-                launch_context.target.exe_path = shipping_exe
-                launch_context.work_dir = shipping_exe.parent
+    def optimize_mods(self, event: Events.ModelImporter.OptimizeMods):
+        """响应用户触发的‘深度修复 Mod’事件，彻底清空 ShaderCache 编译缓存并深度修复"""
+        try:
+            game_path = Path(Config.Importers.WWMI.Importer.game_folder)
+            wwmi_root = Path(Config.Importers.WWMI.Importer.importer_path)
+            if game_path.exists() and wwmi_root.exists():
+                from core.packages.model_importers.wwmi_fixer import WWMIRepairAndOptimizer
+                optimizer = WWMIRepairAndOptimizer(game_path, wwmi_root)
+                optimizer.scan_and_repair_mods(purge_shader_cache=True, auto_disable_conflicts=True)
+                log.info("[深度修复] 用户手动触发模组优化，已清空着色器编译缓存")
+        except Exception as e:
+            log.warning(f"Error in WWMIPackage.optimize_mods cache purge: {e}")
+        super().optimize_mods(event)
 
     @staticmethod
     def notify_resource_tier():
