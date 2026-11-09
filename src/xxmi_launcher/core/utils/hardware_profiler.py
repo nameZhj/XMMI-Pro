@@ -315,3 +315,26 @@ def build_adaptive_config(
     except Exception as e:
         log.warning(f"Unexpected error in build_adaptive_config: {e}")
         return AdaptiveModConfig()
+
+
+
+def detect_hardware(game_install_path: Optional[str] = None) -> HardwareSpecs:
+    """快捷入口：探测当前 PC 硬件配置"""
+    try:
+        return SystemHardwareProfiler.detect_hardware(game_install_path)
+    except Exception as e:
+        log.warning(f"Unexpected error in detect_hardware: {e}")
+        return HardwareSpecs()
+
+
+def build_adaptive_config(
+    specs: HardwareSpecs,
+    has_reshade: bool = False,
+    has_heavy_mods: bool = False
+) -> AdaptiveModConfig:
+    """快捷入口：根据硬件规格生成自适应配置参数字典/对象"""
+    try:
+        return SystemHardwareProfiler.build_adaptive_config(specs, has_reshade, has_heavy_mods)
+    except Exception as e:
+        log.warning(f"Unexpected error in build_adaptive_config: {e}")
+        return AdaptiveModConfig()

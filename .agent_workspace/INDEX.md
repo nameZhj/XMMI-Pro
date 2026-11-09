@@ -14,5 +14,5 @@ src/xxmi_launcher/gui/windows/gamebanana_browser.py | Integrated GameBanana mod 
 src/xxmi_launcher/core/gamebanana_service.py | GameBanana mod parser, direct download engine, and automatic installer | GameBananaService, GameBananaModInfo, GameBananaFileInfo
 src/xxmi_launcher/gui/windows/gamebanana_download_dialog.py | Modern dark-themed dialog for GameBanana URL parsing, file selection, and direct installation | GameBananaDownloadDialog
 src/xxmi_launcher/core/utils/lossless_ini_editor.py | Lossless line-level INI editor preserving comments, case, and duplicate keys with read-only unlock | LosslessIniEditor, make_file_writable
-src/xxmi_launcher/core/packages/model_importers/wwmi_fixer.py | Wuthering Waves mod diagnostic, repair, and hardware-adaptive optimizer | WWMIRepairAndOptimizer
+src/xxmi_launcher/core/packages/model_importers/wwmi_fixer.py | Wuthering Waves mod diagnostic, repair, and hardware-adaptive optimizer | WWMIRepairAndOptimizer, LosslessIniEditor, apply_engine_ini_fixes, apply_d3dx_ini_fixes, apply_windows_compat_fixes
 src/xxmi_launcher/core/packages/model_importers/wwmi_package.py | Wuthering Waves model importer package with dual-layer path resolution and lossless config writing | WWMIPackage, WWMIConfig, WWMIPackageConfig

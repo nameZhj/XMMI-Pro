@@ -47,7 +47,7 @@ class LosslessIniEditor:
         cls,
         file_path: Path | str,
         updates: Dict[str, Dict[str, str]],
-        create_backup: bool = False
+        create_backup: bool = True
     ) -> bool:
         p = Path(file_path)
         if not p.exists():
