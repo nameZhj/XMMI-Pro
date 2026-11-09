@@ -2425,12 +2425,20 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
                             file_path = data.get("file_path")
                             if file_path and Path(file_path).exists():
                                 self._handle_gamebanana_downloaded_mod(Path(file_path))
-                    except Exception:
-                        pass
+                    except Exception as err:
+                        log.debug(f"JSON event parse error: {err}")
+            except Exception as e:
+                log.debug(f"GameBanana listener loop error: {e}")
+
+        def stderr_drain():
+            try:
+                for line in self._gamebanana_proc.stderr:
+                    log.debug(f"[GameBananaBrowser] {line.strip()}")
             except Exception:
                 pass
 
         threading.Thread(target=listener, daemon=True, name="GameBananaListener").start()
+        threading.Thread(target=stderr_drain, daemon=True, name="GameBananaStderrDrain").start()
 
     def _handle_gamebanana_downloaded_mod(self, file_path: Path):
         """Automatically imports a mod downloaded via GameBanana browser and refreshes the UI."""

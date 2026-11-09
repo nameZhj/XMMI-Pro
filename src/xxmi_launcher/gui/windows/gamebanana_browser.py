@@ -476,15 +476,33 @@ class GameBananaBrowserManager:
         - Emits JSON-Lines events to the parent launcher process.
         """
         download_op: CoreWebView2DownloadOperation = args.DownloadOperation
-        raw_name = os.path.basename(args.ResultFilePath) or "mod.zip"
-        clean_name = sanitize_filename(raw_name)
 
-        # Unique destination path
-        target_path = self.download_dir / clean_name
+        # 1. Safely extract filename
+        res_file_path = str(args.ResultFilePath) if args.ResultFilePath is not None else ""
+        raw_name = os.path.basename(res_file_path) if res_file_path else ""
+        if not raw_name or raw_name == ".":
+            try:
+                uri_str = str(download_op.Uri) if download_op and hasattr(download_op, "Uri") else ""
+                uri_clean = uri_str.split("?")[0].split("#")[0]
+                cand = os.path.basename(uri_clean)
+                if cand and "." in cand:
+                    raw_name = cand
+            except Exception:
+                pass
+        if not raw_name or raw_name == ".":
+            raw_name = f"mod_{int(time.time())}.zip"
+
+        clean_name = sanitize_filename(raw_name)
+        if "." not in clean_name:
+            clean_name += ".zip"
+
+        # 2. Determine target path and IMMEDIATELY suppress SaveFileDialog
+        self.download_dir.mkdir(parents=True, exist_ok=True)
+        target_path = (self.download_dir / clean_name).resolve()
         stem, suffix = target_path.stem, target_path.suffix
         idx = 1
         while target_path.exists():
-            target_path = self.download_dir / f"{stem} ({idx}){suffix}"
+            target_path = (self.download_dir / f"{stem} ({idx}){suffix}").resolve()
             idx += 1
 
         args.ResultFilePath = str(target_path)
@@ -496,8 +514,32 @@ class GameBananaBrowserManager:
             "event": "download_start",
             "filename": clean_name,
             "target_path": str(target_path),
-            "uri": str(download_op.Uri)
+            "uri": str(download_op.Uri) if download_op and hasattr(download_op, "Uri") else ""
         })
+
+        completed_flag = [False]
+
+        def mark_complete(completed_file: Path):
+            if completed_flag[0]:
+                return
+            completed_flag[0] = True
+            self._active_download_count = max(0, self._active_download_count - 1)
+            self.update_ui(
+                f"⏳ [{clean_name}] 下载完成，正在导入至模组管理...",
+                progress_pct=100,
+                is_success=True
+            )
+            self.emit_event({
+                "event": "download_complete",
+                "filename": clean_name,
+                "file_path": str(completed_file)
+            })
+            if self.parent_pid <= 0:
+                threading.Thread(
+                    target=self._standalone_import,
+                    args=(completed_file,),
+                    daemon=True
+                ).start()
 
         def on_bytes_received(sender_op, event_args):
             try:
@@ -515,24 +557,8 @@ class GameBananaBrowserManager:
             try:
                 state = sender_op.State
                 if state == CoreWebView2DownloadState.Completed:
-                    self._active_download_count = max(0, self._active_download_count - 1)
-                    self.update_ui(
-                        f"⏳ [{clean_name}] 下载完成，正在导入至模组管理...",
-                        progress_pct=100
-                    )
-                    self.emit_event({
-                        "event": "download_complete",
-                        "filename": clean_name,
-                        "file_path": str(target_path)
-                    })
-                    # When running WITHOUT a parent launcher (standalone mode):
-                    if self.parent_pid <= 0:
-                        threading.Thread(
-                            target=self._standalone_import,
-                            args=(target_path,),
-                            daemon=True
-                        ).start()
-
+                    res_p = str(sender_op.ResultFilePath) if hasattr(sender_op, 'ResultFilePath') and sender_op.ResultFilePath else str(target_path)
+                    mark_complete(Path(res_p))
                 elif state == CoreWebView2DownloadState.Interrupted:
                     self._active_download_count = max(0, self._active_download_count - 1)
                     reason = str(sender_op.InterruptReason)
@@ -545,8 +571,42 @@ class GameBananaBrowserManager:
             except Exception as ex:
                 log.exception(f"on_state_changed error: {ex}")
 
-        download_op.BytesReceivedChanged += on_bytes_received
-        download_op.StateChanged += on_state_changed
+        # Hook events safely with System.EventHandler fallback
+        try:
+            download_op.BytesReceivedChanged += System.EventHandler[System.Object](on_bytes_received)
+        except Exception:
+            try:
+                download_op.BytesReceivedChanged += on_bytes_received
+            except Exception as e:
+                log.warning(f"Could not hook BytesReceivedChanged: {e}")
+
+        try:
+            download_op.StateChanged += System.EventHandler[System.Object](on_state_changed)
+        except Exception:
+            try:
+                download_op.StateChanged += on_state_changed
+            except Exception as e:
+                log.warning(f"Could not hook StateChanged: {e}")
+
+        # Fallback completion poller in case StateChanged is missed
+        def poll_completion():
+            for _ in range(600):  # poll up to 10 minutes
+                time.sleep(1.0)
+                if completed_flag[0]:
+                    break
+                crdownload = Path(str(target_path) + ".crdownload")
+                if target_path.exists() and not crdownload.exists():
+                    try:
+                        sz1 = target_path.stat().st_size
+                        if sz1 > 0:
+                            time.sleep(0.5)
+                            sz2 = target_path.stat().st_size
+                            if sz1 == sz2:
+                                mark_complete(target_path)
+                                break
+                    except Exception:
+                        pass
+        threading.Thread(target=poll_completion, daemon=True, name=f"DownloadWatcher-{clean_name}").start()
 
     def _standalone_import(self, file_path: Path):
         """
@@ -626,7 +686,13 @@ def run_gamebanana_browser(
             manager.handle_download_starting(sender, event_args)
         except Exception as ex:
             log.exception(f"Download handler exception: {ex}")
-            _orig_download(self, sender, event_args)
+            # Ensure dialog is never shown, fallback to direct download path
+            try:
+                event_args.Handled = True
+                fallback_path = manager.download_dir / f"mod_{int(time.time())}.zip"
+                event_args.ResultFilePath = str(fallback_path.resolve())
+            except Exception:
+                pass
 
     edge.EdgeChrome.on_download_starting = _patched_download
 
