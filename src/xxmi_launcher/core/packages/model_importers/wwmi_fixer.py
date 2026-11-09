@@ -1,7 +1,7 @@
 """
 @file: src/xxmi_launcher/core/packages/model_importers/wwmi_fixer.py
 @brief: Wuthering Waves mod diagnostic, repair, and hardware-adaptive optimizer
-@exports: WWMIRepairAndOptimizer, LosslessIniEditor, apply_engine_ini_fixes, apply_d3dx_ini_fixes, apply_windows_compat_fixes
+@exports: WWMIRepairAndOptimizer, LosslessIniEditor, apply_engine_ini_fixes, apply_d3dx_ini_fixes, apply_windows_compat_fixes, scan_and_repair_mods
 """
 
 import os
@@ -79,7 +79,6 @@ def apply_d3dx_ini_fixes(wwmi_root: Path | str, adaptive_cfg: Any) -> List[str]:
     LosslessIniEditor.update_sections(d3dx_ini, updates, create_backup=True)
     logs.append(f"[d3dx.ini] 已配置 delay={delay}ms、cache_shaders=1 并关闭调试日志")
 
-    # 移除旧版教程卡顿块
     try:
         content = d3dx_ini.read_text(encoding="utf-8", errors="ignore")
         if "[ShaderRegexEnableTextureOverrides]" in content or "if $costume_mods" in content:
@@ -121,6 +120,157 @@ def apply_windows_compat_fixes(game_root: Path | str) -> List[str]:
     return logs
 
 
+def scan_and_repair_mods(
+    wwmi_root: Path | str,
+    purge_shader_cache: bool = False,
+    auto_disable_conflicts: bool = True
+) -> Dict[str, Any]:
+    """深度扫描并修复 WWMI Mods 目录与着色器缓存"""
+    wwmi_dir = Path(wwmi_root)
+    mods_dir = wwmi_dir / "Mods"
+    report = {
+        "fixed_inis": [],
+        "removed_legacy_files": [],
+        "hash_conflicts": [],
+        "disabled_conflicts": [],
+        "cache_purged": False,
+    }
+
+    # 1. 着色器缓存清理（保留 ShaderFixes 核心修复文件）
+    if purge_shader_cache:
+        cache_dir = wwmi_dir / "ShaderCache"
+        if cache_dir.exists():
+            for f in cache_dir.glob("*"):
+                if f.suffix.lower() in {".bin", ".txt", ".log"} and f.is_file():
+                    try:
+                        make_file_writable(f)
+                        f.unlink()
+                    except OSError:
+                        pass
+        report["cache_purged"] = True
+
+    if not mods_dir.exists():
+        return report
+
+    # 2. 遍历扫描 Mods 目录
+    hash_registry: Dict[str, List[Tuple[Path, Path]]] = {}
+    disabled_folders: set = set()
+
+    for root, _, files in os.walk(mods_dir):
+        root_path = Path(root)
+        try:
+            rel_parts = root_path.relative_to(mods_dir).parts
+        except ValueError:
+            continue
+
+        if any(part.upper().startswith("DISABLED") for part in rel_parts):
+            continue
+
+        mod_top_folder = mods_dir / rel_parts[0] if rel_parts else root_path
+
+        for file_name in files:
+            file_path = root_path / file_name
+            lower_name = file_name.lower()
+
+            if lower_name in {"checktexture.ini", "references.ini"}:
+                disabled_name = file_path.with_name(f"DISABLED_{file_name}.bak")
+                try:
+                    make_file_writable(file_path)
+                    shutil.move(str(file_path), str(disabled_name))
+                    report["removed_legacy_files"].append(str(file_path))
+                except Exception as e:
+                    log.warning(f"Failed to isolate {file_path}: {e}")
+                continue
+
+            if lower_name.endswith(".ini") and not lower_name.startswith("disabled"):
+                _repair_single_mod_ini(file_path, mod_top_folder, hash_registry, report)
+
+    # 3. Hash 冲突检测与自动隔离
+    for h_val, entries in hash_registry.items():
+        unique_folders = []
+        for folder, _ in entries:
+            if folder not in unique_folders:
+                unique_folders.append(folder)
+
+        if len(unique_folders) > 1:
+            report["hash_conflicts"].append({
+                "hash": h_val,
+                "paths": [str(p) for _, p in entries],
+                "folders": [str(f) for f in unique_folders]
+            })
+
+            if auto_disable_conflicts:
+                for conf_folder in unique_folders[1:]:
+                    if conf_folder not in disabled_folders and conf_folder.exists():
+                        target_name = conf_folder.parent / f"DISABLED_{conf_folder.name}"
+                        try:
+                            conf_folder.rename(target_name)
+                            disabled_folders.add(conf_folder)
+                            report["disabled_conflicts"].append(str(target_name))
+                            log.info(f"已自动隔离冲突模组目录: {conf_folder.name} -> {target_name.name}")
+                        except Exception as e:
+                            log.warning(f"隔离冲突模组目录失败 {conf_folder}: {e}")
+
+    return report
+
+
+def _repair_single_mod_ini(
+    ini_path: Path,
+    mod_top_folder: Path,
+    hash_registry: Dict[str, List[Tuple[Path, Path]]],
+    report: Dict[str, Any]
+) -> None:
+    try:
+        raw = ini_path.read_text(encoding="utf-8", errors="ignore")
+    except Exception as e:
+        log.warning(f"Could not read {ini_path}: {e}")
+        return
+
+    lines = raw.splitlines()
+    modified, new_lines = False, []
+    current_sec = ""
+    sec_re = re.compile(r"^\s*\[([^\]]+)\]")
+    hash_re = re.compile(r"^\s*hash\s*=\s*([0-9a-fA-F]{8,16})\s*$")
+
+    for line in lines:
+        m_sec = sec_re.match(line)
+        if m_sec:
+            current_sec = m_sec.group(1).strip()
+
+        if current_sec.lower().startswith("textureoverride"):
+            m_hash = hash_re.match(line)
+            if m_hash:
+                h_val = m_hash.group(1).lower()
+                hash_registry.setdefault(h_val, []).append((mod_top_folder, ini_path))
+
+        if "if $costume_mods" in line:
+            new_lines.append(f"; [AutoFixed] {line}")
+            modified = True
+            continue
+
+        if line.strip().lower().startswith("filename") and "/" in line:
+            new_lines.append(line.replace("/", "\\"))
+            modified = True
+            continue
+
+        new_lines.append(line)
+
+    if modified:
+        bak_path = ini_path.with_suffix(".ini.orig.bak")
+        if not bak_path.exists():
+            try:
+                shutil.copy2(ini_path, bak_path)
+            except Exception as e:
+                log.warning(f"Failed to create backup {bak_path}: {e}")
+
+        try:
+            make_file_writable(ini_path)
+            ini_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+            report["fixed_inis"].append(str(ini_path))
+        except Exception as e:
+            log.warning(f"Failed writing mod ini {ini_path}: {e}")
+
+
 class WWMIRepairAndOptimizer:
     """《鸣潮》Mod 全链路诊断、修复与硬件自适应配置器"""
 
@@ -145,78 +295,6 @@ class WWMIRepairAndOptimizer:
         logs.extend(apply_windows_compat_fixes(self.game_root))
         return specs, cfg, logs
 
-    def scan_and_repair_mods(self, purge_shader_cache: bool = False) -> Dict[str, any]:
-        """扫描 Mods 文件夹：清理毒瘤文件、修复语法、检测同角色 Hash 冲突、按需清理着色器缓存"""
-        report = {"fixed_inis": [], "removed_legacy_files": [], "hash_conflicts": [], "cache_purged": False}
-        if purge_shader_cache:
-            for folder in ["ShaderCache", "ShaderFixes"]:
-                target = self.wwmi_root / folder
-                if target.exists():
-                    for f in target.glob("*"):
-                        if f.suffix.lower() in {".bin", ".txt", ".log"} and f.is_file():
-                            try:
-                                f.unlink()
-                            except OSError:
-                                pass
-            report["cache_purged"] = True
-
-        if not self.mods_dir.exists():
-            return report
-
-        hash_registry: Dict[str, List[Path]] = {}
-        for root, _, files in os.walk(self.mods_dir):
-            root_path = Path(root)
-            if any(part.upper().startswith("DISABLED") for part in root_path.relative_to(self.mods_dir).parts):
-                continue
-            for file_name in files:
-                file_path = root_path / file_name
-                lower_name = file_name.lower()
-                if lower_name in {"checktexture.ini", "references.ini"}:
-                    disabled_path = file_path.with_name(f"DISABLED_{file_name}.bak")
-                    shutil.move(str(file_path), str(disabled_path))
-                    report["removed_legacy_files"].append(str(file_path))
-                    continue
-                if lower_name.endswith(".ini") and not lower_name.startswith("disabled"):
-                    self._repair_single_mod_ini(file_path, hash_registry, report)
-
-        for h_val, mod_files in hash_registry.items():
-            if len({p.parent for p in mod_files}) > 1:
-                report["hash_conflicts"].append({"hash": h_val, "paths": [str(p) for p in mod_files]})
-        return report
-
-    def _repair_single_mod_ini(self, ini_path: Path, hash_registry: Dict[str, List[Path]], report: Dict[str, any]) -> None:
-        raw = ini_path.read_text(encoding="utf-8", errors="ignore")
-        lines, modified, new_lines = raw.splitlines(), False, []
-        current_sec, sec_re, hash_re = "", re.compile(r"^\s*\[([^\]]+)\]"), re.compile(r"^\s*hash\s*=\s*([0-9a-fA-F]{8,16})\s*$")
-
-        for line in lines:
-            m_sec = sec_re.match(line)
-            if m_sec:
-                current_sec = m_sec.group(1).strip()
-            if current_sec.lower().startswith("textureoverride"):
-                m_hash = hash_re.match(line)
-                if m_hash:
-                    hash_registry.setdefault(m_hash.group(1).lower(), []).append(ini_path)
-            if "if $costume_mods" in line:
-                new_lines.append(f"; [AutoFixed] {line}")
-                modified = True
-                continue
-            if line.strip().lower().startswith("filename") and "/" in line:
-                new_lines.append(line.replace("/", "\\"))
-                modified = True
-                continue
-            new_lines.append(line)
-
-        if modified:
-            bak_path = ini_path.with_suffix(".ini.orig.bak")
-            if not bak_path.exists():
-                try:
-                    shutil.copy2(ini_path, bak_path)
-                except Exception:
-                    pass
-            try:
-                make_file_writable(ini_path)
-                ini_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
-                report["fixed_inis"].append(str(ini_path))
-            except Exception as e:
-                log.warning(f"Failed writing mod ini {ini_path}: {e}")
+    def scan_and_repair_mods(self, purge_shader_cache: bool = False, auto_disable_conflicts: bool = True) -> Dict[str, Any]:
+        """扫描 Mods 文件夹：清理毒瘤文件、修复语法、检测同角色 Hash 冲突并隔离、按需清理着色器缓存"""
+        return scan_and_repair_mods(self.wwmi_root, purge_shader_cache=purge_shader_cache, auto_disable_conflicts=auto_disable_conflicts)
