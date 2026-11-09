@@ -10,3 +10,6 @@ src/xxmi_launcher/gui/classes/element.py | Base class for UI elements with lifec
 src/xxmi_launcher/gui/windows/main/message_frame/message_frame.py | Modal message, error, and confirmation dialogue frame for XMMI-Pro | MessageFrame
 src/xxmi_launcher/core/utils/process_manager.py | Process execution, monitoring, and elevation management for XMMI-Pro | ProcessManager, LaunchContext, ExecutableLaunch, CommandLaunch
 src/xxmi_launcher/core/application.py | Main application runtime and lifecycle coordinator for XMMI-Pro | Application
+src/xxmi_launcher/gui/windows/gamebanana_browser.py | Integrated GameBanana mod browser with automatic download interception, 1-click downloads, and mod import | GameBananaBrowserManager, run_gamebanana_browser
+src/xxmi_launcher/core/gamebanana_service.py | GameBanana mod parser, direct download engine, and automatic installer | GameBananaService, GameBananaModInfo, GameBananaFileInfo
+src/xxmi_launcher/gui/windows/gamebanana_download_dialog.py | Modern dark-themed dialog for GameBanana URL parsing, file selection, and direct installation | GameBananaDownloadDialog

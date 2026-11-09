@@ -1292,8 +1292,8 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
 
         self.gamebanana_btn = CTkButton(
             self.actions_frame,
-            text="🍌 GameBanana 下载",
-            width=132,
+            text="🍌 GameBanana 模组站",
+            width=138,
             height=32,
             corner_radius=6,
             font=("Microsoft YaHei", 11, "bold"),
@@ -1303,6 +1303,20 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
             command=self._open_gamebanana_browser
         )
         self.gamebanana_btn.pack(side="left", padx=2)
+
+        self.parse_url_btn = CTkButton(
+            self.actions_frame,
+            text="🔗 解析链接下载",
+            width=116,
+            height=32,
+            corner_radius=6,
+            font=("Microsoft YaHei", 11, "bold"),
+            fg_color="#059669",
+            hover_color="#047857",
+            text_color="#ffffff",
+            command=self._open_gamebanana_download_dialog
+        )
+        self.parse_url_btn.pack(side="left", padx=2)
 
         self.import_zip_btn = CTkButton(
             self.actions_frame,
@@ -2317,6 +2331,15 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
             os.startfile(str(mods_folder))
         else:
             show_warning("提示", "未找到 Mods 目录", parent=self.winfo_toplevel())
+
+    def _open_gamebanana_download_dialog(self, initial_url: str = ""):
+        """Opens the GameBanana URL parsing and direct download dialog."""
+        from gui.windows.gamebanana_download_dialog import GameBananaDownloadDialog
+        GameBananaDownloadDialog(
+            parent=self.winfo_toplevel(),
+            on_import_success=self._on_hot_update_success,
+            initial_url=initial_url
+        )
 
     def _open_gamebanana_browser(self):
         """Opens the integrated GameBanana Mod Download Center window."""

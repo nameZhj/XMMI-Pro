@@ -1,3 +1,8 @@
+"""
+@file gamebanana_browser.py
+@brief Integrated GameBanana mod browser with automatic download interception, 1-click downloads, and mod import
+@exports GameBananaBrowserManager, run_gamebanana_browser
+"""
 import os
 import sys
 import json
@@ -29,6 +34,7 @@ try:
     clr.AddReference('System.Drawing')
     clr.AddReference(edge.interop_dll_path('Microsoft.Web.WebView2.Core.dll'))
 
+    import System
     import System.Windows.Forms as WinForms
     from System import Action, Func, Type, Object
     from System.Drawing import Size, Color, Font, FontFamily, FontStyle, Point
@@ -201,13 +207,15 @@ class GameBananaBrowserManager:
         _nav_btn("▶", 30, Color.FromArgb(38, 48, 70), _go_fwd)
         _nav_btn("🔄", 30, Color.FromArgb(38, 48, 70), lambda: self.webview.Reload())
         x += 4  # small gap
-        _nav_btn("🏠 游戏专区", 90, Color.FromArgb(234, 88, 12),
+        _nav_btn("🏠 游戏专区", 86, Color.FromArgb(234, 88, 12),
                  lambda: self.browser_view.load_url(self.home_url), bold=True)
-        _nav_btn("🔑 网页登录", 84, Color.FromArgb(37, 99, 235),
+        _nav_btn("⬇ 抓取并下载此模组", 136, Color.FromArgb(22, 163, 74),
+                 lambda: self._trigger_page_download(), bold=True)
+        _nav_btn("🔑 网页登录", 78, Color.FromArgb(37, 99, 235),
                  lambda: self.browser_view.load_url(GAMEBANANA_LOGIN_URL))
-        _nav_btn("⚙ 账号助手", 84, Color.FromArgb(79, 70, 229),
+        _nav_btn("⚙ 账号助手", 78, Color.FromArgb(79, 70, 229),
                  lambda: self._open_account_helper())
-        _nav_btn("📂 下载目录", 84, Color.FromArgb(51, 65, 85),
+        _nav_btn("📁 打开下载文件夹", 106, Color.FromArgb(71, 85, 105),
                  lambda: os.startfile(str(self.download_dir)))
         x += 4
 
@@ -249,7 +257,7 @@ class GameBananaBrowserManager:
         bottom_panel.BackColor = Color.FromArgb(15, 18, 28)
 
         self.lbl_status = WinForms.Label()
-        self.lbl_status.Text = "💡 在网站点击模组的【Manual Download / 下载】按钮将自动下载并保存至模组管理！"
+        self.lbl_status.Text = "💡 提示：在网页点击【Manual Download / Download】或点击上方绿色【⬇ 抓取并下载此模组】，将直接自动高速下载并保存至模组管理！"
         self.lbl_status.ForeColor = Color.FromArgb(100, 116, 139)
         self.lbl_status.Font = Font("Microsoft YaHei", 9)
         self.lbl_status.Location = Point(10, 8)
@@ -273,6 +281,27 @@ class GameBananaBrowserManager:
 
         # ── 3. Event Hooks ────────────────────────────────────────────────
         self.webview.SourceChanged += self._on_source_changed
+
+        def on_core_ready(sender, args):
+            try:
+                if hasattr(args, "IsSuccess") and not args.IsSuccess:
+                    return
+                # Direct hook on CoreWebView2 for 100% reliable download interception
+                sender.CoreWebView2.DownloadStarting += lambda s, e: self.handle_download_starting(s, e)
+                # Hook navigation for gamebanana:// and 1-click downloads
+                def on_nav(s, e):
+                    try:
+                        u = str(e.Uri)
+                        if u.startswith("gamebanana://") or u.startswith("xxmi://"):
+                            e.Cancel = True
+                            self.handle_protocol_url(u)
+                    except Exception:
+                        pass
+                sender.CoreWebView2.NavigationStarting += on_nav
+            except Exception as ex:
+                log.warning(f"CoreWebView2 direct hook warning: {ex}")
+
+        self.webview.CoreWebView2InitializationCompleted += on_core_ready
 
     def _on_form_resize(self, sender, args):
         """Keep address bar width in sync when window is resized."""
@@ -465,6 +494,123 @@ class GameBananaBrowserManager:
             self.form.BeginInvoke(Action(_do))
         else:
             _do()
+
+    # ──────────────────────── One-Click & Page Download ─────────────────────
+    def handle_protocol_url(self, uri: str):
+        """
+        Handles gamebanana:// or 1-click download schemes.
+        Converts to https://gamebanana.com/mmdl/<FileId> and triggers direct download.
+        """
+        try:
+            log.info(f"Handling protocol URL: {uri}")
+            clean_u = uri.replace("gamebanana://", "").replace("xxmi://", "").strip("/")
+            parts = clean_u.split("/")
+            file_id = ""
+            for p in reversed(parts):
+                if p.isdigit():
+                    file_id = p
+                    break
+            if file_id:
+                dl_url = f"https://gamebanana.com/mmdl/{file_id}"
+                self.update_ui(f"⬇ 检测到一键下载链接，正在启动下载: {dl_url}...")
+                self.browser_view.load_url(dl_url)
+            else:
+                self.update_ui(f"⚠ 无法解析一键下载链接: {uri}", is_error=True)
+        except Exception as e:
+            log.exception(f"Protocol URL handler error: {e}")
+
+    def _trigger_page_download(self):
+        """
+        Scrapes and triggers download of mod files on current page:
+        1. Checks if current URL has a mod ID, and fetches via GameBananaService API directly.
+        2. Fallback: clicks direct file link or Manual Download button via DOM script.
+        """
+        try:
+            current_url = ""
+            if self.txt_url and self.txt_url.Text:
+                current_url = self.txt_url.Text
+            if not current_url and hasattr(self.webview, 'Source') and self.webview.Source:
+                current_url = str(self.webview.Source)
+
+            from core.gamebanana_service import GameBananaService
+            mod_id = GameBananaService.parse_mod_id(current_url)
+            if mod_id:
+                def bg_api_dl():
+                    self.update_ui(f"🔍 正在通过 API 解析 Mod #{mod_id} 下载直链...", progress_pct=0)
+                    details = GameBananaService.fetch_mod_details(mod_id)
+                    if details and details.files:
+                        f = details.files[0]
+                        self.update_ui(f"⬇ 开始下载: {f.filename}...", progress_pct=0)
+                        ok, msg = GameBananaService.download_and_import(
+                            f.download_url,
+                            f.filename,
+                            download_dir=self.download_dir,
+                            progress_callback=lambda txt, pct: self.update_ui(txt, progress_pct=pct * 100)
+                        )
+                        if ok:
+                            self.update_ui(f"🎉 模组【{f.filename}】下载并自动导入成功！", progress_pct=100, is_success=True)
+                            self.emit_event({
+                                "event": "download_complete",
+                                "filename": f.filename,
+                                "file_path": str((self.download_dir / f.filename).resolve())
+                            })
+                            return
+                        else:
+                            self.update_ui(f"❌ API 下载导入失败: {msg}，正在尝试页面点击...", is_error=True)
+                    # Fallback to DOM click if API didn't succeed
+                    self._run_dom_click_js()
+
+                threading.Thread(target=bg_api_dl, daemon=True, name="GB_APIDownload").start()
+                return
+        except Exception as e:
+            log.warning(f"API download check exception: {e}")
+
+        self._run_dom_click_js()
+
+    def _run_dom_click_js(self):
+        """Executes DOM scraping script to find and click download link on current page."""
+        js = r"""
+        (function() {
+            var dl = document.querySelector("a[href*='files.gamebanana.com'], a[href*='gamebanana.com/dl/'], a[href*='gamebanana.com/mmdl/']");
+            if (dl) {
+                dl.click();
+                return "direct_download_clicked:" + dl.href;
+            }
+            var manualBtn = document.querySelector("a[href*='/mods/download/']");
+            if (manualBtn) {
+                window.location.href = manualBtn.href;
+                return "navigating_to_download_page:" + manualBtn.href;
+            }
+            var btns = document.querySelectorAll("a, button");
+            for (var i = 0; i < btns.length; i++) {
+                var t = (btns[i].innerText || btns[i].textContent || "").trim().toLowerCase();
+                if (t === "download" || t === "manual download" || t === "下载") {
+                    btns[i].click();
+                    return "button_clicked:" + (btns[i].href || "button");
+                }
+            }
+            return "no_download_button_found";
+        })();
+        """
+        try:
+            self.update_ui("🔍 正在抓取当前页面模组下载链接...", progress_pct=0)
+            if hasattr(self.webview, "ExecuteScriptAsync"):
+                task = self.webview.ExecuteScriptAsync(js)
+                def on_done(t):
+                    try:
+                        res = t.Result
+                        log.debug(f"Trigger download JS result: {res}")
+                        if res and "no_download_button_found" in str(res):
+                            self.update_ui("⚠ 未在当前页面找到可下载模组，请先进入具体的模组详情页！", is_error=True)
+                    except Exception:
+                        pass
+                task.ContinueWith(Action[System.Threading.Tasks.Task[str]](on_done))
+            elif hasattr(self.window, "evaluate_js"):
+                res = self.window.evaluate_js(js)
+                if res and "no_download_button_found" in str(res):
+                    self.update_ui("⚠ 未在当前页面找到可下载模组，请先进入具体的模组详情页！", is_error=True)
+        except Exception as e:
+            log.exception(f"Error triggering page download: {e}")
 
     # ─────────────────────── Download Interception ───────────────────────────
     def handle_download_starting(self, sender, args):
@@ -701,6 +847,9 @@ def run_gamebanana_browser(
         try:
             event_args.set_Handled(True)
             uri = str(event_args.get_Uri())
+            if uri.startswith("gamebanana://") or uri.startswith("xxmi://"):
+                manager.handle_protocol_url(uri)
+                return
             self.load_url(uri)
         except Exception:
             pass
