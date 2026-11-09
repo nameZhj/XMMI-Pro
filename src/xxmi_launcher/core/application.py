@@ -624,7 +624,9 @@ class Application:
 
         # Close the launcher or reset its UI state
         if Config.Launcher.auto_close or self.args.nogui:
-            Events.Fire(Events.Application.Close(delay=1000))
+            init_delay = getattr(getattr(Config.Active, 'Importer', None), 'xxmi_dll_init_delay', 0)
+            close_delay = max(1000, init_delay + 1500) if init_delay >= 300 else 1000
+            Events.Fire(Events.Application.Close(delay=close_delay))
 
     def wrap_errors(self, callback, *args, **kwargs):
         try:

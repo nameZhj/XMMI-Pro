@@ -371,6 +371,9 @@ class GameLauncher:
                 injector.run()
                 self.wait_for_window(launch_context)
                 injector.verify()
+                init_delay = getattr(getattr(Config.Active, 'Importer', None), 'xxmi_dll_init_delay', 0)
+                if init_delay >= 300:
+                    time.sleep(init_delay / 1000.0)
 
         else:
             # Start game without injecting anything.

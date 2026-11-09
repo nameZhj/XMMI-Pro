@@ -181,3 +181,27 @@ Path to the folder containing the official launcher.
 * Usually named: {folder_names:bold:or_list}.
 * Contains files: {folder_files:bold:or_list}.
 """
+
+[tool_bar_hot_update_button]
+src = "Hot Update & Sync"
+loc = "Hot Update & Sync"
+
+[tool_bar_visual_mod_manager_button]
+src = "Visual Mod Manager"
+loc = "Visual Mod Manager"
+
+[status_hardware_adaptive_optimized]
+src = "Applied {tier} hardware adaptive optimization (VRAM: {vram}MB, CPU: {cpu}T)"
+loc = "Applied {tier} hardware adaptive optimization (VRAM: {vram}MB, CPU: {cpu}T)"
+
+[status_mod_conflicts_isolated]
+src = "Isolated {count} conflicting mod folders to prevent crashing"
+loc = "Isolated {count} conflicting mod folders to prevent crashing"
+
+[message_hardware_tier_detected]
+src = "Hardware Tier: {tier} | VRAM: {vram}MB | GPU: {gpu}"
+loc = "Hardware Tier: {tier} | VRAM: {vram}MB | GPU: {gpu}"
+
+[status_scanning_and_repairing_mods]
+src = "Scanning and repairing mods configuration..."
+loc = "Scanning and repairing mods configuration..."

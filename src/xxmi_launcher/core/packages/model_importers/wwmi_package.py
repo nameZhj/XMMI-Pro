@@ -25,7 +25,7 @@ from core.config.enums import InjectMode, GameLaunch, WuWaResourceTier
 from core.packages.model_importers.model_importer import ModelImporterPackage, ModelImporterConfig, Version
 from core.packages.migoto_package import MigotoManagerConfig
 from core.platforms.game import Game
-from core.utils.process_manager import LaunchContext
+from core.utils.process_manager import LaunchContext, ExecutableLaunch
 
 log = logging.getLogger(__name__)
 
@@ -226,18 +226,84 @@ class WWMIPackage(ModelImporterPackage):
                 raise ValueError(L('error_game_folder_missing_folder', 'Game folder must contain {dir_name} folder!').format(dir_name=dir_name))
         return game_path
 
+    def _apply_hardware_optimization_and_repair(
+        self,
+        launch_context: LaunchContext,
+        game_path: Path | None,
+    ) -> None:
+        """根据硬件配置自动优化 Engine.ini / d3dx.ini / 启动参数，并深度修复 Mod 冲突"""
+        try:
+            target_game_path = game_path or Path(Config.Importers.WWMI.Importer.game_folder)
+            wwmi_root = Path(Config.Importers.WWMI.Importer.importer_path)
+            if not target_game_path or not target_game_path.exists():
+                log.warning("Game path not found, skipping WWMI hardware adaptive optimization.")
+                return
+
+            if not wwmi_root.exists():
+                log.warning("WWMI importer root not found, skipping WWMI hardware adaptive optimization.")
+                return
+
+            from core.packages.model_importers.wwmi_fixer import WWMIRepairAndOptimizer
+            optimizer = WWMIRepairAndOptimizer(target_game_path, wwmi_root)
+
+            specs, adaptive_cfg, opt_logs = optimizer.apply_hardware_adaptive_optimization()
+            for log_line in opt_logs:
+                log.info(log_line)
+
+            Config.Importers.WWMI.Importer.xxmi_dll_init_delay = adaptive_cfg.init_delay_ms
+            if hasattr(Config.Active, 'Importer'):
+                Config.Active.Importer.xxmi_dll_init_delay = adaptive_cfg.init_delay_ms
+
+            if isinstance(launch_context.target, ExecutableLaunch):
+                existing_parts = launch_context.target.cmd_args.split()
+                existing_keys = {p.split("=")[0].lower() for p in existing_parts}
+                for arg in adaptive_cfg.extra_launch_args:
+                    arg_clean = arg.strip()
+                    arg_key = arg_clean.split("=")[0].lower()
+                    if arg_clean and arg_key not in existing_keys:
+                        launch_context.target.cmd_args = (launch_context.target.cmd_args + " " + arg_clean).strip()
+                        existing_keys.add(arg_key)
+
+            Events.Fire(Events.Application.StatusUpdate(
+                status=L(
+                    'status_hardware_adaptive_optimized',
+                    'Applied {tier} hardware adaptive optimization (VRAM: {vram}MB, CPU: {cpu}T)'
+                ).format(
+                    tier=specs.tier,
+                    vram=specs.vram_mb,
+                    cpu=specs.cpu_threads,
+                )
+            ))
+
+            report = optimizer.scan_and_repair_mods(purge_shader_cache=False, auto_disable_conflicts=True)
+            if report.get("disabled_conflict_folders"):
+                isolated_cnt = len(report["disabled_conflict_folders"])
+                Events.Fire(Events.Application.StatusUpdate(
+                    status=L(
+                        'status_mod_conflicts_isolated',
+                        'Isolated {count} conflicting mod folders to prevent crashing'
+                    ).format(count=isolated_cnt)
+                ))
+                log.warning(f"Auto-isolated {isolated_cnt} conflicting mod folders: {report['disabled_conflict_folders']}")
+
+        except Exception as e:
+            log.warning(f"Error during WWMI auto optimization and repair: {e}", exc_info=True)
+
     def override_launch_context(
         self,
         launch_context: LaunchContext,
         game_path: Path | None,
         game_exe_path: Path | None,
     ) -> None:
+        self._apply_hardware_optimization_and_repair(launch_context, game_path)
+
         if Config.Importers.WWMI.Importer.game_launch != GameLaunch.DIRECT:
             return
 
         if not Config.Importers.WWMI.Importer.use_launch_options or "krqlv" not in Config.Importers.WWMI.Importer.launch_options:
             self.notify_resource_tier()
-            launch_context.target.cmd_args += f" -krqlv={Config.Importers.WWMI.Importer.resource_tier.name.lower()}"
+            if "-krqlv=" not in launch_context.target.cmd_args.lower():
+                launch_context.target.cmd_args += f" -krqlv={Config.Importers.WWMI.Importer.resource_tier.name.lower()}"
 
         if not Config.Importers.WWMI.Importer.use_launch_options:
             # Start WW via wrapper exe (solves crashes for NVidia Optimus and some Steam version users).

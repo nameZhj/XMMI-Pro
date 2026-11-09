@@ -189,3 +189,19 @@ loc = "热更新与同步"
 [tool_bar_visual_mod_manager_button]
 src = "Visual Mod Manager"
 loc = "可视化模组管理"
+
+[status_hardware_adaptive_optimized]
+src = "Applied {tier} hardware adaptive optimization (VRAM: {vram}MB, CPU: {cpu}T)"
+loc = "已应用 {tier} 硬件自适应优化（显存: {vram}MB，CPU: {cpu}线程）"
+
+[status_mod_conflicts_isolated]
+src = "Isolated {count} conflicting mod folders to prevent crashing"
+loc = "已自动隔离 {count} 个同角色冲突 Mod 文件夹以防止模型冲突炸裂"
+
+[message_hardware_tier_detected]
+src = "Hardware Tier: {tier} | VRAM: {vram}MB | GPU: {gpu}"
+loc = "检测到电脑硬件档位: {tier} | 真实显存: {vram}MB | GPU: {gpu}"
+
+[status_scanning_and_repairing_mods]
+src = "Scanning and repairing mods configuration..."
+loc = "正在深度扫描与自愈 Mod 配置..."
