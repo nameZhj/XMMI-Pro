@@ -13,6 +13,8 @@ src/xxmi_launcher/core/application.py | Main application runtime and lifecycle c
 src/xxmi_launcher/gui/windows/gamebanana_browser.py | Integrated GameBanana mod browser with automatic download interception, 1-click downloads, and mod import | GameBananaBrowserManager, run_gamebanana_browser
 src/xxmi_launcher/core/gamebanana_service.py | GameBanana mod parser, direct download engine, and automatic installer | GameBananaService, GameBananaModInfo, GameBananaFileInfo
 src/xxmi_launcher/gui/windows/gamebanana_download_dialog.py | Modern dark-themed dialog for GameBanana URL parsing, file selection, and direct installation | GameBananaDownloadDialog
+src/xxmi_launcher/gui/copyable_error_dialog.py | Dark-themed copyable error dialog with re-exported modal dialog helpers | CopyableErrorDialog, show_copyable_error, show_warning, show_info, ask_confirm, ModernModalDialog
+src/xxmi_launcher/gui/modern_dialogs.py | Modern dark-themed modal dialogs (info, warning, confirm) preserving parent window focus | ModernModalDialog, show_info, show_warning, ask_confirm
 src/xxmi_launcher/core/utils/lossless_ini_editor.py | Lossless line-level INI editor preserving comments, case, and duplicate keys with read-only unlock | LosslessIniEditor, make_file_writable
 src/xxmi_launcher/core/utils/hardware_profiler.py | Zero-configuration hardware profiler and adaptive engine parameter builder | HardwareSpecs, AdaptiveModConfig, SystemHardwareProfiler
 src/xxmi_launcher/core/packages/model_importers/launch_safety_guard.py | Crash guard, proxy DLL conflict isolation, and automatic rollback monitor for Wuthering Waves | LaunchSafetyGuard

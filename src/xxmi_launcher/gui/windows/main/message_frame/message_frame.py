@@ -10,6 +10,8 @@ import markdown
 import os
 import math
 
+log = logging.getLogger(__name__)
+
 from typing import List, Optional
 from textwrap import dedent
 from mdx_gfm import GithubFlavoredMarkdownExtension
@@ -316,9 +318,32 @@ class CopyButton(UIImageButton):
 
     def copy_text(self, message: str):
         try:
-            self.master.master.master.clipboard_clear()
-            self.master.master.master.clipboard_append(str(message))
-            self.text = "已复制！"
+            top = None
+            try:
+                top = self.winfo_toplevel()
+            except Exception:
+                pass
+
+            copied = False
+            for target in [top, getattr(self, 'master', None)]:
+                if target and hasattr(target, 'clipboard_clear'):
+                    try:
+                        target.clipboard_clear()
+                        target.clipboard_append(str(message))
+                        copied = True
+                        break
+                    except Exception:
+                        continue
+
+            if not copied:
+                try:
+                    self.clipboard_clear()
+                    self.clipboard_append(str(message))
+                    copied = True
+                except Exception:
+                    pass
+
+            self.text = "已复制！" if copied else "复制失败"
             self.redraw()
             self.master.after(2000, self._restore_text)
         except Exception as e:

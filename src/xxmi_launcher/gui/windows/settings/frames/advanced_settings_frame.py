@@ -88,7 +88,7 @@ class AdvancedSettingsFrame(SettingsContentFrame):
                             widget=OptionWidget.INPUT_TEXT,
                             value_variable="Vars.Active.Importer.extra_libraries",
                             toggle_variable="Vars.Active.Importer.extra_libraries_enabled",
-                            tooltip=L("advanced_settings_inject_libraries_tooltip", """
+                            tooltip=L("advanced_settings_inject_libraries_tooltip", r"""
                                 List of additional DLL paths to inject into the game process. 1 path per line.
                                 injection will be made via WriteProcessMemory method.
                                 Example (inject ReShade dll):

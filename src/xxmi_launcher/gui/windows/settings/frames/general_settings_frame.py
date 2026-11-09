@@ -126,7 +126,7 @@ class GeneralSettingsFrame(SettingsContentFrame):
                             label_text=L("general_settings_launch_command_label", "Launch Command"),
                             widget=OptionWidget.INPUT_STR,
                             value_variable="Vars.Active.Importer.custom_launch",
-                            tooltip=L("advanced_settings_custom_launch_entry_tooltip", """
+                            tooltip=L("advanced_settings_custom_launch_entry_tooltip", r"""
                                 Windows console command to run when Start button is pressed instead of default game exe launch.
                                 Hint: If you want to change injection method only, just leave this field empty.
                                 Warning! This command also overrides `Launch Options` from General Settings.

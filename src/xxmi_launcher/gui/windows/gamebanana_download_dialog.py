@@ -11,7 +11,7 @@ from typing import Optional, List
 from customtkinter import CTkToplevel, CTkFrame, CTkLabel, CTkEntry, CTkButton, CTkProgressBar, CTkOptionMenu
 
 from core.gamebanana_service import GameBananaService, GameBananaModInfo, GameBananaFileInfo
-from gui.copyable_error_dialog import show_warning
+from gui.modern_dialogs import show_warning, show_info
 
 
 class GameBananaDownloadDialog(CTkToplevel):

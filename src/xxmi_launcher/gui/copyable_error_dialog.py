@@ -1,7 +1,23 @@
+"""
+@file copyable_error_dialog.py
+@brief Dark-themed copyable error dialog with re-exported modal dialog helpers
+@exports CopyableErrorDialog, show_copyable_error, show_warning, show_info, ask_confirm, ModernModalDialog
+"""
 import sys
 import tkinter as tk
 import customtkinter as ctk
 from typing import Optional
+
+from gui.modern_dialogs import show_warning, show_info, ask_confirm, ModernModalDialog
+
+__all__ = [
+    "CopyableErrorDialog",
+    "show_copyable_error",
+    "show_warning",
+    "show_info",
+    "ask_confirm",
+    "ModernModalDialog",
+]
 
 
 class CopyableErrorDialog(ctk.CTkToplevel):
