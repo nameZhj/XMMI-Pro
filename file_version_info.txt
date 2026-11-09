@@ -4,8 +4,8 @@
 # http://msdn.microsoft.com/en-us/library/ms724421(v=vs.85).aspx
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(1, 0, 0, 0),
-    prodvers=(1, 0, 0, 0),
+    filevers=(2, 4, 9, 0),
+    prodvers=(2, 4, 9, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -21,12 +21,12 @@ VSVersionInfo(
           [
             StringStruct('CompanyName', 'XMMI-Pro Team'),
             StringStruct('FileDescription', 'XMMI-Pro Launcher & Mod Fixer'),
-            StringStruct('FileVersion', '1.0.0.0'),
+            StringStruct('FileVersion', '2.4.9.0'),
             StringStruct('InternalName', 'XXMI Launcher'),
             StringStruct('LegalCopyright', 'Copyright (C) 2026 XMMI-Pro. All rights reserved.'),
             StringStruct('OriginalFilename', 'XXMI Launcher.exe'),
             StringStruct('ProductName', 'XMMI-Pro'),
-            StringStruct('ProductVersion', '1.0.0.0')
+            StringStruct('ProductVersion', '2.4.9.0')
           ]
         ),
         StringTable(
@@ -34,12 +34,12 @@ VSVersionInfo(
           [
             StringStruct('CompanyName', 'XMMI-Pro Team'),
             StringStruct('FileDescription', 'XMMI-Pro Launcher & Mod Fixer'),
-            StringStruct('FileVersion', '1.0.0.0'),
+            StringStruct('FileVersion', '2.4.9.0'),
             StringStruct('InternalName', 'XXMI Launcher'),
             StringStruct('LegalCopyright', 'Copyright (C) 2026 XMMI-Pro. All rights reserved.'),
             StringStruct('OriginalFilename', 'XXMI Launcher.exe'),
             StringStruct('ProductName', 'XMMI-Pro'),
-            StringStruct('ProductVersion', '1.0.0.0')
+            StringStruct('ProductVersion', '2.4.9.0')
           ]
         )
       ]

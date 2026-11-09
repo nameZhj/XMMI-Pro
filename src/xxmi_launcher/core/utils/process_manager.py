@@ -1,3 +1,8 @@
+"""
+@file process_manager.py
+@brief Process execution, monitoring, and elevation management for XMMI-Pro
+@exports ProcessManager, LaunchContext, ExecutableLaunch, CommandLaunch
+"""
 import logging
 import subprocess
 import time
@@ -403,13 +408,25 @@ class ProcessManager:
         match context.start_method, context.target:
             case StartMethod.NATIVE, ExecutableLaunch() as target:
                 if context.parent_process is None:
-                    return subprocess.Popen(
-                        [str(target.exe_path), *split_windows_args(target.cmd_args, like_cmd=False)],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                        creationflags=flags,
-                        cwd=context.work_dir,
-                    )
+                    try:
+                        return subprocess.Popen(
+                            [str(target.exe_path), *split_windows_args(target.cmd_args, like_cmd=False)],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                            creationflags=flags,
+                            cwd=context.work_dir,
+                        )
+                    except OSError as e:
+                        if getattr(e, 'winerror', None) == 740:
+                            log.info("Process requires elevation (WinError 740). Falling back to ShellExecute runas: %s", target.exe_path)
+                            self._shell_execute(
+                                exe_path=str(target.exe_path),
+                                work_dir=str(context.work_dir) if context.work_dir else None,
+                                start_args=target.cmd_args,
+                                verb="runas",
+                            )
+                            return None
+                        raise
 
                 return create_suspended_with_parent(
                     executable=target.exe_path,
@@ -462,6 +479,7 @@ class ProcessManager:
         exe_path: str,
         work_dir: str | None,
         start_args: str = "",
+        verb: str = "open",
     ) -> None:
         """
         Launch a process through Windows ShellExecuteW.
@@ -471,7 +489,7 @@ class ProcessManager:
         """
         result = ct.windll.shell32.ShellExecuteW(
             None,
-            "open",
+            verb,
             exe_path,
             start_args,
             work_dir or "",

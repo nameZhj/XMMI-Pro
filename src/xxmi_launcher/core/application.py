@@ -1,3 +1,8 @@
+"""
+@file application.py
+@brief Main application runtime and lifecycle coordinator for XMMI-Pro
+@exports Application
+"""
 import sys
 import logging
 import os
@@ -666,6 +671,14 @@ class Application:
 
     def report_thread_error(self):
         (error, trace) = self.error_queue.get_nowait()
+
+        # Drain any subsequent errors from error_queue to prevent spamming modal dialogs
+        while not self.error_queue.empty():
+            try:
+                other_err, other_trace = self.error_queue.get_nowait()
+                logging.error("Subsequent worker error drained: %s\n%s", other_err, other_trace)
+            except Empty:
+                break
 
         logging.error(trace)
 

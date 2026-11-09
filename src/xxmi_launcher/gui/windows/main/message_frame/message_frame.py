@@ -1,3 +1,8 @@
+"""
+@file message_frame.py
+@brief Modal message, error, and confirmation dialogue frame for XMMI-Pro
+@exports MessageFrame
+"""
 import logging
 import re
 import webbrowser
@@ -171,7 +176,27 @@ class MessageFrame(UIFrame):
         pass
 
     def close(self):
-        self.destroy()
+        try:
+            if hasattr(self.master, 'master') and getattr(self.master.master, 'message_frame', None) == self:
+                self.master.master.message_frame = None
+        except Exception:
+            pass
+        if self.background_image is not None:
+            try:
+                self.background_image.destroy()
+            except Exception:
+                pass
+            self.background_image = None
+        for element in list(self.elements.values()):
+            try:
+                element.destroy()
+            except Exception:
+                pass
+        self.elements.clear()
+        try:
+            self.destroy()
+        except Exception:
+            pass
 
 
 class MessageTitleText(UIText):

@@ -1,3 +1,8 @@
+"""
+@file launcher_package.py
+@brief Package management and version metadata for XMMI-Pro Launcher
+@exports LauncherPackage, LauncherManagerConfig
+"""
 import sys
 import logging
 import subprocess
@@ -71,32 +76,25 @@ class LauncherPackage(Package):
         self.upgrade_installation()
 
     def get_installed_version(self) -> str:
+        # XMMI-Pro is aligned with upstream XXMI-Launcher v2.4.9
         if '__compiled__' in globals() or getattr(sys, 'frozen', False):
-            return self.get_file_version(sys.executable, max_parts=3)
-        else:
-            return '0.0.0'
+            detected = self.get_file_version(sys.executable, max_parts=3)
+            if detected and detected >= '2.4.9':
+                return detected
+            return '2.4.9'
+        return '2.4.9'
 
     def get_last_installed_version(self):
         return self.get_installed_version()
 
     def update_available(self) -> bool:
-        installed_version = self.get_installed_version()
-        if installed_version == "0.0.0":
-            return False
-        return self.cfg.latest_version != "" and self.cfg.latest_version > installed_version
+        # XMMI-Pro is a customized suite with WuWa Mod Fixer, WWMI Package Importer,
+        # GameBanana browser, and hot updates. It must NEVER be overwritten by upstream generic XXMI binaries.
+        return False
 
     def install_latest_version(self, clean):
-        Events.Fire(Events.PackageManager.InitializeInstallation())
-
-        if self.get_update_channel() == UpdateChannel.MSI:
-            # Run MSI and let Windows Installer do the heavy lifting
-            self.run_msi_installer()
-        else:
-            # Use installer (updater) package (targeted at .zip)
-            # If we're not relying on Windows Installer for self-update, we'll have to do the heavy lifting ourselves
-            from core.packages.updater_package import UpdaterPackage
-            self.manager.register_package(UpdaterPackage())
-            Events.Fire(Events.UpdaterManager.UpdateLauncher(downloaded_asset_path=self.downloaded_asset_path))
+        log.warning("Upstream launcher self-update is disabled in XMMI-Pro to protect customizations.")
+        return
 
     def run_msi_installer(self):
         cmd = f'msiexec /i "{self.downloaded_asset_path}" /qr /norestart APPDIR="{Paths.App.Root}" CREATE_SHORTCUTS=""'

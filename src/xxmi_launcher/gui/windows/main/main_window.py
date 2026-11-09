@@ -1,3 +1,8 @@
+"""
+@file main_window.py
+@brief Primary application window and UI coordinator for XMMI-Pro
+@exports MainWindow
+"""
 import json
 import logging
 import pyglet
@@ -404,7 +409,11 @@ class MainWindow(UIMainWindow):
     def report_callback_exception(self, exc, val, tb):
         # raise exc
         if self.message_frame is not None:
-            self.message_frame.close()
+            try:
+                self.message_frame.close()
+            except Exception:
+                pass
+            self.message_frame = None
         self.show_messagebox(Events.Application.ShowError(
             modal=True,
             message=val,

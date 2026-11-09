@@ -1,3 +1,8 @@
+"""
+@file element.py
+@brief Base class for UI elements with lifecycle and event management
+@exports UIElement, UIElementBase
+"""
 import logging
 import json
 
@@ -116,12 +121,19 @@ class UIElement:
 
     def destroy(self):
         try:
-            self.tooltip.destroy()
-        except:
+            if self.tooltip is not None:
+                self.tooltip.destroy()
+        except Exception:
             pass
         self.unsubscribe()
         self.untrace_save()
         self.untrace_write()
+        for element in list(self.elements.values()):
+            try:
+                element.destroy()
+            except Exception:
+                pass
+        self.elements.clear()
         super().destroy()
 
     def _show(self):
