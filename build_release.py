@@ -86,6 +86,8 @@ def build(tag: str = "v1.0.0"):
         "--hidden-import", "core.wwmi_importer",
         "--hidden-import", "core.drag_drop",
         "--hidden-import", "core.gamebanana_service",
+        "--hidden-import", "core.utils.lossless_ini_editor",
+        "--hidden-import", "core.utils.hardware_profiler",
         "--hidden-import", "gui.copyable_error_dialog",
         "--hidden-import", "gui.windows.hot_update_dialog",
         "--hidden-import", "gui.windows.gamebanana_download_dialog",

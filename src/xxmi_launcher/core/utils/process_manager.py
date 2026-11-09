@@ -350,6 +350,8 @@ class ProcessManager:
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             creationflags=subprocess.CREATE_NO_WINDOW,
+            encoding="utf-8",
+            errors="ignore",
             check=False,
         )
 
@@ -440,13 +442,18 @@ class ProcessManager:
                 )
 
             case StartMethod.NATIVE, CommandLaunch() as target:
+                cmd_flags = flags
+                if platform.system() == "Windows" and not (cmd_flags & 0x08000000):
+                    cmd_flags |= 0x08000000  # CREATE_NO_WINDOW
                 return subprocess.Popen(
                     target.cmd,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
-                    creationflags=flags,
+                    creationflags=cmd_flags,
                     cwd=context.work_dir,
                     shell=True,
+                    encoding="utf-8",
+                    errors="ignore",
                 )
 
             case StartMethod.SHELL, ExecutableLaunch() as target:

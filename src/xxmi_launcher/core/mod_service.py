@@ -14,6 +14,8 @@ from dataclasses import dataclass, field
 from typing import Optional, List, Tuple, Set, Dict, Callable
 
 import psutil
+import platform
+from core.utils.lossless_ini_editor import LosslessIniEditor, make_file_writable
 
 import core.config_manager as Config
 import core.path_manager as Paths
@@ -1478,28 +1480,26 @@ class ModService:
                             importer_cfg = getattr(importer_package, 'Importer', None)
                             game_folder = getattr(importer_cfg, 'game_folder', None) if importer_cfg else None
                             if game_folder:
-                                engine_ini = Path(game_folder) / "Client" / "Saved" / "Config" / "WindowsNoEditor" / "Engine.ini"
-                                if not engine_ini.exists():
-                                    engine_ini = Path(game_folder) / "Saved" / "Config" / "WindowsNoEditor" / "Engine.ini"
+                                engine_candidates = [
+                                    Path(game_folder) / "Client" / "Saved" / "Config" / "WindowsNoEditor" / "Engine.ini",
+                                    Path(game_folder) / "Wuthering Waves Game" / "Client" / "Saved" / "Config" / "WindowsNoEditor" / "Engine.ini",
+                                    Path(game_folder) / "Saved" / "Config" / "WindowsNoEditor" / "Engine.ini",
+                                ]
+                                engine_ini = next((p for p in engine_candidates if p.exists() and p.is_file()), None)
+                                if engine_ini is None:
+                                    engine_ini = engine_candidates[0]
 
-                                if engine_ini.exists() and engine_ini.is_file():
-                                    e_text = engine_ini.read_text(encoding='utf-8', errors='ignore')
-                                    opt_vars = [
-                                        "r.Kuro.SkeletalMesh.LODDistanceScale=25",
-                                        "r.Streaming.FullyLoadUsedTextures=1",
-                                        "r.Streaming.HiddenPrimitiveScale=25",
-                                        "r.Streaming.UseAllMips=1"
-                                    ]
-                                    missing_vars = [v for v in opt_vars if v.split('=')[0].strip() not in e_text]
-                                    if missing_vars:
-                                        if "[ConsoleVariables]" not in e_text:
-                                            e_text += "\n\n[ConsoleVariables]\n"
-                                        for mv in missing_vars:
-                                            e_text += f"{mv}\n"
-                                        engine_ini.write_text(e_text, encoding='utf-8')
-                                        fixes.append(f"已向游戏 Engine.ini 写入高精模型渲染与防破图参数 ({len(missing_vars)} 项)")
-                                    else:
-                                        fixes.append("游戏 Engine.ini 渲染与防破图参数已是最佳配置")
+                                opt_dict = {
+                                    "r.Kuro.SkeletalMesh.LODDistanceScale": "25",
+                                    "r.Streaming.FullyLoadUsedTextures": "1",
+                                    "r.Streaming.HiddenPrimitiveScale": "25",
+                                    "r.Streaming.UseAllMips": "1"
+                                }
+                                ok = LosslessIniEditor.update_sections(engine_ini, {"ConsoleVariables": opt_dict})
+                                if ok:
+                                    fixes.append("已向游戏 Engine.ini 写入高精模型渲染与防破图参数 (4 项)")
+                                else:
+                                    fixes.append("游戏 Engine.ini 渲染参数更新跳过或受权限保护")
                 except Exception as e:
                     log.debug(f"Failed to patch Engine.ini: {e}")
 
@@ -1660,6 +1660,7 @@ class ModService:
 
             if not extracted:
                 # System unpacker fallback
+                win_cflags = 0x08000000 if platform.system() == "Windows" else 0
                 for tool in [
                     r'C:\Program Files\7-Zip\7z.exe',
                     r'C:\Program Files (x86)\7-Zip\7z.exe',
@@ -1668,15 +1669,28 @@ class ModService:
                 ]:
                     if Path(tool).exists():
                         pwd_arg = f"-p{password}" if password else "-p-"
-                        res = subprocess.run([tool, 'x', '-y', pwd_arg, f"-o{temp_dir}" if '7z' in tool.lower() else str(temp_dir), str(src_path)], capture_output=True)
+                        res = subprocess.run(
+                            [tool, 'x', '-y', pwd_arg, f"-o{temp_dir}" if '7z' in tool.lower() else str(temp_dir), str(src_path)],
+                            capture_output=True,
+                            creationflags=win_cflags,
+                            encoding="utf-8",
+                            errors="ignore"
+                        )
                         if res.returncode == 0:
                             extracted = True
                             break
-                        elif b'password' in res.stderr.lower() or b'password' in res.stdout.lower() or res.returncode in (2, 3):
+                        elif 'password' in (res.stderr or '').lower() or 'password' in (res.stdout or '').lower() or res.returncode in (2, 3):
                             raise PasswordRequiredException("7z tool reports password required or wrong password")
 
             if not extracted:
-                res = subprocess.run(['tar.exe', '-xf', str(src_path), '-C', str(temp_dir)], capture_output=True)
+                win_cflags = 0x08000000 if platform.system() == "Windows" else 0
+                res = subprocess.run(
+                    ['tar.exe', '-xf', str(src_path), '-C', str(temp_dir)],
+                    capture_output=True,
+                    creationflags=win_cflags,
+                    encoding="utf-8",
+                    errors="ignore"
+                )
                 if res.returncode != 0:
                     shutil.unpack_archive(str(src_path), str(temp_dir))
 
@@ -1695,6 +1709,7 @@ class ModService:
                     raise
 
             if not extracted:
+                win_cflags = 0x08000000 if platform.system() == "Windows" else 0
                 for winrar_path in [
                     r'C:\Program Files\WinRAR\WinRAR.exe',
                     r'C:\Program Files (x86)\WinRAR\WinRAR.exe',
@@ -1703,15 +1718,28 @@ class ModService:
                 ]:
                     if Path(winrar_path).exists():
                         pwd_arg = f"-p{password}" if password else "-p-"
-                        res = subprocess.run([winrar_path, 'x', '-ibck', '-y', pwd_arg, str(src_path), str(temp_dir)], capture_output=True)
+                        res = subprocess.run(
+                            [winrar_path, 'x', '-ibck', '-y', pwd_arg, str(src_path), str(temp_dir)],
+                            capture_output=True,
+                            creationflags=win_cflags,
+                            encoding="utf-8",
+                            errors="ignore"
+                        )
                         if res.returncode == 0:
                             extracted = True
                             break
-                        elif res.returncode in (3, 11) or b'password' in res.stderr.lower() or b'password' in res.stdout.lower():
+                        elif res.returncode in (3, 11) or 'password' in (res.stderr or '').lower() or 'password' in (res.stdout or '').lower():
                             raise PasswordRequiredException("WinRAR reports password required or wrong password")
 
             if not extracted:
-                res = subprocess.run(['tar.exe', '-xf', str(src_path), '-C', str(temp_dir)], capture_output=True)
+                win_cflags = 0x08000000 if platform.system() == "Windows" else 0
+                res = subprocess.run(
+                    ['tar.exe', '-xf', str(src_path), '-C', str(temp_dir)],
+                    capture_output=True,
+                    creationflags=win_cflags,
+                    encoding="utf-8",
+                    errors="ignore"
+                )
                 if res.returncode != 0:
                     shutil.unpack_archive(str(src_path), str(temp_dir))
 

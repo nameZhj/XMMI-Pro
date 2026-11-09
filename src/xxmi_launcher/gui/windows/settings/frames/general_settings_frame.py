@@ -559,9 +559,18 @@ class GeneralSettingsFrame(SettingsContentFrame):
     @staticmethod
     def open_engine_ini():
         game_folder = Events.Call(Events.ModelImporter.ValidateGameFolder(Config.Active.Importer.game_folder))
-        engine_ini = game_folder / "Client" / "Saved" / "Config" / "WindowsNoEditor" / "Engine.ini"
+        candidates = [
+            game_folder / "Client" / "Saved" / "Config" / "WindowsNoEditor" / "Engine.ini",
+            game_folder / "Wuthering Waves Game" / "Client" / "Saved" / "Config" / "WindowsNoEditor" / "Engine.ini",
+            game_folder / "Saved" / "Config" / "WindowsNoEditor" / "Engine.ini",
+        ]
+        engine_ini = next((p for p in candidates if p.is_file()), candidates[0])
         if engine_ini.is_file():
-            subprocess.Popen([f"{str(engine_ini)}"], shell=True)
+            if hasattr(os, 'startfile'):
+                os.startfile(engine_ini)
+            else:
+                c_flags = 0x08000000 if platform.system() == "Windows" else 0
+                subprocess.Popen([str(engine_ini)], shell=True, creationflags=c_flags)
         else:
             raise ValueError(L("error_general_settings_file_not_found", "File does not exist: **{file_name}**!").format(file_name=engine_ini))
 

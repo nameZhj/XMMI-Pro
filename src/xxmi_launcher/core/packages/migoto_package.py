@@ -173,7 +173,10 @@ class MigotoPackage(Package):
     def handle_open_mods_folder(self, event: Events.MigotoManager.OpenModsFolder):
         mods_path = Config.Active.Importer.importer_path / 'Mods'
         Paths.verify_path(mods_path)
-        subprocess.Popen(['explorer.exe', mods_path])
+        if hasattr(os, 'startfile'):
+            os.startfile(mods_path)
+        else:
+            subprocess.Popen(['explorer.exe', str(mods_path)])
 
     def run_pre_launch(self, launch_context: LaunchContext):
         # Deploy new or updated XXMI libraries to model importer folder

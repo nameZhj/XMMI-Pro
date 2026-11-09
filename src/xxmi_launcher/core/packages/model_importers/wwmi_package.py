@@ -1,3 +1,8 @@
+"""
+@file: src/xxmi_launcher/core/packages/model_importers/wwmi_package.py
+@brief: Wuthering Waves model importer package with dual-layer path resolution and lossless config writing
+@exports: WWMIPackage, WWMIConfig, WWMIPackageConfig
+"""
 import os
 import json
 import sqlite3
@@ -15,6 +20,7 @@ from core.locale_manager import L
 from core.package_manager import PackageMetadata
 
 from core.utils.ini_handler import IniHandler, IniHandlerSettings
+from core.utils.lossless_ini_editor import LosslessIniEditor, make_file_writable
 from core.config.enums import InjectMode, GameLaunch, WuWaResourceTier
 from core.packages.model_importers.model_importer import ModelImporterPackage, ModelImporterConfig, Version
 from core.packages.migoto_package import MigotoManagerConfig
@@ -109,22 +115,52 @@ class WWMIPackage(ModelImporterPackage):
         if not game_path.is_absolute():
             raise ValueError(L('error_game_path_not_absolute', 'Failed to normalize path {path}: Path is not absolute!').format(path=game_path))
 
+        if game_path.is_file():
+            game_path = game_path.parent
+
+        def is_valid_client_root(cand: Path) -> bool:
+            if not cand or not cand.is_dir():
+                return False
+            shipping_exe = cand / 'Client' / 'Binaries' / 'Win64' / 'Client-Win64-Shipping.exe'
+            return shipping_exe.is_file()
+
+        # 1. 优先校验双层嵌套目录: Wuthering Waves Game
+        nested_cand = game_path / 'Wuthering Waves Game'
+        if is_valid_client_root(nested_cand):
+            return nested_cand
+
+        # 2. 当前目录即包含有效 Client/Binaries/Win64/Client-Win64-Shipping.exe
+        if is_valid_client_root(game_path):
+            return game_path
+
+        # 3. 向上逐级回溯（针对用户选择子目录的情况，如 Client 或 Win64 目录）
+        for parent_dir in game_path.parents:
+            if is_valid_client_root(parent_dir):
+                return parent_dir
+            if is_valid_client_root(parent_dir / 'Wuthering Waves Game'):
+                return parent_dir / 'Wuthering Waves Game'
+
+        # 4. 深度检索定位 Client-Win64-Shipping.exe
+        for shipping_exe in game_path.glob('**/Client-Win64-Shipping.exe'):
+            try:
+                root_cand = shipping_exe.parents[3]
+                if is_valid_client_root(root_cand):
+                    return root_cand
+            except IndexError:
+                pass
+
         if (game_path / 'Wuthering Waves.exe').is_file():
             return game_path
 
         game_path_original = game_path
-
         for path in game_path.rglob('*.exe'):
             if path.name == 'Wuthering Waves.exe' and path.is_file():
-                return Path(path).parent
+                cand = Path(path).parent
+                if is_valid_client_root(cand / 'Wuthering Waves Game'):
+                    return cand / 'Wuthering Waves Game'
+                return cand
 
-        for i in range(len(game_path.parents)):
-            game_path = game_path.parent
-            for path in game_path.iterdir():
-                if path.name == 'Wuthering Waves.exe' and path.is_file():
-                    return Path(path).parent
-
-        raise ValueError(L('error_wuthering_waves_exe_not_found', 'Failed to normalize path {path}: Wuthering Waves.exe not found!').format(path=game_path_original))
+        raise ValueError(L('error_wuthering_waves_exe_not_found', 'Failed to normalize path {path}: Wuthering Waves.exe or Client-Win64-Shipping.exe not found!').format(path=game_path_original))
 
     def autodetect_game_folders(self) -> list[Path]:
         paths = self.reg_search_game_folders(Config.Active.Importer.process_exe_names)
@@ -156,33 +192,36 @@ class WWMIPackage(ModelImporterPackage):
     def validate_game_path(self, game_folder):
         game_path = super().validate_game_path(game_folder)
         game_path = self.normalize_game_path(game_path)
-        # Make sure that game folder contains critical resources
+
+        shipping_exe = game_path / 'Client' / 'Binaries' / 'Win64' / 'Client-Win64-Shipping.exe'
         exe_path = game_path / 'Wuthering Waves.exe'
-        if not exe_path.is_file():
-            raise ValueError(L('error_wwmi_game_folder_missing_files', 'Game folder must contain `Wuthering Waves.exe` and `Client` & `Engine` folders!'))
-        else:
-            common_folder = self.get_parent_directory(game_path, 'common')
-            if common_folder is not None and common_folder.parent.name == 'steamapps':
-                # Steam installation detected
-                if game_path.parent.name != 'common':
-                    # Invalid file structure, most likely caused by manual folder relocation
-                    Events.Fire(Events.Application.ShowError(
-                        modal=True,
-                        confirm_text=L('message_button_ok', 'OK'),
-                        message=L('message_text_wwmi_invalid_steam_installation', """
-                            Invalid Wuthering Waves installation detected for Steam:
-                            {game_path}
-                            
-                            {folder_name} folder with {exe_name} must be directly placed in:
-                            {common_folder}
-                            
-                            Please run game file repair via Steam or fix it manually.
-                        """).format(
-                            game_path=game_path, folder_name=game_path.name, exe_name=exe_path.name, common_folder=common_folder
-                        )
-                    ))
-                    raise ValueError(L('error_steam_game_repair_required', 'Game installation must be repaired via Steam!'))
-        for dir_name in ['Client', 'Engine']:
+        if not exe_path.is_file() and (game_path.parent / 'Wuthering Waves.exe').is_file():
+            exe_path = game_path.parent / 'Wuthering Waves.exe'
+
+        if not exe_path.is_file() and not shipping_exe.is_file():
+            raise ValueError(L('error_wwmi_game_folder_missing_files', 'Game folder must contain `Wuthering Waves.exe` or `Client-Win64-Shipping.exe`!'))
+
+        common_folder = self.get_parent_directory(game_path, 'common')
+        if common_folder is not None and common_folder.parent.name == 'steamapps':
+            if game_path.parent.name != 'common':
+                Events.Fire(Events.Application.ShowError(
+                    modal=True,
+                    confirm_text=L('message_button_ok', 'OK'),
+                    message=L('message_text_wwmi_invalid_steam_installation', """
+                        Invalid Wuthering Waves installation detected for Steam:
+                        {game_path}
+                        
+                        {folder_name} folder with {exe_name} must be directly placed in:
+                        {common_folder}
+                        
+                        Please run game file repair via Steam or fix it manually.
+                    """).format(
+                        game_path=game_path, folder_name=game_path.name, exe_name=exe_path.name, common_folder=common_folder
+                    )
+                ))
+                raise ValueError(L('error_steam_game_repair_required', 'Game installation must be repaired via Steam!'))
+
+        for dir_name in ['Client']:
             if dir_name not in [x.name for x in game_path.iterdir() if x.is_dir()]:
                 raise ValueError(L('error_game_folder_missing_folder', 'Game folder must contain {dir_name} folder!').format(dir_name=dir_name))
         return game_path
@@ -202,11 +241,18 @@ class WWMIPackage(ModelImporterPackage):
 
         if not Config.Importers.WWMI.Importer.use_launch_options:
             # Start WW via wrapper exe (solves crashes for NVidia Optimus and some Steam version users).
-            launch_context.target.exe_path = game_path / "Wuthering Waves.exe"
-            launch_context.work_dir = game_path
+            wrapper_exe = game_path / "Wuthering Waves.exe"
+            if not wrapper_exe.exists() and (game_path.parent / "Wuthering Waves.exe").exists():
+                wrapper_exe = game_path.parent / "Wuthering Waves.exe"
+            if not wrapper_exe.exists():
+                wrapper_exe = game_path / "Client" / "Binaries" / "Win64" / "Client-Win64-Shipping.exe"
+            launch_context.target.exe_path = wrapper_exe
+            launch_context.work_dir = wrapper_exe.parent
         else:
-            # Start WW directly to support launch options customization
-            pass
+            shipping_exe = game_path / "Client" / "Binaries" / "Win64" / "Client-Win64-Shipping.exe"
+            if shipping_exe.exists():
+                launch_context.target.exe_path = shipping_exe
+                launch_context.work_dir = shipping_exe.parent
 
     @staticmethod
     def notify_resource_tier():
@@ -345,87 +391,62 @@ class WWMIPackage(ModelImporterPackage):
 
     def update_engine_ini(self, game_path: Path):
         engine_ini_path = game_path / 'Client' / 'Saved' / 'Config' / 'WindowsNoEditor' / 'Engine.ini'
+        if not engine_ini_path.exists() and (game_path / 'Wuthering Waves Game').exists():
+            engine_ini_path = game_path / 'Wuthering Waves Game' / 'Client' / 'Saved' / 'Config' / 'WindowsNoEditor' / 'Engine.ini'
 
         Events.Fire(Events.Application.StatusUpdate(
             status=L('status_updating_file', 'Updating {file_name}...').format(file_name=engine_ini_path.name))
         )
 
-        if not engine_ini_path.exists():
-            Paths.verify_path(engine_ini_path.parent)
-            Paths.App.write_file(engine_ini_path, '')
-
-        Events.Fire(Events.PathManager.VerifyFileAccess(path=engine_ini_path, write=True))
-        with open(engine_ini_path, 'r', encoding='utf-8') as f:
-            ini = IniHandler(IniHandlerSettings(option_value_spacing=False, inline_comments=True, add_section_spacing=True, right_split=True), f)
-
-        # if '/Script/Engine.RendererRTXSettings' in Config.Active.Importer.engine_ini.keys():
-        #     if ini.get_section('/Script/Engine.RendererRTXSettings') is not None:
-        #         ini.remove_section('/Script/Engine.RendererRTXSettings')
-        #     del Config.Active.Importer.engine_ini['/Script/Engine.RendererRTXSettings']
-        #
-        # for section_name, section_data in Config.Importers.WWMI.Importer.engine_ini.items():
-        #     for option_name, option_value in section_data.items():
-        #         ini.set_option(section_name, option_name, option_value)
-        # console_variables = Config.Importers.WWMI.Importer.engine_ini.get('ConsoleVariables', None)
-        # default_streaming_boost = console_variables.get('r.Streaming.Boost', None) if console_variables else None
-
-        ini.remove_option('r.Kuro.SkeletalMesh.DistanceLODBaseFOV', section_name='ConsoleVariables')
-
-        if ini.is_modified():
-            Paths.App.write_file(engine_ini_path, ini.to_string())
-
+        try:
+            make_file_writable(engine_ini_path)
+            LosslessIniEditor.remove_option(engine_ini_path, 'ConsoleVariables', 'r.Kuro.SkeletalMesh.DistanceLODBaseFOV')
+        except PermissionError as e:
+            log.warning(f"PermissionError updating Engine.ini: {e}")
+        except Exception as e:
+            log.warning(f"Error updating Engine.ini: {e}")
 
     def update_user_engine_ini(self, game_path: Path):
         engine_ini_path = game_path / 'Client' / 'Config' / 'UserEngine.ini'
+        if not engine_ini_path.exists() and (game_path / 'Wuthering Waves Game').exists():
+            engine_ini_path = game_path / 'Wuthering Waves Game' / 'Client' / 'Config' / 'UserEngine.ini'
 
         Events.Fire(Events.Application.StatusUpdate(
             status=L('status_updating_file', 'Updating {file_name}...').format(file_name=engine_ini_path.name))
         )
 
-        if not engine_ini_path.exists():
-            Paths.verify_path(engine_ini_path.parent)
-            Paths.App.write_file(engine_ini_path, '')
-
-        Events.Fire(Events.PathManager.VerifyFileAccess(path=engine_ini_path, write=True))
-        with open(engine_ini_path, 'r', encoding='utf-8') as f:
-            ini = IniHandler(IniHandlerSettings(option_value_spacing=False, inline_comments=True, add_section_spacing=True, right_split=True), f)
-
-        console_variables_options = {
-            # Controls minimal camera FOV value when engine switches character LOD0 mesh to LOD1+.
-            'r.Kuro.SkeletalMesh.DistanceLODBaseFOV': Config.Importers.WWMI.Importer.mesh_lod_distance_lod_base_fov,
-        }
-        log.debug(f'Using console variables: {console_variables_options}')
-
-        section_name = 'ConsoleVariables'
-
-        for option_name, option_value in console_variables_options.items():
-            # Remove duplicate settings
-            option_values = ini.get_option_values(option_name, section_name=section_name)
-            if len(option_values) > 1:
-                ini.remove_option(option_name, section_name=section_name, option_value=option_value, not_equal=True)
-            # Set option value
-            ini.set_option(section_name, option_name, option_value)
-
-        if ini.is_modified():
-            Paths.App.write_file(engine_ini_path, ini.to_string())
+        try:
+            make_file_writable(engine_ini_path)
+            LosslessIniEditor.set_option(
+                engine_ini_path,
+                'ConsoleVariables',
+                'r.Kuro.SkeletalMesh.DistanceLODBaseFOV',
+                str(Config.Importers.WWMI.Importer.mesh_lod_distance_lod_base_fov)
+            )
+        except PermissionError as e:
+            log.warning(f"PermissionError updating UserEngine.ini: {e}")
+        except Exception as e:
+            log.warning(f"Error updating UserEngine.ini: {e}")
 
     def update_game_user_settings_ini(self, game_path: Path):
         Events.Fire(Events.Application.StatusUpdate(status=L('status_updating_file', 'Updating {file_name}...').format(file_name='GameUserSettings.ini')))
 
         ini_path = game_path / 'Client' / 'Saved' / 'Config' / 'WindowsNoEditor' / 'GameUserSettings.ini'
+        if not ini_path.exists() and (game_path / 'Wuthering Waves Game').exists():
+            ini_path = game_path / 'Wuthering Waves Game' / 'Client' / 'Saved' / 'Config' / 'WindowsNoEditor' / 'GameUserSettings.ini'
 
-        if not ini_path.exists():
-            Paths.verify_path(ini_path.parent)
-            Paths.App.write_file(ini_path, '')
-
-        Events.Fire(Events.PathManager.VerifyFileAccess(path=ini_path, write=True))
-        with open(ini_path, 'r', encoding='utf-8') as f:
-            ini = IniHandler(IniHandlerSettings(option_value_spacing=False, inline_comments=True, add_section_spacing=True), f)
-
-        ini.set_option('/Script/Engine.GameUserSettings', 'FrameRateLimit', 120.000000)
-
-        if ini.is_modified():
-            Paths.App.write_file(ini_path, ini.to_string())
+        try:
+            make_file_writable(ini_path)
+            LosslessIniEditor.set_option(
+                ini_path,
+                '/Script/Engine.GameUserSettings',
+                'FrameRateLimit',
+                '120.000000'
+            )
+        except PermissionError as e:
+            log.warning(f"PermissionError updating GameUserSettings.ini: {e}")
+        except Exception as e:
+            log.warning(f"Error updating GameUserSettings.ini: {e}")
 
 
 class SettingsManager:

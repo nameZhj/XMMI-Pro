@@ -8,6 +8,7 @@ import logging
 import os
 import argparse
 import subprocess
+import platform
 import traceback
 
 from pathlib import Path
@@ -569,9 +570,16 @@ class Application:
 
         try:
             # Execute specified shell command before game start
+            c_flags = 0x08000000 if platform.system() == "Windows" else 0
             if Config.Active.Importer.run_pre_launch_enabled and Config.Active.Importer.run_pre_launch != '':
                 Events.Fire(Events.Application.RunPreLaunch(cmd=Config.Active.Importer.run_pre_launch))
-                process = subprocess.Popen(Config.Active.Importer.run_pre_launch, shell=True)
+                process = subprocess.Popen(
+                    Config.Active.Importer.run_pre_launch,
+                    shell=True,
+                    creationflags=c_flags,
+                    encoding="utf-8",
+                    errors="ignore"
+                )
                 if Config.Active.Importer.run_pre_launch_wait:
                     process.wait()
 
@@ -581,7 +589,13 @@ class Application:
             # Execute specified shell command after successful injection
             if Config.Active.Importer.run_post_load_enabled and Config.Active.Importer.run_post_load != '':
                 Events.Fire(Events.Application.RunPostLoad(cmd=Config.Active.Importer.run_post_load))
-                process = subprocess.Popen(Config.Active.Importer.run_post_load, shell=True)
+                process = subprocess.Popen(
+                    Config.Active.Importer.run_post_load,
+                    shell=True,
+                    creationflags=c_flags,
+                    encoding="utf-8",
+                    errors="ignore"
+                )
                 if Config.Active.Importer.run_post_load_wait:
                     process.wait()
         except UserWarning:
@@ -749,5 +763,6 @@ class Application:
 
     def restart(self, delay: int = 0):
         if '__compiled__' in globals() or getattr(sys, 'frozen', False):
-            subprocess.Popen(sys.executable, shell=True)
+            c_flags = 0x08000000 if platform.system() == "Windows" else 0
+            subprocess.Popen(sys.executable, shell=True, creationflags=c_flags)
         Events.Fire(Events.Application.Close(delay=delay))

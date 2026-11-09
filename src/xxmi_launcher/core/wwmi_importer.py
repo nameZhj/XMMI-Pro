@@ -16,6 +16,7 @@ import urllib.request
 import zipfile
 
 import core.path_manager as Paths
+from core.utils.lossless_ini_editor import make_file_writable
 
 log = logging.getLogger(__name__)
 
@@ -189,8 +190,13 @@ class WWMIImporter:
         ]
         for c in ini_candidates:
             if c.is_file():
-                shutil.copy2(c, target_dir / 'd3dx.ini')
-                log_fn("已同步默认配置文件 d3dx.ini")
+                dest_d3dx = target_dir / 'd3dx.ini'
+                make_file_writable(dest_d3dx)
+                try:
+                    shutil.copy2(c, dest_d3dx)
+                    log_fn("已同步默认配置文件 d3dx.ini")
+                except PermissionError as e:
+                    log_fn(f"同步 d3dx.ini 权限受限: {e}")
                 break
 
     @classmethod

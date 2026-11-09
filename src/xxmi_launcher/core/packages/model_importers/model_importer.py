@@ -1,3 +1,8 @@
+"""
+@file: src/xxmi_launcher/core/packages/model_importers/model_importer.py
+@brief: Base model importer package for 3DMigoto game mod injectors
+@exports: ModelImporterPackage, ModelImporterConfig, Version
+"""
 import logging
 import os
 import sys
@@ -26,6 +31,7 @@ from core.utils.process_manager import LaunchContext
 
 from core.mod_manager import ModManager
 from core.utils.ini_handler import IniHandler, IniHandlerSettings
+from core.utils.lossless_ini_editor import make_file_writable
 
 log = logging.getLogger(__name__)
 
@@ -508,7 +514,13 @@ class ModelImporterPackage(Package):
 
         if ini.is_modified():
             log.debug(f'Writing d3dx.ini...')
-            Paths.App.write_file(ini_path, ini.to_string())
+            try:
+                make_file_writable(ini_path)
+                Paths.App.write_file(ini_path, ini.to_string())
+            except PermissionError as e:
+                log.error(f"PermissionError writing d3dx.ini: {e}")
+            except Exception as e:
+                log.error(f"Failed writing d3dx.ini: {e}")
 
         self.ini = ini
 

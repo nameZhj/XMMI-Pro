@@ -2424,6 +2424,7 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
                 stderr=subprocess.PIPE,
                 text=True,
                 encoding="utf-8",
+                errors="ignore",
                 bufsize=1
             )
         except Exception as e:

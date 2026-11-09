@@ -55,7 +55,8 @@ def is_read_only(file_path):
 
 def remove_read_only(file_path: Path):
     try:
-        os.chmod(file_path, stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH)
+        current_mode = os.stat(file_path).st_mode
+        os.chmod(file_path, current_mode | stat.S_IWRITE | stat.S_IWUSR | stat.S_IRUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH)
     except Exception as e:
         raise NoWriteAccessError(L('error_remove_readonly_failed',
             'Failed to remove Read Only flag from file {path}: {error_text}!'
