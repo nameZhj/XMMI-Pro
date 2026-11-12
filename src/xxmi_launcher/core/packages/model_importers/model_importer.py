@@ -12,6 +12,7 @@ import ctypes
 import winshell
 import pythoncom
 import re
+import threading
 
 from datetime import datetime
 from pathlib import Path
@@ -563,37 +564,48 @@ class ModelImporterPackage(Package):
         pass
 
     def optimize_mods(self, event: Events.ModelImporter.OptimizeMods):
-        Events.Fire(Events.Application.StatusUpdate(status=L('optimizing_ini_files_in_folder', 'Optimizing INI files in {folder_name} folder...').format(folder_name='Mods')))
+        def _execute():
+            Events.Fire(Events.Application.StatusUpdate(status=L('optimizing_ini_files_in_folder', 'Optimizing INI files in {folder_name} folder...').format(folder_name='Mods')))
 
-        if not event.silent:
-            Events.Fire(Events.Application.Busy())
+            if not event.silent:
+                Events.Fire(Events.Application.Busy())
 
-        ini_path = Config.Active.Importer.importer_path / 'd3dx.ini'
-        ini = self.ini or IniHandler(IniHandlerSettings(ignore_comments=False), Paths.App.read_text(ini_path))
+            try:
+                ini_path = Config.Active.Importer.importer_path / 'd3dx.ini'
+                ini = self.ini or IniHandler(IniHandlerSettings(ignore_comments=False), Paths.App.read_text(ini_path))
 
-        exclude_patterns = ini.get_option_values('exclude_recursive', section_name='Include').get('Include', {})
+                exclude_patterns = ini.get_option_values('exclude_recursive', section_name='Include').get('Include', {})
 
-        mod_manager = ModManager()
-        mod_result = mod_manager.optimize_mods_folder(
-            mods_path=Config.Active.Importer.importer_path / 'Mods',
-            cache_path=Paths.App.Resources / 'Cache' / 'Ini Optimizer' / f'{self.metadata.package_name}.json',
-            dry_run=False,
-            use_cache=True,
-            reset_cache=event.reset_cache,
-            exclude_patterns=exclude_patterns.values() or ['DISABLED*'],
-        )
+                mod_manager = ModManager()
+                mod_result = mod_manager.optimize_mods_folder(
+                    mods_path=Config.Active.Importer.importer_path / 'Mods',
+                    cache_path=Paths.App.Resources / 'Cache' / 'Ini Optimizer' / f'{self.metadata.package_name}.json',
+                    dry_run=False,
+                    use_cache=True,
+                    reset_cache=event.reset_cache,
+                    exclude_patterns=exclude_patterns.values() or ['DISABLED*'],
+                )
 
-        Events.Fire(Events.Application.StatusUpdate(status=L('optimizing_ini_files_in_folder', 'Optimizing INI files in {folder_name} folder...').format(folder_name='ShaderFixes')))
+                Events.Fire(Events.Application.StatusUpdate(status=L('optimizing_ini_files_in_folder', 'Optimizing INI files in {folder_name} folder...').format(folder_name='ShaderFixes')))
 
-        shader_result = mod_manager.optimize_shaderfixes_folder(
-            shaderfixes_path=Config.Active.Importer.importer_path / 'ShaderFixes',
-            dry_run=False,
-            exclude_patterns=exclude_patterns.values() or ['DISABLED*'],
-        )
+                shader_result = mod_manager.optimize_shaderfixes_folder(
+                    shaderfixes_path=Config.Active.Importer.importer_path / 'ShaderFixes',
+                    dry_run=False,
+                    exclude_patterns=exclude_patterns.values() or ['DISABLED*'],
+                )
 
-        if not event.silent:
-            Events.Fire(Events.Application.Ready())
-            self.show_optimization_results_notification(mod_result, shader_result)
+                if not event.silent:
+                    Events.Fire(Events.Application.Ready())
+                    self.show_optimization_results_notification(mod_result, shader_result)
+            except Exception as e:
+                log.exception(f"Error during optimize_mods: {e}")
+                if not event.silent:
+                    Events.Fire(Events.Application.Ready())
+
+        if not event.silent and threading.current_thread() == threading.main_thread():
+            threading.Thread(target=_execute, daemon=True).start()
+        else:
+            _execute()
 
     def show_optimization_results_notification(self, mod_result, shader_result):
         results = []

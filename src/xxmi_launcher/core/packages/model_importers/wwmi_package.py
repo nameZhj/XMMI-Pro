@@ -7,6 +7,7 @@ import os
 import json
 import sqlite3
 import logging
+import threading
 
 from dataclasses import dataclass, field
 from typing import Any
@@ -306,7 +307,7 @@ class WWMIPackage(ModelImporterPackage):
             if is_version_updated:
                 log.info("[版本更新自愈] 检测到鸣潮客户端版本更新，自动清空陈旧着色器缓存以防 UE4 Fatal Error")
 
-            report = optimizer.scan_and_repair_mods(purge_shader_cache=is_version_updated, auto_disable_conflicts=True)
+            report = optimizer.scan_and_repair_mods(purge_shader_cache=is_version_updated, auto_disable_conflicts=False)
             if report.get("disabled_conflict_folders"):
                 isolated_cnt = len(report["disabled_conflict_folders"])
                 Events.Fire(Events.Application.StatusUpdate(
@@ -347,18 +348,24 @@ class WWMIPackage(ModelImporterPackage):
                 launch_context.target.cmd_args += f" -krqlv={Config.Importers.WWMI.Importer.resource_tier.name.lower()}"
 
     def optimize_mods(self, event: Events.ModelImporter.OptimizeMods):
-        """响应用户触发的‘深度修复 Mod’事件，彻底清空 ShaderCache 编译缓存并深度修复"""
-        try:
-            game_path = Path(Config.Importers.WWMI.Importer.game_folder)
-            wwmi_root = Path(Config.Importers.WWMI.Importer.importer_path)
-            if game_path.exists() and wwmi_root.exists():
-                from core.packages.model_importers.wwmi_fixer import WWMIRepairAndOptimizer
-                optimizer = WWMIRepairAndOptimizer(game_path, wwmi_root)
-                optimizer.scan_and_repair_mods(purge_shader_cache=True, auto_disable_conflicts=True)
-                log.info("[深度修复] 用户手动触发模组优化，已清空着色器编译缓存")
-        except Exception as e:
-            log.warning(f"Error in WWMIPackage.optimize_mods cache purge: {e}")
-        super().optimize_mods(event)
+        """响应用户触发的‘深度修复 Mod’事件，彻底清空 ShaderCache 编译缓存并深度修复 (异步执行防止UI无响应)"""
+        def _worker():
+            try:
+                game_path = Path(Config.Importers.WWMI.Importer.game_folder)
+                wwmi_root = Path(Config.Importers.WWMI.Importer.importer_path)
+                if game_path.exists() and wwmi_root.exists():
+                    from core.packages.model_importers.wwmi_fixer import WWMIRepairAndOptimizer
+                    optimizer = WWMIRepairAndOptimizer(game_path, wwmi_root)
+                    optimizer.scan_and_repair_mods(purge_shader_cache=True, auto_disable_conflicts=False)
+                    log.info("[深度修复] 用户手动触发模组优化，已清空着色器编译缓存")
+            except Exception as e:
+                log.warning(f"Error in WWMIPackage.optimize_mods cache purge: {e}")
+            super(WWMIPackage, self).optimize_mods(event)
+
+        if not event.silent:
+            threading.Thread(target=_worker, daemon=True).start()
+        else:
+            _worker()
 
     @staticmethod
     def notify_resource_tier():

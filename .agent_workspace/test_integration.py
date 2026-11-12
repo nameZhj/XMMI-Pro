@@ -131,11 +131,17 @@ def test_full_launch_integration():
         assert (d3dx_ini.with_suffix(".ini.orig.bak")).exists()
         print("Baseline .orig.bak backups verified.")
 
-        # 6. Mod 语法修复与 Hash 冲突隔离
+        # 6. Mod 语法修复与 Hash 冲突检查 (启动时不破坏用户模组)
         assert not toxic_file.exists()
         assert (mods_dir / "DISABLED_CheckTexture.ini.bak").exists()
         assert "; [AutoFixed] if $costume_mods == 1" in mod1_ini.read_text(encoding="utf-8")
-        assert not mod2_dir.exists()
+        # 启动时不会盲目禁用用户模组
+        assert mod2_dir.exists(), "Launch should not silently rename user mods"
+        
+        # 当显式指定 auto_disable_conflicts=True 时能够隔离冲突
+        from core.packages.model_importers.wwmi_fixer import WWMIRepairAndOptimizer
+        optimizer = WWMIRepairAndOptimizer(game_path, wwmi_root)
+        rep = optimizer.scan_and_repair_mods(auto_disable_conflicts=True)
         assert (mods_dir / "DISABLED_YinlinModConflict").exists()
         print("Mod syntax and hash conflicts repaired.")
 

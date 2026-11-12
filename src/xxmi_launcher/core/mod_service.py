@@ -823,57 +823,103 @@ class ModService:
     def toggle_mod(cls, mod_item: ModItem, enable: Optional[bool] = None, auto_resolve_conflicts: bool = False) -> Tuple[bool, Optional[ModItem], str, List[str]]:
         """
         Toggles the enabled status of a mod by renaming its folder.
+        Self-healing against out-of-sync paths and WinError 2.
         Returns: (success, new_mod_item, message, list_of_auto_disabled_mod_names)
         """
-        if enable is None:
-            enable = not mod_item.enabled
-
-        if enable == mod_item.enabled:
-            return True, mod_item, "No change", []
-
-        auto_disabled: List[str] = []
-        # If enabling and auto_resolve_conflicts is requested, auto-disable any exact duplicate mod
-        if enable and auto_resolve_conflicts and mod_item.conflict_key and not mod_item.conflict_key.startswith('MOD_'):
-            all_mods = cls.scan_mods(filter_state='enabled', auto_resolve=False)
-            for other in all_mods:
-                if other.path != mod_item.path and other.conflict_key == mod_item.conflict_key:
-                    s, _, _, _ = cls.toggle_mod(other, enable=False, auto_resolve_conflicts=False)
-                    if s:
-                        auto_disabled.append(other.display_name)
-
         parent_dir = mod_item.path.parent
-        old_name = mod_item.name
-        
-        if enable:
-            if old_name.upper().startswith('DISABLED '):
-                new_name = old_name[9:].strip()
-            elif old_name.upper().startswith('DISABLED_'):
-                new_name = old_name[9:].strip()
-            elif old_name.lower().endswith('.disabled'):
-                new_name = old_name[:-9].strip()
+        current_path = mod_item.path
+
+        # 1. Self-healing check: Verify if mod_item.path exists on disk
+        if not current_path.exists():
+            candidates = [
+                parent_dir / f"DISABLED_{mod_item.name}",
+                parent_dir / f"DISABLED {mod_item.name}",
+            ]
+            clean_test = mod_item.name
+            while clean_test.upper().startswith('DISABLED ') or clean_test.upper().startswith('DISABLED_'):
+                clean_test = clean_test[9:].strip()
+            candidates.append(parent_dir / clean_test)
+            candidates.append(parent_dir / f"DISABLED {clean_test}")
+            candidates.append(parent_dir / f"DISABLED_{clean_test}")
+
+            found_path = next((p for p in candidates if p.exists()), None)
+            if not found_path and parent_dir.exists():
+                for p in parent_dir.iterdir():
+                    p_clean = p.name
+                    while p_clean.upper().startswith('DISABLED ') or p_clean.upper().startswith('DISABLED_'):
+                        p_clean = p_clean[9:].strip()
+                    if p_clean.lower() == clean_test.lower():
+                        found_path = p
+                        break
+
+            if found_path:
+                current_path = found_path
+                mod_item.path = found_path
+                mod_item.name = found_path.name
             else:
-                new_name = old_name
+                return False, None, f"模组目录不存在: {mod_item.name}", []
+
+        # 2. Determine actual on-disk state
+        actual_name = current_path.name
+        is_disabled_on_disk = (
+            actual_name.upper().startswith('DISABLED ') or
+            actual_name.upper().startswith('DISABLED_') or
+            actual_name.lower().endswith('.disabled')
+        )
+        is_enabled_on_disk = not is_disabled_on_disk
+
+        if enable is None:
+            enable = not is_enabled_on_disk
+
+        # If on-disk state already matches desired state, no rename needed
+        if enable == is_enabled_on_disk:
+            new_item = ModItem(
+                name=actual_name,
+                display_name=mod_item.display_name,
+                path=current_path,
+                enabled=enable,
+                thumbnail_path=cls.find_thumbnail(current_path),
+                file_count=mod_item.file_count,
+                size_bytes=mod_item.size_bytes,
+                mod_time=time.time(),
+                character_id=mod_item.character_id,
+                character_name=mod_item.character_name,
+                character_en=mod_item.character_en,
+                object_guids=mod_item.object_guids,
+                conflict_key=mod_item.conflict_key,
+                hotkeys=mod_item.hotkeys
+            )
+            cls.sync_mod_state_to_game()
+            return True, new_item, "No change", []
+
+        # 3. Clean all DISABLED prefixes to get pure base name
+        clean_name = actual_name
+        while clean_name.upper().startswith('DISABLED ') or clean_name.upper().startswith('DISABLED_'):
+            clean_name = clean_name[9:].strip()
+        if clean_name.lower().endswith('.disabled'):
+            clean_name = clean_name[:-9].strip()
+
+        if enable:
+            new_name = clean_name
         else:
-            new_name = f"DISABLED {old_name}"
+            new_name = f"DISABLED {clean_name}"
 
         new_path = parent_dir / new_name
-        if new_path.exists() and new_path != mod_item.path:
+        if new_path.exists() and new_path != current_path:
             return False, None, f"目标文件夹已存在: {new_name}", []
 
         try:
             renamed = False
             for attempt in range(5):
                 try:
-                    mod_item.path.rename(new_path)
+                    current_path.rename(new_path)
                     renamed = True
                     break
-                except PermissionError:
+                except (PermissionError, OSError):
                     time.sleep(0.05)
-                except Exception:
-                    break
 
             if not renamed:
-                shutil.move(str(mod_item.path), str(new_path))
+                shutil.move(str(current_path), str(new_path))
 
             new_item = ModItem(
                 name=new_name,
@@ -893,7 +939,7 @@ class ModService:
             )
             # Sync real-time state to game
             cls.sync_mod_state_to_game()
-            return True, new_item, "Success", auto_disabled
+            return True, new_item, "Success", []
         except Exception as e:
             log.exception(f"Failed to toggle mod {mod_item.name}: {e}")
             return False, None, str(e), []
@@ -1196,7 +1242,7 @@ class ModService:
             options = ModRepairOptions()
 
         try:
-            # 0. Create pre-repair backup snapshot
+            # 0. Create pre-repair lightweight backup snapshot
             mods_folder = cls.get_active_mods_folder() or mod_item.path.parent
             if options.create_backup and mods_folder:
                 backup_dir = mods_folder / ".mod_backups"
@@ -1204,12 +1250,13 @@ class ModService:
                 backup_zip = backup_dir / f"{mod_item.display_name}.zip"
                 if not backup_zip.exists():
                     try:
-                        with zipfile.ZipFile(backup_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
-                            for file_p in mod_item.path.rglob('*'):
-                                if file_p.is_file():
-                                    rel_path = file_p.relative_to(mod_item.path)
-                                    zf.write(file_p, rel_path)
-                        fixes.append("已创建修复前原始模组安全回滚备份")
+                        # Only backup ini files to avoid compressing gigabytes of textures
+                        ini_to_save = [p for p in mod_item.path.rglob('*.ini') if not p.name.endswith('.bak')]
+                        if ini_to_save:
+                            with zipfile.ZipFile(backup_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
+                                for file_p in ini_to_save:
+                                    zf.write(file_p, file_p.relative_to(mod_item.path))
+                            fixes.append("已创建修复前原始配置安全回滚快照")
                     except Exception as e:
                         log.debug(f"Failed to create pre-repair backup snapshot: {e}")
 
@@ -1455,6 +1502,12 @@ class ModService:
                     # Save updated content
                     fixed_content = '\r\n'.join(lines)
                     if modified or (options.normalize_ini and raw_bytes != fixed_content.encode('utf-8')):
+                        bak_file = ini_path.with_name(f"{ini_path.name}.orig.bak")
+                        if not bak_file.exists():
+                            try:
+                                bak_file.write_bytes(raw_bytes)
+                            except Exception:
+                                pass
                         ini_path.write_bytes(fixed_content.encode('utf-8'))
                         repaired_ini_count += 1
                 except Exception as e:
@@ -1536,8 +1589,6 @@ class ModService:
             if not fixes:
                 fixes.append("经全面检测，模组文件结构完整且未发现异常。")
 
-            # Sync real-time state to game
-            cls.sync_mod_state_to_game()
             return True, fixes
         except Exception as e:
             log.exception(f"Error during repair_mod for {mod_item.name}: {e}")
@@ -1580,47 +1631,38 @@ class ModService:
     @classmethod
     def restore_mod(cls, mod_item: ModItem) -> Tuple[bool, str]:
         """
-        Restores a mod back to its original pre-repair files from the backup snapshot.
+        Restores a mod back to its original pre-repair files from the backup snapshot or .orig.bak files.
+        Safely restores only configuration files without deleting texture or mesh files.
         """
-        mods_folder = cls.get_active_mods_folder() or mod_item.path.parent
-        if not mods_folder:
-            return False, "未找到当前游戏的 Mods 目录"
-
-        backup_zip = mods_folder / ".mod_backups" / f"{mod_item.display_name}.zip"
-        if not backup_zip.exists():
-            return False, "未找到该模组的修复前备份记录，当前无需复原"
-
         if not mod_item.path.exists():
             return False, "模组目录不存在"
 
-        try:
-            temp_dir = mods_folder / f"_tmp_restore_{int(time.time()*1000)}"
-            temp_dir.mkdir(parents=True, exist_ok=True)
+        restored = False
+        # 1. Restore from local .orig.bak files if present
+        for bak_file in list(mod_item.path.rglob('*.orig.bak')):
+            target_ini = bak_file.with_name(bak_file.name[:-9])
+            try:
+                shutil.copy2(bak_file, target_ini)
+                restored = True
+            except Exception:
+                pass
 
-            with zipfile.ZipFile(backup_zip, 'r') as zf:
-                zf.extractall(temp_dir)
+        # 2. Restore from backup_zip if present
+        mods_folder = cls.get_active_mods_folder() or mod_item.path.parent
+        backup_zip = (mods_folder / ".mod_backups" / f"{mod_item.display_name}.zip") if mods_folder else None
+        if backup_zip and backup_zip.exists():
+            try:
+                with zipfile.ZipFile(backup_zip, 'r') as zf:
+                    zf.extractall(mod_item.path)
+                restored = True
+            except Exception as e:
+                log.exception(f"Failed to restore from zip {backup_zip}: {e}")
 
-            # Clear current files inside mod folder
-            for p in list(mod_item.path.iterdir()):
-                if p.is_dir():
-                    shutil.rmtree(p, ignore_errors=True)
-                elif p.is_file():
-                    try:
-                        p.unlink()
-                    except Exception:
-                        pass
-
-            # Move restored files into mod folder
-            for p in list(temp_dir.iterdir()):
-                shutil.move(str(p), str(mod_item.path))
-
-            shutil.rmtree(temp_dir, ignore_errors=True)
-            # Sync real-time state to game
+        if restored:
             cls.sync_mod_state_to_game()
-            return True, "已成功将模组还原至修复前的原始文件"
-        except Exception as e:
-            log.exception(f"Failed to restore mod {mod_item.name}: {e}")
-            return False, f"复原失败: {str(e)}"
+            return True, "已成功将模组配置文件还原至修复前的原始版本"
+
+        return False, "未找到该模组的修复前备份记录，当前无需复原"
 
     @classmethod
     def delete_mod(cls, mod_item: ModItem) -> Tuple[bool, str]:

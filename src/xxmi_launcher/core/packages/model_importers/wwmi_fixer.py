@@ -135,7 +135,7 @@ class WWMIRepairAndOptimizer:
         except Exception as e:
             log.warning(f"Failed to set AppCompatFlags: {e}")
 
-    def scan_and_repair_mods(self, purge_shader_cache: bool = False, auto_disable_conflicts: bool = True) -> Dict[str, Any]:
+    def scan_and_repair_mods(self, purge_shader_cache: bool = False, auto_disable_conflicts: bool = False) -> Dict[str, Any]:
         """清理旧着色器缓存、隔离毒瘤文件、自动修复语法并隔离冲突 Mod"""
         report: Dict[str, Any] = {"fixed_inis": [], "removed_legacy_files": [], "hash_conflicts": [], "disabled_conflict_folders": [], "cache_purged": False}
         if purge_shader_cache:
@@ -209,7 +209,9 @@ class WWMIRepairAndOptimizer:
             if current_sec.lower().startswith("textureoverride"):
                 m_hash = hash_re.match(line)
                 if m_hash:
-                    hash_registry.setdefault(m_hash.group(1).lower(), []).append((top_mod_folder, ini_path))
+                    h_val = m_hash.group(1).lower()
+                    if h_val not in {"00000000", "ffffffff", "11111111", "00000001", "00000002"}:
+                        hash_registry.setdefault(h_val, []).append((top_mod_folder, ini_path))
             if "if $costume_mods" in line:
                 new_lines.append(f"; [AutoFixed] {line}")
                 modified = True
@@ -254,6 +256,6 @@ def apply_windows_compat_fixes(game_root: Path | str) -> List[str]:
     opt._apply_windows_compat(logs)
     return logs
 
-def scan_and_repair_mods(wwmi_root: Path | str, purge_shader_cache: bool = False, auto_disable_conflicts: bool = True) -> Dict[str, Any]:
+def scan_and_repair_mods(wwmi_root: Path | str, purge_shader_cache: bool = False, auto_disable_conflicts: bool = False) -> Dict[str, Any]:
     opt = WWMIRepairAndOptimizer(Path(wwmi_root).parent, wwmi_root)
     return opt.scan_and_repair_mods(purge_shader_cache=purge_shader_cache, auto_disable_conflicts=auto_disable_conflicts)

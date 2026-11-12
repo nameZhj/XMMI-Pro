@@ -743,10 +743,27 @@ class ModRepairDialog(ctk.CTkToplevel):
         threading.Thread(target=_worker, daemon=True).start()
 
     def _append_log(self, text: str):
-        self.log_textbox.configure(state="normal")
-        self.log_textbox.insert("end", text + "\n")
-        self.log_textbox.see("end")
-        self.log_textbox.configure(state="disabled")
+        if getattr(self, '_is_cancelled', False):
+            return
+        try:
+            self.log_textbox.configure(state="normal")
+            self.log_textbox.insert("end", text + "\n")
+            self.log_textbox.see("end")
+            self.log_textbox.configure(state="disabled")
+        except Exception:
+            pass
+
+    def _batch_update(self, progress: float, text: str):
+        if getattr(self, '_is_cancelled', False):
+            return
+        try:
+            self.progress_bar.set(progress)
+            self.log_textbox.configure(state="normal")
+            self.log_textbox.insert("end", text + "\n")
+            self.log_textbox.see("end")
+            self.log_textbox.configure(state="disabled")
+        except Exception:
+            pass
 
     def _start_repair(self):
         opts = ModRepairOptions(
@@ -784,14 +801,16 @@ class ModRepairDialog(ctk.CTkToplevel):
                 success, fixes = ModService.repair_mod(self.target_mod, options=opts)
                 if getattr(self, '_is_cancelled', False):
                     return
-                self.after(0, lambda: self.progress_bar.set(1.0))
+                log_lines = []
                 for f in fixes:
-                    self.after(0, lambda msg=f: self._append_log(f"  • {msg}"))
-
+                    log_lines.append(f"  • {f}")
                 if success:
-                    self.after(0, lambda: self._append_log("\n✨ 模组修复成功并已同步至游戏！"))
+                    log_lines.append("\n✨ 模组修复成功并已同步至游戏！")
                 else:
-                    self.after(0, lambda: self._append_log("\n❌ 模组修复失败，请查看上方日志。"))
+                    log_lines.append("\n❌ 模组修复失败，请查看上方日志。")
+                msg_block = "\n".join(log_lines)
+                self.after(0, lambda b=msg_block: self._batch_update(1.0, b))
+                ModService.sync_mod_state_to_game()
             else:
                 total = len(self.all_mods)
                 self.after(0, lambda: self._append_log(f"🚀 开始全库批量深度修复 (共 {total} 个模组)..."))
@@ -800,14 +819,16 @@ class ModRepairDialog(ctk.CTkToplevel):
                         self.after(0, lambda: self._append_log("\n⚠️ 用户已取消修复任务"))
                         break
                     progress = idx / max(1, total)
-                    self.after(0, lambda p=progress: self.progress_bar.set(p))
-                    self.after(0, lambda i=idx, n=m.display_name: self._append_log(f"[{i}/{total}] 正在处理: {n}..."))
                     success, fixes = ModService.repair_mod(m, options=opts)
+                    mod_log = [f"[{idx}/{total}] 正在处理: {m.display_name}..."]
                     for f in fixes:
-                        self.after(0, lambda msg=f: self._append_log(f"    - {msg}"))
+                        mod_log.append(f"    - {f}")
+                    msg_block = "\n".join(mod_log)
+                    self.after(0, lambda p=progress, b=msg_block: self._batch_update(p, b))
 
                 if not getattr(self, '_is_cancelled', False):
                     self.after(0, lambda: self._append_log("\n🎉 全库批量模组深度修复完成！"))
+                    ModService.sync_mod_state_to_game()
 
             if not getattr(self, '_is_cancelled', False) and self.on_finished:
                 self.after(0, self.on_finished)
@@ -817,15 +838,18 @@ class ModRepairDialog(ctk.CTkToplevel):
             self.after(0, self._on_repair_finished)
 
     def _on_repair_finished(self):
-        self.btn_start.configure(state="normal", text="🚀 开始修复")
-        if not self.is_batch and self.target_mod:
-            has_bk = ModService.has_backup(self.target_mod)
-            self.btn_restore.configure(
-                state="normal" if has_bk else "disabled",
-                fg_color="#334155" if has_bk else "#1e293b",
-                hover_color="#475569" if has_bk else "#1e293b",
-                text_color="#f1f5f9" if has_bk else "#64748b"
-            )
+        try:
+            self.btn_start.configure(state="normal", text="🚀 开始修复")
+            if not self.is_batch and self.target_mod:
+                has_bk = ModService.has_backup(self.target_mod)
+                self.btn_restore.configure(
+                    state="normal" if has_bk else "disabled",
+                    fg_color="#334155" if has_bk else "#1e293b",
+                    hover_color="#475569" if has_bk else "#1e293b",
+                    text_color="#f1f5f9" if has_bk else "#64748b"
+                )
+        except Exception:
+            pass
 
     def _rollback_backup(self):
         if self.is_batch or not self.target_mod:
@@ -1592,7 +1616,7 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
 
     def refresh_mods(self):
         """Re-scans mods from disk, updates character categories and grid."""
-        self.current_mods = ModService.scan_mods(auto_resolve=True)
+        self.current_mods = ModService.scan_mods(auto_resolve=False)
         self._render_character_menu()
         self._render_cards()
 
@@ -2096,6 +2120,7 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
             self.refresh_mods()
         else:
             show_copyable_error("操作失败", f"切换模组状态失败:\n{msg}", parent=self.winfo_toplevel())
+            self.refresh_mods()
 
     def _repair_mod(self, mod_item: ModItem):
         """Opens interactive Mod Repair & Fix Options modal dialog for the selected mod."""
