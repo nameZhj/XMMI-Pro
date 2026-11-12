@@ -10,6 +10,7 @@ import time
 import argparse
 import logging
 import threading
+import webbrowser
 from pathlib import Path
 
 # ─── sys.path bootstrap so that 'core' imports work when running as a subprocess
@@ -25,6 +26,7 @@ logging.basicConfig(
     format="%(asctime)s %(name)s %(levelname)s %(message)s"
 )
 
+_WEBVIEW_AVAILABLE = False
 try:
     import webview
     import webview.platforms.winforms as wf
@@ -43,9 +45,10 @@ try:
         CoreWebView2DownloadStartingEventArgs,
         CoreWebView2DownloadOperation
     )
+    _WEBVIEW_AVAILABLE = True
 except Exception as e:
-    log.exception(f"Failed to initialize WinForms/WebView2 dependencies: {e}")
-    raise
+    log.warning(f"Failed to initialize WinForms/WebView2 dependencies: {e}")
+    # Will gracefully fallback to standard system browser if invoked
 
 GAMEBANANA_WUWA_URL = "https://gamebanana.com/games/20357"
 GAMEBANANA_LOGIN_URL = "https://gamebanana.com/login"
@@ -815,6 +818,11 @@ def run_gamebanana_browser(
     c_dir = Path(args.cache_dir)   if args.cache_dir   else Path.cwd() / "UserData" / "GameBananaBrowser"
     init_url = args.initial_url if args.initial_url else GAMEBANANA_WUWA_URL
     p_pid = args.parent_pid
+
+    if not _WEBVIEW_AVAILABLE:
+        log.warning("WebView2/pythonnet is unavailable; falling back to default web browser.")
+        webbrowser.open(init_url)
+        return
 
     manager = GameBananaBrowserManager(
         mods_dir=m_dir,

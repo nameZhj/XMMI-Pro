@@ -624,9 +624,26 @@ class Application:
 
         # Close the launcher or reset its UI state
         if Config.Launcher.auto_close or self.args.nogui:
-            init_delay = getattr(getattr(Config.Active, 'Importer', None), 'xxmi_dll_init_delay', 0)
-            close_delay = max(1000, init_delay + 1500) if init_delay >= 300 else 1000
-            Events.Fire(Events.Application.Close(delay=close_delay))
+            is_mod_manager_open = False
+            try:
+                lf = getattr(self.gui, 'launcher_frame', None)
+                mmf = getattr(lf, 'mod_manager_frame', None)
+                if mmf and hasattr(mmf, 'winfo_exists') and mmf.winfo_exists():
+                    if hasattr(mmf, 'state') and mmf.state() != 'withdrawn':
+                        is_mod_manager_open = True
+            except Exception:
+                pass
+
+            if is_mod_manager_open:
+                # Mod Manager is active: keep process running and minimize main window only
+                try:
+                    self.gui.iconify()
+                except Exception:
+                    pass
+            else:
+                init_delay = getattr(getattr(Config.Active, 'Importer', None), 'xxmi_dll_init_delay', 0)
+                close_delay = max(2000, init_delay + 2500) if init_delay >= 300 else 2000
+                Events.Fire(Events.Application.Close(delay=close_delay))
 
     def wrap_errors(self, callback, *args, **kwargs):
         try:

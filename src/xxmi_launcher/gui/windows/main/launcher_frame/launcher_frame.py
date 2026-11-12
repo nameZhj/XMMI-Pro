@@ -64,7 +64,7 @@ class LauncherFrame(UIFrame):
         self.put(SettingsFrame(self, self.canvas))
 
         # Mod Manager Frame
-        self.put(ModManagerFrame(self, self.canvas))
+        self.mod_manager_frame = self.put(ModManagerFrame(self, self.canvas))
 
         # Donate Frame
         self.subscribe(Events.Application.OpenDonationCenter, self.handle_open_donation_center)

@@ -347,7 +347,10 @@ class CopyButton(UIImageButton):
             self.redraw()
             self.master.after(2000, self._restore_text)
         except Exception as e:
-            log.warning(f"Failed to copy message: {e}")
+            try:
+                log.warning(f"Failed to copy message: {e}")
+            except Exception:
+                pass
 
     def _restore_text(self):
         try:

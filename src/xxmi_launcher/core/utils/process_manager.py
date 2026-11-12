@@ -6,6 +6,7 @@
 import logging
 import subprocess
 import time
+import platform
 import psutil
 import win32gui
 import win32process

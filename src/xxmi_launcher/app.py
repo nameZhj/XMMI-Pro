@@ -61,8 +61,13 @@ if __name__ == '__main__':
     multiprocessing.freeze_support()
 
     if '--gamebanana-browser' in sys.argv:
-        from gui.windows.gamebanana_browser import run_gamebanana_browser
-        run_gamebanana_browser()
+        try:
+            from gui.windows.gamebanana_browser import run_gamebanana_browser
+            run_gamebanana_browser()
+        except Exception as e:
+            logging.exception(f"Failed to launch GameBanana browser: {e}")
+            import webbrowser
+            webbrowser.open("https://gamebanana.com/games/20357")
         sys.exit(0)
 
     if '__compiled__' in globals():

@@ -432,7 +432,10 @@ class MainWindow(UIMainWindow):
             message=val,
         ))
         Events.Fire(Events.Application.Ready())
-        logging.exception(val)
+        try:
+            logging.exception(val)
+        except Exception:
+            pass
 
     def _set_scaling(self, new_widget_scaling, new_window_scaling):
         super()._set_scaling(new_widget_scaling, new_window_scaling)

@@ -56,67 +56,67 @@ PREFERRED_PREVIEW_NAMES = {
 # Character Registry: (ID, CN Name, EN Name, [Pinyin], [GUIDs])
 CHARACTER_DATABASE = [
     # --- 鸣潮 (WWMI) ---
-    ('suisui', '穗穗', 'SuiSui', ['suisui', 'ss'], ['276291', '9300', '85755']),
-    ('jinhsi', '今汐', 'Jinhsi', ['jinxi', 'jinhsi', 'jx'], ['266291']),
-    ('changli', '长离', 'Changli', ['changli', 'cl'], ['266292']),
-    ('camellya', '椿', 'Camellya', ['chun', 'camellya', 'c'], ['266293']),
-    ('shorekeeper', '守岸人', 'Shorekeeper', ['shouanren', 'shorekeeper', 'sar'], ['266294']),
-    ('yinlin', '吟霖', 'Yinlin', ['yinlin', 'yl'], ['266295']),
-    ('yangyang', '秧秧', 'Yangyang', ['yangyang', 'yy'], ['266296']),
-    ('verina', '维里奈', 'Verina', ['weilinai', 'verina', 'wln'], ['266297']),
-    ('sanhua', '散华', 'Sanhua', ['sanhua', 'sh'], ['266298']),
-    ('danjin', '丹瑾', 'Danjin', ['danjin', 'dj'], ['266299']),
-    ('jianxin', '鉴心', 'Jianxin', ['jianxin', 'jx'], ['266300']),
-    ('rover_f', '漂泊者女', 'Rover-F', ['piaobozhenv', 'rover', 'pbzn', 'pbz'], ['266301']),
-    ('rover_m', '漂泊者男', 'Rover-M', ['piaobozhenan', 'rover', 'pbzn', 'pbz'], ['266302']),
-    ('chixia', '炽霞', 'Chixia', ['chixia', 'cx'], ['266303']),
-    ('jiyan', '忌炎', 'Jiyan', ['jiyan', 'jy'], ['266304']),
-    ('xiangliyao', '相里要', 'Xiangli Yao', ['xiangliyao', 'xly'], ['266305']),
-    ('zhezhi', '折枝', 'Zhezhi', ['zhezhi', 'zz'], ['266306']),
-    ('youhu', '釉瑚', 'Youhu', ['youhu', 'yh'], ['266307']),
-    ('baizhi', '白芷', 'Baizhi', ['baizhi', 'bz'], ['266308']),
-    ('taoqi', '桃祈', 'Taoqi', ['taoqi', 'tq'], ['266309']),
-    ('calcharo', '卡卡罗', 'Calcharo', ['kakaluo', 'calcharo', 'kkl'], ['266310']),
-    ('rococo', '洛可可', 'Rococo', ['luokeke', 'rococo', 'lkk'], ['266311']),
-    ('phoebe', '菲比', 'Phoebe', ['feibi', 'phoebe', 'fb'], ['266312']),
-    ('brant', '布兰特', 'Brant', ['bulante', 'brant', 'blt'], ['266313']),
-    ('colletta', '珂莱塔', 'Colletta', ['kelaita', 'colletta', 'klt'], ['266314']),
-    ('aemeath', '爱弥斯', 'Aemeath', ['aimisi', 'aemeath', 'ams'], ['266315']),
-    ('lumi', '灯灯', 'Lumi', ['dengdeng', 'lumi', 'dd'], ['266316']),
-    ('chisa', '千咲', 'Chisa', ['qianxiao', 'chisa', 'qx'], ['266317']),
-    ('qingxiao', '青宵', 'Qingxiao', ['qingxiao', 'qx'], ['266318']),
-    ('hsin', '心/辛', 'Hsin', ['xin', 'hsin', 'x'], ['266319']),
+    ('suisui', '穗穗', 'SuiSui', ['suisui'], ['276291', '9300', '85755']),
+    ('jinhsi', '今汐', 'Jinhsi', ['jinxi', 'jinhsi'], ['266291']),
+    ('changli', '长离', 'Changli', ['changli'], ['266292']),
+    ('camellya', '椿', 'Camellya', ['chun', 'camellya'], ['266293']),
+    ('shorekeeper', '守岸人', 'Shorekeeper', ['shouanren', 'shorekeeper'], ['266294']),
+    ('yinlin', '吟霖', 'Yinlin', ['yinlin'], ['266295']),
+    ('yangyang', '秧秧', 'Yangyang', ['yangyang'], ['266296']),
+    ('verina', '维里奈', 'Verina', ['weilinai', 'verina'], ['266297']),
+    ('sanhua', '散华', 'Sanhua', ['sanhua'], ['266298']),
+    ('danjin', '丹瑾', 'Danjin', ['danjin'], ['266299']),
+    ('jianxin', '鉴心', 'Jianxin', ['jianxin'], ['266300']),
+    ('rover_f', '漂泊者女', 'Rover-F', ['piaobozhenv', 'rover'], ['266301']),
+    ('rover_m', '漂泊者男', 'Rover-M', ['piaobozhenan', 'rover'], ['266302']),
+    ('chixia', '炽霞', 'Chixia', ['chixia'], ['266303']),
+    ('jiyan', '忌炎', 'Jiyan', ['jiyan'], ['266304']),
+    ('xiangliyao', '相里要', 'Xiangli Yao', ['xiangliyao'], ['266305']),
+    ('zhezhi', '折枝', 'Zhezhi', ['zhezhi'], ['266306']),
+    ('youhu', '釉瑚', 'Youhu', ['youhu'], ['266307']),
+    ('baizhi', '白芷', 'Baizhi', ['baizhi'], ['266308']),
+    ('taoqi', '桃祈', 'Taoqi', ['taoqi'], ['266309']),
+    ('calcharo', '卡卡罗', 'Calcharo', ['kakaluo', 'calcharo'], ['266310']),
+    ('rococo', '洛可可', 'Rococo', ['luokeke', 'rococo'], ['266311']),
+    ('phoebe', '菲比', 'Phoebe', ['feibi', 'phoebe'], ['266312']),
+    ('brant', '布兰特', 'Brant', ['bulante', 'brant'], ['266313']),
+    ('colletta', '珂莱塔', 'Colletta', ['kelaita', 'colletta'], ['266314']),
+    ('aemeath', '爱弥斯', 'Aemeath', ['aimisi', 'aemeath'], ['266315']),
+    ('lumi', '灯灯', 'Lumi', ['dengdeng', 'lumi'], ['266316']),
+    ('chisa', '千咲', 'Chisa', ['qianxiao', 'chisa'], ['266317']),
+    ('qingxiao', '青宵', 'Qingxiao', ['qingxiao'], ['266318']),
+    ('hsin', '心/辛', 'Hsin', ['hsin'], ['266319']),
 
     # --- 原神 (GIMI) ---
-    ('raiden', '雷电将军', 'Raiden Shogun', ['leidianjiangjun', 'raiden', 'leishen', 'ldjj'], []),
-    ('furina', '芙宁娜', 'Furina', ['funingna', 'furina', 'shuishen', 'fnn'], []),
-    ('nahida', '纳西妲', 'Nahida', ['naxida', 'nahida', 'caoshen', 'nxd'], []),
-    ('hutao', '胡桃', 'Hu Tao', ['hutao', 'ht'], []),
-    ('ganyu', '甘雨', 'Ganyu', ['ganyu', 'gy'], []),
-    ('yelan', '夜兰', 'Yelan', ['yelan', 'yl'], []),
-    ('zhongli', '钟离', 'Zhongli', ['zhongli', 'zl'], []),
-    ('keqing', '刻晴', 'Keqing', ['keqing', 'kq'], []),
-    ('shenhe', '申鹤', 'Shenhe', ['shenhe', 'sh'], []),
-    ('yaemiko', '八重神子', 'Yae Miko', ['bachongshenzi', 'yaemiko', 'yae', 'bcsz'], []),
+    ('raiden', '雷电将军', 'Raiden Shogun', ['leidianjiangjun', 'raiden', 'leishen'], []),
+    ('furina', '芙宁娜', 'Furina', ['funingna', 'furina', 'shuishen'], []),
+    ('nahida', '纳西妲', 'Nahida', ['naxida', 'nahida', 'caoshen'], []),
+    ('hutao', '胡桃', 'Hu Tao', ['hutao'], []),
+    ('ganyu', '甘雨', 'Ganyu', ['ganyu'], []),
+    ('yelan', '夜兰', 'Yelan', ['yelan'], []),
+    ('zhongli', '钟离', 'Zhongli', ['zhongli'], []),
+    ('keqing', '刻晴', 'Keqing', ['keqing'], []),
+    ('shenhe', '申鹤', 'Shenhe', ['shenhe'], []),
+    ('yaemiko', '八重神子', 'Yae Miko', ['bachongshenzi', 'yaemiko', 'yae'], []),
 
     # --- 星穹铁道 (SRMI) ---
-    ('acheron', '黄泉', 'Acheron', ['huangquan', 'acheron', 'hq'], []),
-    ('firefly', '流萤', 'Firefly', ['liuying', 'firefly', 'ly'], []),
-    ('sparkle', '花火', 'Sparkle', ['huahua', 'sparkle', 'hh'], []),
-    ('kafka', '卡芙卡', 'Kafka', ['kafuka', 'kafka', 'kfk'], []),
-    ('fuxuan', '符玄', 'Fu Xuan', ['fuxuan', 'fx'], []),
-    ('jingliu', '镜流', 'Jingliu', ['jingliu', 'jl'], []),
-    ('ruanmei', '阮·梅', 'Ruan Mei', ['ruanmei', 'rm'], []),
-    ('robin', '知更鸟', 'Robin', ['zhigengniao', 'robin', 'zgn'], []),
+    ('acheron', '黄泉', 'Acheron', ['huangquan', 'acheron'], []),
+    ('firefly', '流萤', 'Firefly', ['liuying', 'firefly'], []),
+    ('sparkle', '花火', 'Sparkle', ['huahua', 'sparkle'], []),
+    ('kafka', '卡芙卡', 'Kafka', ['kafuka', 'kafka'], []),
+    ('fuxuan', '符玄', 'Fu Xuan', ['fuxuan'], []),
+    ('jingliu', '镜流', 'Jingliu', ['jingliu'], []),
+    ('ruanmei', '阮·梅', 'Ruan Mei', ['ruanmei'], []),
+    ('robin', '知更鸟', 'Robin', ['zhigengniao', 'robin'], []),
 
     # --- 绝区零 (ZZMI) ---
-    ('janedoe', '简·杜', 'Jane Doe', ['jiandu', 'janedoe', 'jane', 'jd'], []),
-    ('zhuyuan', '朱鸢', 'Zhu Yuan', ['zhuyuan', 'zy'], []),
-    ('ellen', '艾莲·乔', 'Ellen Joe', ['ailian', 'ellen', 'ellenjoe', 'el'], []),
-    ('qingyi', '青衣', 'Qingyi', ['qingyi', 'qy'], []),
-    ('burnice', '柏妮思', 'Burnice', ['bainisi', 'burnice', 'bns'], []),
-    ('yanagi', '柳', 'Yanagi', ['liu', 'yanagi', 'l'], []),
-    ('miyabi', '星见雅', 'Miyabi', ['xingjianya', 'ya', 'miyabi', 'xjy'], []),
+    ('janedoe', '简·杜', 'Jane Doe', ['jiandu', 'janedoe', 'jane'], []),
+    ('zhuyuan', '朱鸢', 'Zhu Yuan', ['zhuyuan'], []),
+    ('ellen', '艾莲·乔', 'Ellen Joe', ['ailian', 'ellen', 'ellenjoe'], []),
+    ('qingyi', '青衣', 'Qingyi', ['qingyi'], []),
+    ('burnice', '柏妮思', 'Burnice', ['bainisi', 'burnice'], []),
+    ('yanagi', '柳', 'Yanagi', ['yanagi'], []),
+    ('miyabi', '星见雅', 'Miyabi', ['xingjianya', 'miyabi'], []),
 ]
 
 # Quick GUID lookup dictionary
@@ -478,21 +478,32 @@ class ModService:
         for g in sorted_guids:
             if g in GUID_TO_CHAR_INFO:
                 cid, cname, ename = GUID_TO_CHAR_INFO[g]
-                return cid, cname, ename, sorted_guids, f"GUID_{g}"
+                return cid, cname, ename, sorted_guids, f"MOD_{folder_path.name}"
 
-        # 2. Match by Character Database Keywords (CN, EN, Pinyin)
-        corpus_search = (display_name + " " + " ".join(namespaces) + " " + " ".join(ini_text_corpus[:3])).lower()
+        # 2. Match character by folder or display name (highest priority and precision)
+        combined_name = f"{folder_path.name} {display_name}".lower()
         for cid, cname, ename, pinyin_list, char_guids in CHARACTER_DATABASE:
-            keywords = [cname.lower(), ename.lower()] + [p.lower() for p in pinyin_list]
-            for kw in keywords:
-                if len(kw) >= 2 and kw in corpus_search:
-                    primary_guid = char_guids[0] if char_guids else (sorted_guids[0] if sorted_guids else cid)
-                    return cid, cname, ename, sorted_guids, f"CHAR_{cid}"
+            if cname in folder_path.name or cname in display_name:
+                return cid, cname, ename, sorted_guids, f"MOD_{folder_path.name}"
+            check_words = [ename.lower()] + [p.lower() for p in pinyin_list if len(p) >= 3]
+            for w in check_words:
+                if re.search(rf'(?i)\b{re.escape(w)}\b', combined_name):
+                    return cid, cname, ename, sorted_guids, f"MOD_{folder_path.name}"
 
-        # 3. Fallback: Unknown character with GUID or Generic Mod
+        # 3. Match character in ini namespaces and corpus with strict word boundaries
+        corpus_search = (" ".join(namespaces) + " " + " ".join(ini_text_corpus[:3])).lower()
+        for cid, cname, ename, pinyin_list, char_guids in CHARACTER_DATABASE:
+            if cname in corpus_search:
+                return cid, cname, ename, sorted_guids, f"MOD_{folder_path.name}"
+            check_words = [ename.lower()] + [p.lower() for p in pinyin_list if len(p) >= 3]
+            for w in check_words:
+                if re.search(rf'(?i)\b{re.escape(w)}\b', corpus_search):
+                    return cid, cname, ename, sorted_guids, f"MOD_{folder_path.name}"
+
+        # 4. Fallback: Unknown character with GUID or Generic Mod
         if sorted_guids:
             primary_guid = sorted_guids[0]
-            return f"guid_{primary_guid}", f"角色 [ID: {primary_guid}]", f"Character [ID: {primary_guid}]", sorted_guids, f"GUID_{primary_guid}"
+            return f"guid_{primary_guid}", f"角色 [ID: {primary_guid}]", f"Character [ID: {primary_guid}]", sorted_guids, f"MOD_{folder_path.name}"
         else:
             return "other", "通用模组", "Generic", [], f"MOD_{folder_path.name}"
 
@@ -516,10 +527,10 @@ class ModService:
         return count, total_size
 
     @classmethod
-    def scan_mods(cls, search_query: str = '', filter_state: str = 'all', filter_character_id: str = 'all', auto_resolve: bool = True) -> List[ModItem]:
+    def scan_mods(cls, search_query: str = '', filter_state: str = 'all', filter_character_id: str = 'all', auto_resolve: bool = False) -> List[ModItem]:
         """
         Scans the active Mods folder and returns a list of ModItem.
-        If auto_resolve is True, ensures strictly 1 mod per character conflict group is enabled.
+        Non-destructive: does not modify folder names during directory scan.
         """
         mods_folder = cls.get_active_mods_folder()
         if not mods_folder or not mods_folder.is_dir():
@@ -809,10 +820,9 @@ class ModService:
         return True
 
     @classmethod
-    def toggle_mod(cls, mod_item: ModItem, enable: Optional[bool] = None, auto_resolve_conflicts: bool = True) -> Tuple[bool, Optional[ModItem], str, List[str]]:
+    def toggle_mod(cls, mod_item: ModItem, enable: Optional[bool] = None, auto_resolve_conflicts: bool = False) -> Tuple[bool, Optional[ModItem], str, List[str]]:
         """
         Toggles the enabled status of a mod by renaming its folder.
-        Silently switches off any other active mod for the same character.
         Returns: (success, new_mod_item, message, list_of_auto_disabled_mod_names)
         """
         if enable is None:
@@ -822,7 +832,7 @@ class ModService:
             return True, mod_item, "No change", []
 
         auto_disabled: List[str] = []
-        # If enabling, auto-disable any other active mod for the same character
+        # If enabling and auto_resolve_conflicts is requested, auto-disable any exact duplicate mod
         if enable and auto_resolve_conflicts and mod_item.conflict_key and not mod_item.conflict_key.startswith('MOD_'):
             all_mods = cls.scan_mods(filter_state='enabled', auto_resolve=False)
             for other in all_mods:
@@ -840,7 +850,7 @@ class ModService:
             elif old_name.upper().startswith('DISABLED_'):
                 new_name = old_name[9:].strip()
             elif old_name.lower().endswith('.disabled'):
-                new_name = name[:-9].strip()
+                new_name = old_name[:-9].strip()
             else:
                 new_name = old_name
         else:
@@ -1271,72 +1281,93 @@ class ModService:
 
                     # Detect which characters/weapons match this ini
                     full_ini_text = '\n'.join(lines)
+                    present_hashes = set(re.findall(r'\b[0-9a-fA-F]{8}\b', full_ini_text.lower()))
+                    ini_name_lower = ini_path.name.lower()
+                    mod_name_lower = mod_item.name.lower()
+
                     matched_chars = []
                     for c_name, c_def in chars_db.items():
+                        c_lower = c_name.lower()
                         is_matched = False
-                        # Check main hashes
-                        for mh in c_def.get('main_hashes', []):
-                            for old_h in mh.get('old', []):
-                                if re.search(rf'(?i)\b{old_h}\b', full_ini_text):
+                        if c_lower in ini_name_lower or c_lower in mod_name_lower:
+                            is_matched = True
+                        else:
+                            for mh in c_def.get('main_hashes', []):
+                                if (mh.get('new') and mh['new'].lower() in present_hashes) or \
+                                   any(old_h.lower() in present_hashes for old_h in mh.get('old', [])):
                                     is_matched = True
                                     break
-                            if is_matched or (mh.get('new') and re.search(rf'(?i)\b{mh["new"]}\b', full_ini_text)):
-                                is_matched = True
-                                break
-                        # Check character name
-                        if not is_matched and (c_name.lower() in ini_path.name.lower() or c_name.lower() in mod_item.name.lower()):
-                            is_matched = True
-
                         if is_matched:
                             matched_chars.append((c_name, c_def))
 
+                    # Target characters: matched ones, or characters with at least one matching hash in this ini
+                    target_chars = matched_chars if matched_chars else [
+                        (c_name, c_def) for c_name, c_def in chars_db.items()
+                        if any(
+                            mh.get('new', '').lower() in present_hashes or
+                            any(old_h.lower() in present_hashes for old_h in mh.get('old', []))
+                            for mh in c_def.get('main_hashes', [])
+                        ) or any(
+                            old_t.lower() in present_hashes
+                            for t_node in c_def.get('textures', {}).values()
+                            for old_t in t_node.get('replace', [])
+                        )
+                    ]
+
                     # B. Hash & Texture Replacements
                     if options.fix_hashes:
-                        for c_name, c_def in (matched_chars if matched_chars else chars_db.items()):
+                        for c_name, c_def in target_chars:
                             # Main hashes
                             for mh in c_def.get('main_hashes', []):
                                 new_h = mh.get('new', '')
                                 for old_h in mh.get('old', []):
-                                    if old_h.lower() != new_h.lower():
+                                    old_lower = old_h.lower()
+                                    if old_lower != new_h.lower() and old_lower in present_hashes:
+                                        pattern = re.compile(rf'\b{re.escape(old_h)}\b', re.IGNORECASE)
                                         for idx, l in enumerate(lines):
-                                            if re.search(rf'(?i)\b{old_h}\b', l):
-                                                lines[idx] = re.sub(rf'(?i)\b{old_h}\b', new_h, l)
-                                                modified = True
-                                                hash_replacements_count += 1
+                                            if old_lower in l.lower():
+                                                new_line = pattern.sub(new_h, l)
+                                                if new_line != l:
+                                                    lines[idx] = new_line
+                                                    modified = True
+                                                    hash_replacements_count += 1
                             # Textures
                             for new_tex, t_node in c_def.get('textures', {}).items():
                                 for old_tex in t_node.get('replace', []):
-                                    if old_tex.lower() != new_tex.lower():
+                                    old_lower = old_tex.lower()
+                                    if old_lower != new_tex.lower() and old_lower in present_hashes:
+                                        pattern = re.compile(rf'\b{re.escape(old_tex)}\b', re.IGNORECASE)
                                         for idx, l in enumerate(lines):
-                                            if re.search(rf'(?i)\b{old_tex}\b', l):
-                                                lines[idx] = re.sub(rf'(?i)\b{old_tex}\b', new_tex, l)
-                                                modified = True
-                                                hash_replacements_count += 1
+                                            if old_lower in l.lower():
+                                                new_line = pattern.sub(new_tex, l)
+                                                if new_line != l:
+                                                    lines[idx] = new_line
+                                                    modified = True
+                                                    hash_replacements_count += 1
 
                     # C. Rules & Index Replacement (match_first_index, match_index_count, etc.)
                     if options.fix_rules:
-                        for c_name, c_def in (matched_chars if matched_chars else chars_db.items()):
+                        for c_name, c_def in target_chars:
                             for rule in c_def.get('rules', []):
-                                prefix = rule.get('line_prefix', '')
+                                prefix = rule.get('line_prefix', '').lower()
                                 for rep in rule.get('replacements', []):
                                     new_val = rep.get('new', '')
                                     for old_val in rep.get('old', []):
-                                        if old_val != new_val:
+                                        if old_val != new_val and old_val in full_ini_text:
                                             for idx, l in enumerate(lines):
-                                                if prefix.lower() in l.lower() and old_val in l:
+                                                if prefix in l.lower() and old_val in l:
                                                     lines[idx] = l.replace(old_val, new_val)
                                                     modified = True
                                                     rules_applied_count += 1
 
                     # D. Vertex Group Remapping
                     if options.fix_vertex_groups:
-                        for c_name, c_def in (matched_chars if matched_chars else chars_db.items()):
+                        for c_name, c_def in target_chars:
                             for vg_remap in c_def.get('vg_remaps', []):
                                 trigger_hashes = vg_remap.get('trigger_hash', [])
-                                is_triggered = any(re.search(rf'(?i)\b{th}\b', full_ini_text) for th in trigger_hashes) if trigger_hashes else (c_name in [mc[0] for mc in matched_chars])
+                                is_triggered = any(th.lower() in present_hashes for th in trigger_hashes) if trigger_hashes else (c_name in [mc[0] for mc in matched_chars])
                                 if is_triggered and vg_remap.get('vertex_groups'):
                                     vg_str = vg_remap['vertex_groups']
-                                    # Update or append vertex group remap instruction
                                     has_vg_line = False
                                     for idx, l in enumerate(lines):
                                         if 'vg_remap' in l.lower() or 'vertex_groups' in l.lower():
@@ -1353,20 +1384,19 @@ class ModService:
                     # E. Derive / LOD Texture Overrides
                     if options.fix_derive_textures:
                         cur_text = '\n'.join(lines)
-                        for c_name, c_def in (matched_chars if matched_chars else chars_db.items()):
+                        for c_name, c_def in target_chars:
                             for tex_hash, t_node in c_def.get('textures', {}).items():
                                 derives = t_node.get('derive', {})
-                                if not derives:
+                                if not derives or tex_hash.lower() not in present_hashes:
                                     continue
-                                # If this base texture hash is overridden in this ini
-                                if re.search(rf'(?i)\b{tex_hash}\b', cur_text):
+                                if re.search(rf'(?i)\b{re.escape(tex_hash)}\b', cur_text):
                                     for dtype, dlist in derives.items():
                                         for dhash in dlist:
-                                            # If derived hash is not yet present
-                                            if not re.search(rf'(?i)\b{dhash}\b', cur_text):
+                                            if dhash.lower() not in present_hashes:
                                                 lines.append(f"\n; [Auto-generated {dtype} Texture Override for {c_name}]\n[TextureOverride_{c_name}_{dtype}_{dhash}]\nhash = {dhash}\nCheckTextureOverride = 0\n")
                                                 modified = True
                                                 lod_derives_count += 1
+                                                present_hashes.add(dhash.lower())
                                                 cur_text = '\n'.join(lines)
 
                     # F. Rover & Special Character Fixes

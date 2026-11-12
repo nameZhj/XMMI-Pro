@@ -112,6 +112,10 @@ class PasswordPromptDialog(ctk.CTkToplevel):
         self.transient(parent)
         self.grab_set()
 
+        self._is_cancelled = False
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.bind("<Escape>", lambda e: self._on_close())
+
         # Center dialog on parent window
         self.update_idletasks()
         try:
@@ -287,6 +291,10 @@ class ImportProgressDialog(ctk.CTkToplevel):
         self.transient(parent)
         self.grab_set()
 
+        self._is_cancelled = False
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.bind("<Escape>", lambda e: self._on_close())
+
         # Center on parent window
         self.update_idletasks()
         try:
@@ -391,6 +399,10 @@ class ModRepairDialog(ctk.CTkToplevel):
 
         self.transient(parent)
         self.grab_set()
+
+        self._is_cancelled = False
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
+        self.bind("<Escape>", lambda e: self._on_close())
 
         # Center on parent window
         self.update_idletasks()
@@ -765,9 +777,13 @@ class ModRepairDialog(ctk.CTkToplevel):
     def _run_repair_worker(self, opts: ModRepairOptions):
         try:
             if not self.is_batch and self.target_mod:
+                if getattr(self, '_is_cancelled', False):
+                    return
                 self.after(0, lambda: self._append_log(f"🚀 开始深度修复模组: 【{self.target_mod.display_name}】..."))
                 self.after(0, lambda: self.progress_bar.set(0.3))
                 success, fixes = ModService.repair_mod(self.target_mod, options=opts)
+                if getattr(self, '_is_cancelled', False):
+                    return
                 self.after(0, lambda: self.progress_bar.set(1.0))
                 for f in fixes:
                     self.after(0, lambda msg=f: self._append_log(f"  • {msg}"))
@@ -780,6 +796,9 @@ class ModRepairDialog(ctk.CTkToplevel):
                 total = len(self.all_mods)
                 self.after(0, lambda: self._append_log(f"🚀 开始全库批量深度修复 (共 {total} 个模组)..."))
                 for idx, m in enumerate(self.all_mods, 1):
+                    if getattr(self, '_is_cancelled', False):
+                        self.after(0, lambda: self._append_log("\n⚠️ 用户已取消修复任务"))
+                        break
                     progress = idx / max(1, total)
                     self.after(0, lambda p=progress: self.progress_bar.set(p))
                     self.after(0, lambda i=idx, n=m.display_name: self._append_log(f"[{i}/{total}] 正在处理: {n}..."))
@@ -787,9 +806,10 @@ class ModRepairDialog(ctk.CTkToplevel):
                     for f in fixes:
                         self.after(0, lambda msg=f: self._append_log(f"    - {msg}"))
 
-                self.after(0, lambda: self._append_log("\n🎉 全库批量模组深度修复完成！"))
+                if not getattr(self, '_is_cancelled', False):
+                    self.after(0, lambda: self._append_log("\n🎉 全库批量模组深度修复完成！"))
 
-            if self.on_finished:
+            if not getattr(self, '_is_cancelled', False) and self.on_finished:
                 self.after(0, self.on_finished)
         except Exception as e:
             self.after(0, lambda err=str(e): self._append_log(f"\n❌ 修复过程出现异常: {err}"))
@@ -829,6 +849,7 @@ class ModRepairDialog(ctk.CTkToplevel):
             show_warning("复原提示", msg, parent=self)
 
     def _on_close(self):
+        self._is_cancelled = True
         try:
             self.grab_release()
             self.destroy()
@@ -836,8 +857,9 @@ class ModRepairDialog(ctk.CTkToplevel):
             pass
         if self.parent_window is not None:
             try:
-                self.parent_window.lift()
-                self.parent_window.focus_force()
+                top = getattr(self.parent_window, "winfo_toplevel", lambda: self.parent_window)()
+                top.lift()
+                top.focus_force()
             except Exception:
                 pass
 
@@ -2467,11 +2489,18 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
                 log.debug(f"GameBanana listener loop error: {e}")
 
         def stderr_drain():
+            stderr_lines = []
             try:
                 for line in self._gamebanana_proc.stderr:
                     log.debug(f"[GameBananaBrowser] {line.strip()}")
+                    stderr_lines.append(line)
             except Exception:
                 pass
+            all_err = "".join(stderr_lines)
+            if "ModuleNotFoundError" in all_err or "webview" in all_err:
+                log.warning("GameBanana browser subprocess failed; opening in external browser.")
+                import webbrowser
+                webbrowser.open(initial_url)
 
         threading.Thread(target=listener, daemon=True, name="GameBananaListener").start()
         threading.Thread(target=stderr_drain, daemon=True, name="GameBananaStderrDrain").start()
