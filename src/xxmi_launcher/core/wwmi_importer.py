@@ -15,6 +15,7 @@ from typing import Callable, Optional
 import urllib.request
 import zipfile
 
+import core.config_manager as Config
 import core.path_manager as Paths
 from core.utils.lossless_ini_editor import make_file_writable
 
@@ -40,6 +41,15 @@ class WWMIImporter:
     @classmethod
     def get_target_dir(cls) -> Path:
         """Returns the base directory where WWMI should be deployed."""
+        try:
+            importer_pkg = getattr(Config.Importers, 'WWMI', None)
+            importer_cfg = getattr(importer_pkg, 'Importer', None) if importer_pkg else None
+            configured = getattr(importer_cfg, 'importer_path', None) if importer_cfg else None
+            if configured:
+                p = Path(configured)
+                return p if p.is_absolute() else (Paths.App.Root / p)
+        except Exception:
+            pass
         return Paths.App.Root / 'WWMI'
 
     @classmethod
@@ -108,7 +118,11 @@ class WWMIImporter:
         temp_dir.mkdir(parents=True, exist_ok=True)
 
         try:
+            root_resolved = temp_dir.resolve()
             with zipfile.ZipFile(zip_path, 'r') as zf:
+                for member in zf.namelist():
+                    if not (temp_dir / member).resolve().is_relative_to(root_resolved):
+                        raise ValueError(f"Unsafe zip member path: {member}")
                 zf.extractall(temp_dir)
             result = cls.import_from_folder(temp_dir, log_cb)
             return result

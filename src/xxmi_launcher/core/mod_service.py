@@ -86,8 +86,37 @@ CHARACTER_DATABASE = [
     ('aemeath', '爱弥斯', 'Aemeath', ['aimisi', 'aemeath'], ['266315']),
     ('lumi', '灯灯', 'Lumi', ['dengdeng', 'lumi'], ['266316']),
     ('chisa', '千咲', 'Chisa', ['qianxiao', 'chisa'], ['266317']),
-    ('qingxiao', '青宵', 'Qingxiao', ['qingxiao'], ['266318']),
-    ('hsin', '心/辛', 'Hsin', ['hsin'], ['266319']),
+    ('qingxiao', '清宵', 'Qingxiao', ['qingxiao'], ['266318']),
+    ('hsin', '心', 'Hsin', ['hsin'], ['266319']),
+    ('cantarella', '坎特蕾拉', 'Cantarella', ['kanteleila', 'cantarella'], []),
+    ('carlotta', '珂莱塔', 'Carlotta', ['kelaita', 'carlotta'], []),
+    ('cartethyia', '卡提希娅', 'Cartethyia', ['katixiya', 'cartethyia', 'fleurdelys'], []),
+    ('ciaccona', '夏空', 'Ciaccona', ['xiakong', 'ciaccona'], []),
+    ('augusta', '奥古斯塔', 'Augusta', ['aogusita', 'augusta'], []),
+    ('buling', '卜灵', 'Buling', ['buling'], []),
+    ('denia', '达妮娅', 'Denia', ['daniya', 'denia'], []),
+    ('galbrena', '嘉贝莉娜', 'Galbrena', ['jiabeilina', 'galbrena'], []),
+    ('hiyuki', '绯雪', 'Hiyuki', ['feixue', 'hiyuki'], []),
+    ('iuno', '尤诺', 'Iuno', ['younuo', 'iuno'], []),
+    ('jingran', '景燃', 'Jingran', ['jingran'], []),
+    ('lily', '莉莉', 'Lily', ['lili', 'lily'], []),
+    ('lingyang', '凌阳', 'Lingyang', ['lingyang'], []),
+    ('lucilla', '洛瑟菈', 'Lucilla', ['luosela', 'lucilla'], []),
+    ('lucy', '露西', 'Lucy', ['luxi', 'lucy'], []),
+    ('lupa', '露帕', 'Lupa', ['lupa'], []),
+    ('luuk', '陆·赫斯', 'Luuk', ['luhesi', 'luuk', 'luuk herssen'], []),
+    ('lynae', '琳奈', 'Lynae', ['linnai', 'lynae'], []),
+    ('mornye', '莫宁', 'Mornye', ['moning', 'mornye'], []),
+    ('mortefi', '莫特斐', 'Mortefi', ['motefei', 'mortefi'], []),
+    ('phrolova', '弗洛洛', 'Phrolova', ['fuluoluo', 'phrolova'], []),
+    ('qiuyuan', '仇远', 'Qiuyuan', ['qiuyuan'], []),
+    ('rebecca', '丽贝卡', 'Rebecca', ['libeika', 'rebecca'], []),
+    ('sigrika', '西格莉卡', 'Sigrika', ['xigelika', 'sigrika'], []),
+    ('suoming', '锁暝', 'Suoming', ['suoming'], []),
+    ('yuanwu', '渊武', 'Yuanwu', ['yuanwu'], []),
+    ('zani', '赞妮', 'Zani', ['zanni', 'zani'], []),
+    ('aalto', '秋水', 'Aalto', ['qiushui', 'aalto'], []),
+    ('encore', '安可', 'Encore', ['anke', 'encore'], []),
 
     # --- 原神 (GIMI) ---
     ('raiden', '雷电将军', 'Raiden Shogun', ['leidianjiangjun', 'raiden', 'leishen'], []),
@@ -1205,26 +1234,36 @@ class ModService:
                 callback(False, msg)
             return False, msg, cls.get_wuwa_fix_config()
 
-        # Compare with local version
+        # Compare and merge non-destructively so local 3.8 rules are preserved
         current_cfg = cls.get_wuwa_fix_config()
         curr_ver = current_cfg.get("version", {}).get("current_version", "0.0.0") if isinstance(current_cfg.get("version"), dict) else "0.0.0"
         remote_ver = remote_data.get("version", {}).get("current_version", "0.0.0") if isinstance(remote_data.get("version"), dict) else "0.0.0"
-        curr_count = len(current_cfg.get("characters", {}))
-        remote_count = len(remote_data.get("characters", {}))
+        curr_chars = current_cfg.get("characters", {}) if isinstance(current_cfg.get("characters"), dict) else {}
+        remote_chars = remote_data.get("characters", {}) if isinstance(remote_data.get("characters"), dict) else {}
 
-        has_update = force or (remote_ver > curr_ver) or (remote_count > curr_count)
+        merged_chars = dict(curr_chars)
+        for ch_key, ch_def in remote_chars.items():
+            if ch_key not in merged_chars or remote_ver > curr_ver:
+                merged_chars[ch_key] = ch_def
+
+        final_ver = remote_ver if remote_ver >= curr_ver else curr_ver
+        has_update = force or (remote_ver > curr_ver) or (len(merged_chars) > len(curr_chars))
 
         if has_update:
             try:
+                merged_cfg = dict(remote_data)
+                merged_cfg["characters"] = merged_chars
+                if isinstance(merged_cfg.get("version"), dict):
+                    merged_cfg["version"]["current_version"] = final_ver
                 save_path = cls.get_wuwa_fix_config_file_path()
                 save_path.parent.mkdir(parents=True, exist_ok=True)
-                save_path.write_text(json.dumps(remote_data, ensure_ascii=False, indent=2), encoding='utf-8')
-                cls._fix_config_cache = remote_data
-                msg = f"鸣潮修复规则库已成功自动更新至 v{remote_ver} (共收录 {remote_count} 个角色与武器规则)"
+                save_path.write_text(json.dumps(merged_cfg, ensure_ascii=False, indent=2), encoding='utf-8')
+                cls._fix_config_cache = merged_cfg
+                msg = f"鸣潮修复规则库已成功同步至 v{final_ver} (共收录 {len(merged_chars)} 个角色与武器规则)"
                 log.info(msg)
                 if callback:
                     callback(True, msg)
-                return True, msg, remote_data
+                return True, msg, merged_cfg
             except Exception as e:
                 msg = f"保存更新规则库失败: {e}"
                 log.warning(msg)
@@ -1232,7 +1271,7 @@ class ModService:
                     callback(False, msg)
                 return False, msg, cls.get_wuwa_fix_config()
         else:
-            msg = f"当前鸣潮修复规则库已是最新版本 (v{curr_ver}，共 {curr_count} 个角色/武器)"
+            msg = f"当前鸣潮修复规则库已是最新版本 (v{curr_ver}，共 {len(curr_chars)} 个角色/武器)"
             if callback:
                 callback(True, msg)
             return True, msg, current_cfg
@@ -2185,6 +2224,17 @@ class ModService:
             cls.sync_mod_state_to_game()
         return count
 
+    @staticmethod
+    def _validate_safe_archive_members(names: List[str], dest_dir: Path) -> None:
+        """Blocks zip-slip / tar-slip path traversal entries escaping dest_dir."""
+        root_resolved = dest_dir.resolve()
+        for member_name in names:
+            if not member_name or member_name.endswith(('/', '\\')):
+                continue
+            target_p = (dest_dir / member_name).resolve()
+            if not target_p.is_relative_to(root_resolved):
+                raise ValueError(f"检测到不安全的压缩包路径越界 (Path Traversal): {member_name}")
+
     @classmethod
     def _extract_archive_internal(cls, src_path: Path, temp_dir: Path, password: Optional[str] = None):
         """
@@ -2197,6 +2247,7 @@ class ModService:
         # 1. ZIP Archive
         if suffix == '.zip':
             with zipfile.ZipFile(src_path, 'r') as zf:
+                cls._validate_safe_archive_members(zf.namelist(), temp_dir)
                 pwd_bytes = password.encode('utf-8') if password else None
                 try:
                     zf.extractall(temp_dir, pwd=pwd_bytes)
@@ -2316,6 +2367,7 @@ class ModService:
             with open(src_path, 'rb') as ifh, open(decompressed_tar, 'wb') as ofh:
                 dctx.copy_stream(ifh, ofh)
             with tarfile.open(decompressed_tar, 'r:*') as tf:
+                cls._validate_safe_archive_members([m.name for m in tf.getmembers()], temp_dir)
                 tf.extractall(temp_dir)
             decompressed_tar.unlink(missing_ok=True)
 
@@ -2323,6 +2375,7 @@ class ModService:
         else:
             try:
                 with tarfile.open(src_path, 'r:*') as tf:
+                    cls._validate_safe_archive_members([m.name for m in tf.getmembers()], temp_dir)
                     tf.extractall(temp_dir)
             except Exception:
                 shutil.unpack_archive(str(src_path), str(temp_dir))

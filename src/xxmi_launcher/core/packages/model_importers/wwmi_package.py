@@ -736,7 +736,7 @@ class LocalStorage:
     def connect(self):
         self.disconnect()
         log.debug(f'[{self.path.name}]: Connecting...')
-        self.connection = sqlite3.connect(self.path)
+        self.connection = sqlite3.connect(self.path, timeout=5.0)
         try:
             self.cursor = self.connection.cursor()
             try:
@@ -749,7 +749,7 @@ class LocalStorage:
                     ('HasLocalGameSettings', '"___1B___"'),
                     ('IsCustomImageQuality', '"___1B___"'),
                 ]
-                self.cursor.executemany(f"INSERT INTO LocalStorage VALUES (?,?)", data)
+                self.cursor.executemany("INSERT INTO LocalStorage VALUES (?,?)", data)
         except Exception as e:
             self.disconnect()
             raise Exception(L('error_local_storage_init_failed', 'Failed to initialize LocalStorage: {error_text}').format(error_text=e))
@@ -762,69 +762,75 @@ class LocalStorage:
         self.disconnect()
         log.debug(f'[{self.path.name}]: File updated')
 
-    def get_value(self, key) -> str | None:
-        result = self.cursor.execute(f"SELECT value FROM LocalStorage WHERE key='{key}'")
+    def get_value(self, key: str) -> str | None:
+        result = self.cursor.execute("SELECT value FROM LocalStorage WHERE key = ?", (str(key),))
         data = result.fetchone()
         if data is None or len(data) != 1:
             return None
-        else:
-            return data[0]
+        return data[0]
 
     def set_value(self, key: str, value: str):
-        old_value = self.get_value(key)
-        if value == old_value:
-            log.debug(f'[{self.path.name}]: Skipped {key} value: {value} (already set)')
+        key_s = str(key)
+        val_s = str(value)
+        old_value = self.get_value(key_s)
+        if val_s == old_value:
+            log.debug(f'[{self.path.name}]: Skipped {key_s} value: {val_s} (already set)')
             return
         if old_value is None:
-            self.cursor.execute(f"INSERT INTO LocalStorage VALUES ('{key}', '{value}')")
-            log.debug(f'[{self.path.name}]: Added {key} value: {value}')
+            self.cursor.execute("INSERT INTO LocalStorage (key, value) VALUES (?, ?)", (key_s, val_s))
+            log.debug(f'[{self.path.name}]: Added {key_s} value: {val_s}')
         else:
-            self.cursor.execute(f"UPDATE LocalStorage SET value = '{value}' WHERE key='{key}'")
-            log.debug(f'[{self.path.name}]: Updated {key} value: {old_value} -> {value}')
+            self.cursor.execute("UPDATE LocalStorage SET value = ? WHERE key = ?", (val_s, key_s))
+            log.debug(f'[{self.path.name}]: Updated {key_s} value: {old_value} -> {val_s}')
         self.modified = True
 
-    def delete_value(self, key):
-        if self.get_value(key) is None:
+    def delete_value(self, key: str):
+        key_s = str(key)
+        if self.get_value(key_s) is None:
             return
-        self.cursor.execute(f"DELETE FROM LocalStorage WHERE key='{key}'")
-        log.debug(f'[{self.path.name}]: Removed {key} value')
+        self.cursor.execute("DELETE FROM LocalStorage WHERE key = ?", (key_s,))
+        log.debug(f'[{self.path.name}]: Removed {key_s} value')
         self.modified = True
 
-    def get_trigger(self, name) -> SQLiteTrigger | None:
-        result = self.cursor.execute(f"SELECT * FROM sqlite_master WHERE type='trigger' AND name='{name}'")
+    def get_trigger(self, name: str) -> SQLiteTrigger | None:
+        result = self.cursor.execute("SELECT * FROM sqlite_master WHERE type='trigger' AND name = ?", (str(name),))
         data = result.fetchone()
         if data is None:
             return None
-        else:
-            return SQLiteTrigger(name=data[1], table=data[2], body=data[4])
+        return SQLiteTrigger(name=data[1], table=data[2], body=data[4])
 
     def get_all_triggers(self) -> list[SQLiteTrigger] | None:
-        result = self.cursor.execute(f"SELECT * FROM sqlite_master WHERE type='trigger'")
-        data = result.fetchmany()
+        result = self.cursor.execute("SELECT * FROM sqlite_master WHERE type='trigger'")
+        data = result.fetchall()
         if data is None:
             return None
-        else:
-            return [SQLiteTrigger(name=t[1], table=t[2], body=t[4]) for t in data]
+        return [SQLiteTrigger(name=t[1], table=t[2], body=t[4]) for t in data]
 
-    def set_value_lock_trigger(self, name, key, value):
-        self.delete_trigger(name)
+    def set_value_lock_trigger(self, name: str, key: str, value: str):
+        safe_name = ''.join(ch for ch in str(name) if ch.isalnum() or ch == '_')
+        if not safe_name:
+            raise ValueError(f'Invalid SQLite trigger name: {name}')
+        safe_key = str(key).replace("'", "''")
+        safe_val = str(value)
+        self.delete_trigger(safe_name)
         self.cursor.execute(f'''
-            CREATE TRIGGER {name}
+            CREATE TRIGGER {safe_name}
             AFTER UPDATE OF value ON LocalStorage
-            WHEN NEW.key = '{key}'
+            WHEN NEW.key = '{safe_key}'
             BEGIN
                 UPDATE LocalStorage
-                SET value = {value}
-                WHERE key = '{key}';
+                SET value = {safe_val}
+                WHERE key = '{safe_key}';
             END;
         ''')
-        log.debug(f'[{self.path.name}]: Added lock trigger {name} for {key} value: {value}')
+        log.debug(f'[{self.path.name}]: Added lock trigger {safe_name} for {key} value: {value}')
         self.modified = True
 
-    def delete_trigger(self, name):
-        if self.get_trigger(name) is None:
+    def delete_trigger(self, name: str):
+        safe_name = ''.join(ch for ch in str(name) if ch.isalnum() or ch == '_')
+        if not safe_name or self.get_trigger(safe_name) is None:
             return
-        self.cursor.execute(f'DROP TRIGGER IF EXISTS {name}')
-        log.debug(f'[{self.path.name}]: Removed trigger {name}')
+        self.cursor.execute(f'DROP TRIGGER IF EXISTS {safe_name}')
+        log.debug(f'[{self.path.name}]: Removed trigger {safe_name}')
         self.modified = True
 

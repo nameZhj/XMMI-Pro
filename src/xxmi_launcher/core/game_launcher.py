@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 import time
 import re
 
@@ -211,6 +212,13 @@ class GameLauncher:
         game_exe_name = self.get_game_exe_name(game_exe_path)
 
         self._ensure_game_close(game_exe_name)
+
+        if Config.Launcher.active_importer == 'WWMI' and '-n' not in sys.argv and '--nogui' not in sys.argv:
+            from core.utils.wuwa_graphics_advisor import WuwaGraphicsAdvisor
+            if WuwaGraphicsAdvisor.should_show_advisor():
+                from gui.windows.pre_launch_advisor_dialog import show_pre_launch_advisor
+                if show_pre_launch_advisor(game_path) == 'cancel':
+                    raise UserWarning('User cancelled game launch from hardware advisor')
 
         game_platform = LAUNCH_TO_PLATFORM.get(Config.Active.Importer.game_launch, None)
         platform_manager = self.platform_registry.get_platform_manager(game_platform) if game_platform else None

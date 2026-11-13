@@ -103,7 +103,7 @@ class WWMIRepairAndOptimizer:
         if d3dx_ini.exists():
             d3dx_updates = {
                 "Loader": {"delay": str(cfg.init_delay_ms)},
-                "Rendering": {"cache_shaders": "1"},
+                "Rendering": {"cache_shaders": "1", "allow_buffer_resize": "1"},
                 "Logging": {"calls": "0", "input": "0", "debug": "0"},
                 "Hunting": {"hunting": "0"},
             }
@@ -193,6 +193,18 @@ class WWMIRepairAndOptimizer:
                                 log.error(f"Failed to disable conflict dir {duplicate_dir}: {e}")
         return report
 
+    @staticmethod
+    def _decode_ini_bytes(raw: bytes) -> str:
+        """Safely decodes INI bytes supporting UTF-8 BOM, UTF-16 BOM, UTF-8, and GB18030."""
+        if raw.startswith(b"\xff\xfe") or raw.startswith(b"\xfe\xff"):
+            return raw.decode("utf-16", errors="replace")
+        for enc in ("utf-8-sig", "utf-8", "gb18030"):
+            try:
+                return raw.decode(enc)
+            except UnicodeDecodeError:
+                continue
+        return raw.decode("latin-1", errors="replace")
+
     def _repair_single_ini(self, ini_path: Path, root_path: Path, hash_registry: Dict[str, List[Tuple[Path, Path]]], report: Dict[str, Any]) -> None:
         try:
             rel = root_path.relative_to(self.mods_dir)
@@ -200,7 +212,7 @@ class WWMIRepairAndOptimizer:
         except Exception:
             top_mod_folder = root_path
 
-        raw = ini_path.read_text(encoding="utf-8", errors="ignore")
+        raw = self._decode_ini_bytes(ini_path.read_bytes())
         lines = raw.splitlines()
         modified = False
         new_lines: List[str] = []
@@ -211,7 +223,6 @@ class WWMIRepairAndOptimizer:
         costume_re = re.compile(r"^(\s*)(?:;\s*\[AutoFixed\]\s*)?if\s+\$costume_mods\b", re.IGNORECASE)
         corrupt_strip_res = (
             re.compile(r"^\s*CheckTextureOverride\s*=\s*0\s*$", re.IGNORECASE),
-            re.compile(r"^\s*\$\\WWMIv1\\vg_remap\s*=", re.IGNORECASE),
             re.compile(r"^\s*;\s*\[Auto-generated Vertex Group Remap", re.IGNORECASE),
         )
 
@@ -263,7 +274,7 @@ def apply_d3dx_ini_fixes(wwmi_root: Path | str, adaptive_cfg: Any) -> List[str]:
     if not d3dx_ini.exists():
         return []
     delay = str(getattr(adaptive_cfg, "init_delay_ms", 500))
-    updates = {"Loader": {"delay": delay}, "Rendering": {"cache_shaders": "1"}}
+    updates = {"Loader": {"delay": delay}, "Rendering": {"cache_shaders": "1", "allow_buffer_resize": "1"}}
     LosslessIniEditor.update_sections(d3dx_ini, updates, create_backup=True)
     return [f"[d3dx.ini] delay={delay}"]
 

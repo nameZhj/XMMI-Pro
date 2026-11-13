@@ -1,7 +1,7 @@
 {
   "version": {
     "min_required_version": "3.7.0",
-    "current_version": "3.7.1",
+    "current_version": "3.8.0",
     "latest_program_version": "3.7.0",
     "update_url": "https://github.com/Moonholder/Wuwa_Mod_Fixer/releases/latest",
     "support_url_cn": "https://support.jix.de5.net",
@@ -170,6 +170,10 @@
             "eacac19c"
           ],
           "new": "6f61c5e7"
+        },
+        {
+          "old": [],
+          "new": "93bbbdc0"
         }
       ],
       "skip_components": [
@@ -249,6 +253,12 @@
           "replace": [
             "f257b9e0"
           ]
+        },
+        "21506004": {
+          "replace": [
+            "93bbbdc0"
+          ],
+          "derive": {}
         }
       }
     },
@@ -335,6 +345,10 @@
             "2738a0f0"
           ],
           "new": "8d8097bc"
+        },
+        {
+          "old": [],
+          "new": "2738a0f0"
         }
       ],
       "skip_components": [
@@ -356,6 +370,14 @@
             ],
             "Charged": [
               "86c4b5fd"
+            ],
+            "lod_derived": [
+              "86c4b5fd",
+              "1fd24d90"
+            ],
+            "lod_high": [
+              "28d9badc",
+              "cf137770"
             ]
           }
         },
@@ -371,6 +393,10 @@
             "LOD": [
               "8d0db7a6",
               "f225423f"
+            ],
+            "lod_high": [
+              "b3927ca5",
+              "9692bd97"
             ]
           }
         },
@@ -386,6 +412,9 @@
             "LOD": [
               "fb7246e2",
               "b399a4b3"
+            ],
+            "lod_high": [
+              "e98f32da"
             ]
           }
         },
@@ -397,6 +426,10 @@
             "LOD": [
               "2c3f1763",
               "6d54adc1"
+            ],
+            "lod_high": [
+              "66f3edc5",
+              "109cc560"
             ]
           }
         },
@@ -412,6 +445,9 @@
             "LOD": [
               "c82ec65d",
               "0af03518"
+            ],
+            "lod_high": [
+              "3e1e3e10"
             ]
           }
         },
@@ -427,6 +463,10 @@
             "LOD": [
               "b2dfbfd6",
               "2b311f69"
+            ],
+            "lod_high": [
+              "3431080a",
+              "d01d0380"
             ]
           }
         },
@@ -443,6 +483,9 @@
             "LOD": [
               "6ee047e1",
               "2711d6ed"
+            ],
+            "lod_high": [
+              "d90b6260"
             ]
           }
         },
@@ -458,6 +501,10 @@
             "LOD": [
               "1c0b70fb",
               "c90fd734"
+            ],
+            "lod_high": [
+              "a457850c",
+              "4db76b74"
             ]
           }
         },
@@ -473,6 +520,10 @@
             "LOD": [
               "1d9cd406",
               "b59a10c8"
+            ],
+            "lod_high": [
+              "20f6aa93",
+              "8ca059b1"
             ]
           }
         },
@@ -483,6 +534,10 @@
           },
           "derive": {
             "LOD": [
+              "c41bbf0b",
+              "c5673dfc"
+            ],
+            "lod_high": [
               "c41bbf0b",
               "c5673dfc"
             ]
@@ -503,6 +558,14 @@
             ],
             "Charged": [
               "a54870d2"
+            ],
+            "lod_derived": [
+              "a54870d2",
+              "7e6c8d99"
+            ],
+            "lod_high": [
+              "e705968b",
+              "a4a79abf"
             ]
           }
         },
@@ -529,6 +592,10 @@
           },
           "derive": {
             "LOD": [
+              "3201433c",
+              "1cff0950"
+            ],
+            "lod_high": [
               "3201433c",
               "1cff0950"
             ]
@@ -693,7 +760,12 @@
         "c6acaf94": {
           "replace": [
             "6a73cfad"
-          ]
+          ],
+          "derive": {
+            "lod_high": [
+              "6a73cfad"
+            ]
+          }
         },
         "c6a3d0b6": {
           "replace": [
@@ -714,6 +786,86 @@
           "replace": [
             "98e4d102"
           ]
+        },
+        "8d8097bc": {
+          "replace": [
+            "2738a0f0"
+          ],
+          "derive": {}
+        },
+        "109cc560": {
+          "replace": [
+            "f4d53308"
+          ],
+          "derive": {}
+        },
+        "d01d0380": {
+          "replace": [
+            "a617d6c7"
+          ],
+          "derive": {}
+        },
+        "75591798": {
+          "replace": [
+            "0454fc47"
+          ],
+          "derive": {}
+        },
+        "2f18521b": {
+          "replace": [
+            "ec96a652"
+          ],
+          "derive": {}
+        },
+        "877f231c": {
+          "replace": [
+            "0f96de11"
+          ],
+          "derive": {}
+        },
+        "b0f668d2": {
+          "replace": [
+            "8a1d2f74"
+          ],
+          "derive": {}
+        },
+        "ab9067bf": {
+          "replace": [
+            "913631e7"
+          ],
+          "derive": {}
+        },
+        "dd8a4a66": {
+          "replace": [
+            "ddb38365"
+          ],
+          "derive": {}
+        },
+        "99344498": {
+          "replace": [
+            "7253f898"
+          ],
+          "derive": {}
+        },
+        "20bb1b79": {
+          "replace": [
+            "ee161660"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "0eb70c8f": {
+          "replace": [],
+          "derive": {
+            "lod_high": [
+              "603341e7"
+            ]
+          }
         }
       }
     },
@@ -973,6 +1125,18 @@
           "replace": [
             "6cf0c8eb"
           ]
+        },
+        "ab9067bf": {
+          "replace": [
+            "913631e7"
+          ],
+          "derive": {}
+        },
+        "e83df319": {
+          "replace": [
+            "b5d87476"
+          ],
+          "derive": {}
         }
       }
     },
@@ -1030,6 +1194,30 @@
           "replace": [
             "9348c975"
           ]
+        },
+        "027923c2": {
+          "replace": [
+            "93be2368"
+          ],
+          "derive": {}
+        },
+        "c3356f41": {
+          "replace": [
+            "a1e2e0cd"
+          ],
+          "derive": {}
+        },
+        "d631bef7": {
+          "replace": [
+            "4069afd9"
+          ],
+          "derive": {}
+        },
+        "5b1c469d": {
+          "replace": [
+            "449a1d2c"
+          ],
+          "derive": {}
         }
       }
     },
@@ -1292,6 +1480,30 @@
           "replace": [
             "028f5639"
           ]
+        },
+        "742c5c7b": {
+          "replace": [
+            "21f813ba"
+          ],
+          "derive": {}
+        },
+        "d2d4089a": {
+          "replace": [
+            "7d4edaf8"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "feb4d9c5": {
+          "replace": [
+            "41558879"
+          ],
+          "derive": {}
         }
       }
     },
@@ -1302,6 +1514,10 @@
             "300c0bc2"
           ],
           "new": "300c0bc2"
+        },
+        {
+          "old": [],
+          "new": "066be89d"
         }
       ],
       "textures": {
@@ -1358,6 +1574,48 @@
           "replace": [
             "a962a05e"
           ]
+        },
+        "6ca0d0c6": {
+          "replace": [
+            "32a4516c"
+          ],
+          "derive": {}
+        },
+        "f1f16d20": {
+          "replace": [
+            "6ca0d0c6"
+          ],
+          "derive": {}
+        },
+        "28509cc3": {
+          "replace": [
+            "7f0f873b"
+          ],
+          "derive": {}
+        },
+        "ae671cb5": {
+          "replace": [
+            "79a892d7"
+          ],
+          "derive": {}
+        },
+        "69bd133c": {
+          "replace": [
+            "a64f6527"
+          ],
+          "derive": {}
+        },
+        "9efa7f30": {
+          "replace": [
+            "abbec766"
+          ],
+          "derive": {}
+        },
+        "ef921611": {
+          "replace": [
+            "c38e9ebc"
+          ],
+          "derive": {}
         }
       }
     },
@@ -1374,6 +1632,10 @@
             "d8d2286b"
           ],
           "new": "d8d2286b"
+        },
+        {
+          "old": [],
+          "new": "4a2b2eca"
         }
       ],
       "vg_remaps": [
@@ -1577,6 +1839,109 @@
               "3dd54744"
             ]
           }
+        },
+        "718456ac": {
+          "replace": [
+            "37bed36b"
+          ],
+          "derive": {}
+        },
+        "d7756134": {
+          "replace": [
+            "52c9b804"
+          ],
+          "derive": {}
+        },
+        "43ae1deb": {
+          "replace": [
+            "1a09bbb5"
+          ],
+          "derive": {}
+        },
+        "fe4e4afe": {
+          "replace": [
+            "d755a4a9"
+          ],
+          "derive": {}
+        },
+        "3cb91e7f": {
+          "replace": [
+            "4a2b2eca"
+          ],
+          "derive": {}
+        },
+        "f0f101b3": {
+          "replace": [
+            "1a09bbb5",
+            "7404e947"
+          ],
+          "derive": {}
+        },
+        "39b39c99": {
+          "replace": [
+            "49a71537"
+          ],
+          "derive": {}
+        },
+        "4e4d79b9": {
+          "replace": [
+            "7c460f02"
+          ],
+          "derive": {}
+        },
+        "64b13efd": {
+          "replace": [
+            "804d32e9"
+          ],
+          "derive": {}
+        },
+        "cac210d5": {
+          "replace": [
+            "2b7eb01d"
+          ],
+          "derive": {}
+        },
+        "0be38d62": {
+          "replace": [
+            "718456ac"
+          ],
+          "derive": {}
+        },
+        "afe67129": {
+          "replace": [
+            "64cc6fa8"
+          ],
+          "derive": {}
+        },
+        "a2315519": {
+          "replace": [
+            "91754701"
+          ],
+          "derive": {}
+        },
+        "ff9b6df0": {
+          "replace": [
+            "d7756134"
+          ],
+          "derive": {}
+        },
+        "6504b699": {
+          "replace": [
+            "afe67129"
+          ],
+          "derive": {}
+        },
+        "40c797c8": {
+          "replace": [
+            "ff9b6df0"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
         }
       }
     },
@@ -1654,6 +2019,37 @@
           "replace": [
             "c688b58f"
           ]
+        },
+        "6f6dd255": {
+          "replace": [
+            "9a0529f4"
+          ],
+          "derive": {}
+        },
+        "99378d4e": {
+          "replace": [
+            "11c6338a"
+          ],
+          "derive": {}
+        },
+        "463edc25": {
+          "replace": [
+            "6f6dd255",
+            "da907816"
+          ],
+          "derive": {}
+        },
+        "26c9e8ae": {
+          "replace": [
+            "99378d4e"
+          ],
+          "derive": {}
+        },
+        "dddd4368": {
+          "replace": [
+            "6c56deec"
+          ],
+          "derive": {}
         }
       }
     },
@@ -1676,6 +2072,24 @@
           "replace": [
             "6515ef9f"
           ]
+        },
+        "179face8": {
+          "replace": [
+            "147b4c33"
+          ],
+          "derive": {}
+        },
+        "872bc631": {
+          "replace": [
+            "6792e6ff"
+          ],
+          "derive": {}
+        },
+        "5137a5d5": {
+          "replace": [
+            "0f4dd831"
+          ],
+          "derive": {}
         }
       }
     },
@@ -1874,6 +2288,114 @@
               "2829a152"
             ]
           }
+        },
+        "10cdc735": {
+          "replace": [
+            "79c389b5"
+          ],
+          "derive": {}
+        },
+        "0f4e6e0a": {
+          "replace": [
+            "93f37a93"
+          ],
+          "derive": {}
+        },
+        "ef87053b": {
+          "replace": [
+            "41be688c"
+          ],
+          "derive": {}
+        },
+        "8b117bac": {
+          "replace": [
+            "2cf897c6"
+          ],
+          "derive": {}
+        },
+        "92036301": {
+          "replace": [
+            "567e2ab7"
+          ],
+          "derive": {}
+        },
+        "f69259fd": {
+          "replace": [
+            "67175ee6"
+          ],
+          "derive": {}
+        },
+        "c1f72669": {
+          "replace": [
+            "8b25adba"
+          ],
+          "derive": {}
+        },
+        "33a5aeec": {
+          "replace": [
+            "47c4cf4b"
+          ],
+          "derive": {}
+        },
+        "9c7aac2e": {
+          "replace": [
+            "1830304b"
+          ],
+          "derive": {}
+        },
+        "b5976b09": {
+          "replace": [
+            "fc28e018"
+          ],
+          "derive": {}
+        },
+        "541ea4fd": {
+          "replace": [
+            "9e2806f0"
+          ],
+          "derive": {}
+        },
+        "2e23b57a": {
+          "replace": [
+            "88535a86"
+          ],
+          "derive": {}
+        },
+        "5613d39c": {
+          "replace": [
+            "1d8fc580"
+          ],
+          "derive": {}
+        },
+        "1d8fc580": {
+          "replace": [
+            "9c7aac2e"
+          ],
+          "derive": {}
+        },
+        "820515a6": {
+          "replace": [
+            "c1f72669"
+          ],
+          "derive": {}
+        },
+        "88535a86": {
+          "replace": [
+            "33a5aeec"
+          ],
+          "derive": {}
+        },
+        "742c5c7b": {
+          "replace": [
+            "21f813ba"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
         }
       }
     },
@@ -2186,6 +2708,84 @@
           "replace": [
             "97821bff"
           ]
+        },
+        "d4a87b42": {
+          "replace": [
+            "7e87c77a"
+          ],
+          "derive": {}
+        },
+        "5687b335": {
+          "replace": [
+            "de0af803"
+          ],
+          "derive": {}
+        },
+        "88fc89dd": {
+          "replace": [
+            "0485b505"
+          ],
+          "derive": {}
+        },
+        "b578f66a": {
+          "replace": [
+            "3320efad"
+          ],
+          "derive": {}
+        },
+        "790dc54b": {
+          "replace": [
+            "96cdca80"
+          ],
+          "derive": {}
+        },
+        "0465ef39": {
+          "replace": [
+            "e8d882a0"
+          ],
+          "derive": {}
+        },
+        "71756a01": {
+          "replace": [
+            "feff1922"
+          ],
+          "derive": {}
+        },
+        "3e77c6f1": {
+          "replace": [
+            "8a7d6de5"
+          ],
+          "derive": {}
+        },
+        "1ae38ad2": {
+          "replace": [
+            "52197a16"
+          ],
+          "derive": {}
+        },
+        "c7e92085": {
+          "replace": [
+            "cd396a57"
+          ],
+          "derive": {}
+        },
+        "21f813ba": {
+          "replace": [
+            "c235c6a7"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "742c5c7b": {
+          "replace": [
+            "21f813ba"
+          ],
+          "derive": {}
         }
       }
     },
@@ -2202,6 +2802,10 @@
             "006cda67"
           ],
           "new": "006cda67"
+        },
+        {
+          "old": [],
+          "new": "204d5b93"
         }
       ],
       "textures": {
@@ -2245,6 +2849,54 @@
               "c64b31f8"
             ]
           }
+        },
+        "d482f64e": {
+          "replace": [
+            "f657b0b8"
+          ],
+          "derive": {}
+        },
+        "31f8578b": {
+          "replace": [
+            "cb23f0b5"
+          ],
+          "derive": {}
+        },
+        "6ff53121": {
+          "replace": [
+            "7fb5bdaa"
+          ],
+          "derive": {}
+        },
+        "a9ac91bd": {
+          "replace": [
+            "dc896878"
+          ],
+          "derive": {}
+        },
+        "75a72a87": {
+          "replace": [
+            "16a54566"
+          ],
+          "derive": {}
+        },
+        "63d58a3c": {
+          "replace": [
+            "6ff53121"
+          ],
+          "derive": {}
+        },
+        "3904c46c": {
+          "replace": [
+            "a9ac91bd"
+          ],
+          "derive": {}
+        },
+        "d1b2d3a8": {
+          "replace": [
+            "abd8ae68"
+          ],
+          "derive": {}
         }
       }
     },
@@ -2383,6 +3035,102 @@
               "2d9cd43e"
             ]
           }
+        },
+        "b4355151": {
+          "replace": [
+            "6ce51d7a"
+          ],
+          "derive": {}
+        },
+        "afadfdbd": {
+          "replace": [
+            "837c1b30"
+          ],
+          "derive": {}
+        },
+        "e299e4ca": {
+          "replace": [
+            "edfe74f8"
+          ],
+          "derive": {}
+        },
+        "422a50e2": {
+          "replace": [
+            "fc743d45"
+          ],
+          "derive": {}
+        },
+        "edfe74f8": {
+          "replace": [
+            "780dc4ee"
+          ],
+          "derive": {}
+        },
+        "4cbab190": {
+          "replace": [
+            "faf8f2ae"
+          ],
+          "derive": {}
+        },
+        "277dcf73": {
+          "replace": [
+            "212d1d6a"
+          ],
+          "derive": {}
+        },
+        "9b03ba8c": {
+          "replace": [
+            "830aecff"
+          ],
+          "derive": {}
+        },
+        "d8a26ff8": {
+          "replace": [
+            "5d4de02b"
+          ],
+          "derive": {}
+        },
+        "26e023bb": {
+          "replace": [
+            "0f14fc34"
+          ],
+          "derive": {}
+        },
+        "fed8469a": {
+          "replace": [
+            "3a299182"
+          ],
+          "derive": {}
+        },
+        "4f357454": {
+          "replace": [
+            "5f4e6f09"
+          ],
+          "derive": {}
+        },
+        "21f813ba": {
+          "replace": [
+            "c235c6a7"
+          ],
+          "derive": {}
+        },
+        "81cbd7c4": {
+          "replace": [
+            "edfe74f8"
+          ],
+          "derive": {}
+        },
+        "742c5c7b": {
+          "replace": [
+            "21f813ba"
+          ],
+          "derive": {}
+        },
+        "a9ecedcf": {
+          "replace": [
+            "f0c34a19"
+          ],
+          "derive": {}
         }
       }
     },
@@ -2422,6 +3170,10 @@
           "derive": {
             "wet": [
               "3f69452a"
+            ],
+            "lod_derived": [
+              "2e3235e6",
+              "e236db0d"
             ]
           }
         },
@@ -2443,6 +3195,10 @@
           "derive": {
             "wet": [
               "22e3b291"
+            ],
+            "lod_derived": [
+              "347ad703",
+              "ffbc2cb6"
             ]
           }
         },
@@ -2459,7 +3215,8 @@
           },
           "replace": [
             "f7dadc16",
-            "87821a93"
+            "87821a93",
+            "d0429c4a"
           ],
           "derive": {
             "wet": [
@@ -2484,6 +3241,10 @@
           "derive": {
             "wet": [
               "d5324e01"
+            ],
+            "lod_derived": [
+              "42158681",
+              "086dd026"
             ]
           }
         },
@@ -2519,6 +3280,10 @@
           "derive": {
             "wet": [
               "58d8d40a"
+            ],
+            "lod_derived": [
+              "efc6322d",
+              "85874a2d"
             ]
           }
         },
@@ -2543,6 +3308,10 @@
           "derive": {
             "wet": [
               "ca852a8d"
+            ],
+            "lod_derived": [
+              "99d58ba6",
+              "17dab4aa"
             ]
           }
         },
@@ -2600,6 +3369,236 @@
             "5fb46aac",
             "83a99602"
           ]
+        },
+        "b6deb6c2": {
+          "replace": [
+            "35c01267",
+            "734ad993"
+          ],
+          "derive": {}
+        },
+        "801b4344": {
+          "replace": [
+            "354e8743"
+          ],
+          "derive": {}
+        },
+        "884dc2c3": {
+          "replace": [
+            "28105b41"
+          ],
+          "derive": {}
+        },
+        "0480d129": {
+          "replace": [
+            "0fce3633",
+            "59c7c460"
+          ],
+          "derive": {}
+        },
+        "2745d8b5": {
+          "replace": [
+            "a45cb30b"
+          ],
+          "derive": {}
+        },
+        "4a9b2a09": {
+          "replace": [
+            "316457f4"
+          ],
+          "derive": {}
+        },
+        "812ba53f": {
+          "replace": [
+            "787c92b8"
+          ],
+          "derive": {}
+        },
+        "5cfb3cbc": {
+          "replace": [
+            "8f3ebd32"
+          ],
+          "derive": {}
+        },
+        "ad7c2fad": {
+          "replace": [
+            "797bc768"
+          ],
+          "derive": {}
+        },
+        "734ad993": {
+          "replace": [
+            "b6deb6c2"
+          ],
+          "derive": {}
+        },
+        "abd93fa3": {
+          "replace": [
+            "801b4344"
+          ],
+          "derive": {}
+        },
+        "e3127902": {
+          "replace": [
+            "884dc2c3"
+          ],
+          "derive": {}
+        },
+        "59c7c460": {
+          "replace": [
+            "0480d129"
+          ],
+          "derive": {}
+        },
+        "3ebe428b": {
+          "replace": [
+            "d789c54e"
+          ],
+          "derive": {}
+        },
+        "91bf0adb": {
+          "replace": [
+            "40e95d0b"
+          ],
+          "derive": {}
+        },
+        "787c92b8": {
+          "replace": [
+            "812ba53f"
+          ],
+          "derive": {}
+        },
+        "3cda6614": {
+          "replace": [
+            "94a9c5e1"
+          ],
+          "derive": {}
+        },
+        "87b19749": {
+          "replace": [
+            "2091f4e1"
+          ],
+          "derive": {}
+        },
+        "b8fe5f0a": {
+          "replace": [
+            "c93ea25b"
+          ],
+          "derive": {}
+        },
+        "f7dadc16": {
+          "replace": [
+            "87821a93"
+          ],
+          "derive": {}
+        },
+        "21f813ba": {
+          "replace": [
+            "c235c6a7"
+          ],
+          "derive": {}
+        },
+        "9986ce50": {
+          "replace": [
+            "dc14e209"
+          ],
+          "derive": {}
+        },
+        "5bbb1f80": {
+          "replace": [
+            "5db1989d"
+          ],
+          "derive": {}
+        },
+        "76a3b6f4": {
+          "replace": [
+            "dcb62fb6"
+          ],
+          "derive": {}
+        },
+        "5fb46aac": {
+          "replace": [
+            "83a99602"
+          ],
+          "derive": {}
+        },
+        "b4b8de71": {
+          "replace": [
+            "5e48f2a4"
+          ],
+          "derive": {}
+        },
+        "8f3ebd32": {
+          "replace": [
+            "5cfb3cbc"
+          ],
+          "derive": {}
+        },
+        "f6c26213": {
+          "replace": [
+            "ef3dab0e"
+          ],
+          "derive": {}
+        },
+        "d0429c4a": {
+          "replace": [
+            "a01a5acf"
+          ],
+          "derive": {}
+        },
+        "c3902379": {
+          "replace": [
+            "d67890aa"
+          ],
+          "derive": {}
+        },
+        "2e3235e6": {
+          "replace": [
+            "b4b8de71"
+          ],
+          "derive": {}
+        },
+        "347ad703": {
+          "replace": [
+            "f6c26213"
+          ],
+          "derive": {}
+        },
+        "742c5c7b": {
+          "replace": [
+            "21f813ba"
+          ],
+          "derive": {}
+        },
+        "7017a7d9": {
+          "replace": [
+            "f9cf36b0"
+          ],
+          "derive": {}
+        },
+        "42158681": {
+          "replace": [
+            "8f3ebd32"
+          ],
+          "derive": {}
+        },
+        "efc6322d": {
+          "replace": [
+            "abd93fa3"
+          ],
+          "derive": {}
+        },
+        "99d58ba6": {
+          "replace": [
+            "c3902379"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
         }
       }
     },
@@ -2632,6 +3631,24 @@
             "310a0a6a",
             "daed0b06"
           ]
+        },
+        "093cb526": {
+          "replace": [
+            "52a54db3"
+          ],
+          "derive": {}
+        },
+        "52a54db3": {
+          "replace": [
+            "093cb526"
+          ],
+          "derive": {}
+        },
+        "310a0a6a": {
+          "replace": [
+            "daed0b06"
+          ],
+          "derive": {}
         }
       }
     },
@@ -2642,6 +3659,18 @@
             "4ba716ae"
           ],
           "new": "4ba716ae"
+        },
+        {
+          "old": [],
+          "new": "7a99d388"
+        },
+        {
+          "old": [],
+          "new": "6f63ec37"
+        },
+        {
+          "old": [],
+          "new": "74704fa0"
         }
       ],
       "skip_components": [
@@ -2779,6 +3808,168 @@
           "replace": [
             "c83f222f"
           ]
+        },
+        "fc76838a": {
+          "replace": [
+            "90e7de37"
+          ],
+          "derive": {}
+        },
+        "c7918746": {
+          "replace": [
+            "129c321d"
+          ],
+          "derive": {}
+        },
+        "6a96ee48": {
+          "replace": [
+            "6deb3b31"
+          ],
+          "derive": {}
+        },
+        "ee96e964": {
+          "replace": [
+            "10d7620f"
+          ],
+          "derive": {}
+        },
+        "fd016c75": {
+          "replace": [
+            "abea3993"
+          ],
+          "derive": {}
+        },
+        "463ab246": {
+          "replace": [
+            "aff53965"
+          ],
+          "derive": {}
+        },
+        "27abb610": {
+          "replace": [
+            "1874bd89"
+          ],
+          "derive": {}
+        },
+        "21f813ba": {
+          "replace": [
+            "c235c6a7"
+          ],
+          "derive": {}
+        },
+        "4e6f1f5a": {
+          "replace": [
+            "153a9a2b"
+          ],
+          "derive": {}
+        },
+        "f1efbf6d": {
+          "replace": [
+            "f81deb51"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "14113607": {
+          "replace": [
+            "21f813ba"
+          ],
+          "derive": {}
+        },
+        "97d0d805": {
+          "replace": [
+            "2068cc7f"
+          ],
+          "derive": {}
+        },
+        "bca03418": {
+          "replace": [
+            "e5c2ff32"
+          ],
+          "derive": {}
+        },
+        "177134b1": {
+          "replace": [
+            "722a6857"
+          ],
+          "derive": {}
+        },
+        "a7b8292e": {
+          "replace": [
+            "a72986f4"
+          ],
+          "derive": {}
+        },
+        "4be81a6f": {
+          "replace": [
+            "3f4597f1"
+          ],
+          "derive": {}
+        },
+        "14933e70": {
+          "replace": [
+            "07b14c5e"
+          ],
+          "derive": {}
+        },
+        "610dcf48": {
+          "replace": [
+            "25ab823d"
+          ],
+          "derive": {}
+        },
+        "aac4c434": {
+          "replace": [
+            "177134b1"
+          ],
+          "derive": {}
+        },
+        "fc18428e": {
+          "replace": [
+            "a7b8292e"
+          ],
+          "derive": {}
+        },
+        "b1dd89af": {
+          "replace": [
+            "4be81a6f"
+          ],
+          "derive": {}
+        },
+        "acbdd8c4": {
+          "replace": [
+            "610dcf48"
+          ],
+          "derive": {}
+        },
+        "e1fd5b47": {
+          "replace": [
+            "14933e70"
+          ],
+          "derive": {}
+        },
+        "316baad6": {
+          "replace": [
+            "97d0d805"
+          ],
+          "derive": {}
+        },
+        "7f1582e6": {
+          "replace": [
+            "bbd2a5b7"
+          ],
+          "derive": {}
+        },
+        "a8791437": {
+          "replace": [
+            "bca03418"
+          ],
+          "derive": {}
         }
       }
     },
@@ -2833,6 +4024,36 @@
             "df2d1f7b",
             "9ec0b80f"
           ]
+        },
+        "15885f04": {
+          "replace": [
+            "fef960d0"
+          ],
+          "derive": {}
+        },
+        "2c08bef8": {
+          "replace": [
+            "24d244c6"
+          ],
+          "derive": {}
+        },
+        "30bc60f3": {
+          "replace": [
+            "514a16b0"
+          ],
+          "derive": {}
+        },
+        "ea549e9a": {
+          "replace": [
+            "a522548d"
+          ],
+          "derive": {}
+        },
+        "9ec0b80f": {
+          "replace": [
+            "df2d1f7b"
+          ],
+          "derive": {}
         }
       }
     },
@@ -2869,7 +4090,8 @@
         "ff618d2a": {
           "replace": [
             "4b8a6357",
-            "137c6faa"
+            "137c6faa",
+            "cae39d06"
           ]
         },
         "1a471e7a": {
@@ -2897,6 +4119,72 @@
             "a8a2d3b8",
             "52f88bd2"
           ]
+        },
+        "c7042488": {
+          "replace": [
+            "1d394c0e"
+          ],
+          "derive": {}
+        },
+        "2c08bef8": {
+          "replace": [
+            "24d244c6"
+          ],
+          "derive": {}
+        },
+        "cae39d06": {
+          "replace": [
+            "3886b266"
+          ],
+          "derive": {}
+        },
+        "137c6faa": {
+          "replace": [
+            "4b8a6357"
+          ],
+          "derive": {}
+        },
+        "cae6d5b6": {
+          "replace": [
+            "7f0aa102"
+          ],
+          "derive": {}
+        },
+        "1842bc28": {
+          "replace": [
+            "9d0b65e1"
+          ],
+          "derive": {}
+        },
+        "52f88bd2": {
+          "replace": [
+            "a8a2d3b8"
+          ],
+          "derive": {}
+        },
+        "9ec0b80f": {
+          "replace": [
+            "df2d1f7b"
+          ],
+          "derive": {}
+        },
+        "a16a1785": {
+          "replace": [
+            "2c08bef8"
+          ],
+          "derive": {}
+        },
+        "5be8371d": {
+          "replace": [
+            "9ec0b80f"
+          ],
+          "derive": {}
+        },
+        "c9e0a055": {
+          "replace": [
+            "52f88bd2"
+          ],
+          "derive": {}
         }
       }
     },
@@ -3037,6 +4325,36 @@
               "c3f7a100"
             ]
           }
+        },
+        "4e6f1f5a": {
+          "replace": [
+            "8cb532af"
+          ],
+          "derive": {}
+        },
+        "abe03def": {
+          "replace": [
+            "90e7de37"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "d9a09450": {
+          "replace": [
+            "129c321d"
+          ],
+          "derive": {}
+        },
+        "742c5c7b": {
+          "replace": [
+            "c235c6a7"
+          ],
+          "derive": {}
         }
       }
     },
@@ -3235,7 +4553,8 @@
           },
           "replace": [
             "5ca9b4f0",
-            "3ff8b56e"
+            "3ff8b56e",
+            "5ec1f4de"
           ],
           "derive": {
             "LOD": [
@@ -3412,7 +4731,8 @@
         "7894424a": {
           "replace": [
             "5ec1f4de",
-            "c17eb9f5"
+            "c17eb9f5",
+            "5ca9b4f0"
           ]
         },
         "09da28b2": {
@@ -3441,6 +4761,126 @@
           "replace": [
             "83537519"
           ]
+        },
+        "d98578ec": {
+          "replace": [
+            "64cd06f9"
+          ],
+          "derive": {}
+        },
+        "083564da": {
+          "replace": [
+            "8d9954bf"
+          ],
+          "derive": {}
+        },
+        "b8b55682": {
+          "replace": [
+            "fb32025d"
+          ],
+          "derive": {}
+        },
+        "ecc1c90a": {
+          "replace": [
+            "423ec9ce"
+          ],
+          "derive": {}
+        },
+        "f953f385": {
+          "replace": [
+            "7ef7dba9"
+          ],
+          "derive": {}
+        },
+        "a6ac08f5": {
+          "replace": [
+            "7f08cd4f"
+          ],
+          "derive": {}
+        },
+        "5ca9b4f0": {
+          "replace": [
+            "3ff8b56e"
+          ],
+          "derive": {}
+        },
+        "5ec1f4de": {
+          "replace": [
+            "c17eb9f5"
+          ],
+          "derive": {}
+        },
+        "6b7fb28f": {
+          "replace": [
+            "d10e2ae1"
+          ],
+          "derive": {}
+        },
+        "803452b8": {
+          "replace": [
+            "923d8c06"
+          ],
+          "derive": {}
+        },
+        "a8b86995": {
+          "replace": [
+            "052142b5"
+          ],
+          "derive": {}
+        },
+        "c3235f6a": {
+          "replace": [
+            "f69958a2"
+          ],
+          "derive": {}
+        },
+        "fec2f60b": {
+          "replace": [
+            "fd0268ad"
+          ],
+          "derive": {}
+        },
+        "6c7cc5cc": {
+          "replace": [
+            "ae8fd5fb"
+          ],
+          "derive": {}
+        },
+        "18228dc3": {
+          "replace": [
+            "b0d30838"
+          ],
+          "derive": {}
+        },
+        "acfd6fe0": {
+          "replace": [
+            "241a6fbe"
+          ],
+          "derive": {}
+        },
+        "b2e6f707": {
+          "replace": [
+            "1f426e73"
+          ],
+          "derive": {}
+        },
+        "ffbd8eee": {
+          "replace": [
+            "c5b7aee2"
+          ],
+          "derive": {}
+        },
+        "62103171": {
+          "replace": [
+            "8e7433fa"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
         }
       }
     },
@@ -3466,6 +4906,14 @@
             "060f5303"
           ],
           "new": "277e18c9"
+        },
+        {
+          "old": [],
+          "new": "5f8aac45"
+        },
+        {
+          "old": [],
+          "new": "baaa6262"
         }
       ],
       "rules": [
@@ -3732,7 +5180,8 @@
           },
           "replace": [
             "c02dbf56",
-            "258c919f"
+            "258c919f",
+            "e047ea9c"
           ],
           "derive": {
             "LOD": [
@@ -3815,6 +5264,222 @@
               "fbfee0ea"
             ]
           }
+        },
+        "5f8aac45": {
+          "replace": [
+            "77975500"
+          ],
+          "derive": {}
+        },
+        "1ccb8008": {
+          "replace": [
+            "d8decbca"
+          ],
+          "derive": {}
+        },
+        "060f5303": {
+          "replace": [
+            "fd9483ca"
+          ],
+          "derive": {}
+        },
+        "f23483e3": {
+          "replace": [
+            "8f067708"
+          ],
+          "derive": {}
+        },
+        "225aad5a": {
+          "replace": [
+            "c79a4ccb"
+          ],
+          "derive": {}
+        },
+        "d14bed8b": {
+          "replace": [
+            "5f8aac45"
+          ],
+          "derive": {}
+        },
+        "59f24b66": {
+          "replace": [
+            "1ccb8008"
+          ],
+          "derive": {}
+        },
+        "277e18c9": {
+          "replace": [
+            "060f5303"
+          ],
+          "derive": {}
+        },
+        "25e6decf": {
+          "replace": [
+            "8094e3ca"
+          ],
+          "derive": {}
+        },
+        "89da6405": {
+          "replace": [
+            "d6f4003a"
+          ],
+          "derive": {}
+        },
+        "fcec9218": {
+          "replace": [
+            "30017835"
+          ],
+          "derive": {}
+        },
+        "21f813ba": {
+          "replace": [
+            "c235c6a7"
+          ],
+          "derive": {}
+        },
+        "3e6d3c8e": {
+          "replace": [
+            "a45bfe26"
+          ],
+          "derive": {}
+        },
+        "7eb470fc": {
+          "replace": [
+            "5fff67ee"
+          ],
+          "derive": {}
+        },
+        "fde34d42": {
+          "replace": [
+            "1d3ad29f"
+          ],
+          "derive": {}
+        },
+        "0484ab73": {
+          "replace": [
+            "6f7a2dab"
+          ],
+          "derive": {}
+        },
+        "798ec300": {
+          "replace": [
+            "92c11772"
+          ],
+          "derive": {}
+        },
+        "9a3f146d": {
+          "replace": [
+            "b54a043e"
+          ],
+          "derive": {}
+        },
+        "c0f0b1e1": {
+          "replace": [
+            "e0b2f0d3"
+          ],
+          "derive": {}
+        },
+        "a97f587b": {
+          "replace": [
+            "225aad5a"
+          ],
+          "derive": {}
+        },
+        "3ff7cad2": {
+          "replace": [
+            "dfe134cd"
+          ],
+          "derive": {}
+        },
+        "69994531": {
+          "replace": [
+            "f23483e3"
+          ],
+          "derive": {}
+        },
+        "8407b021": {
+          "replace": [
+            "a260e7f7"
+          ],
+          "derive": {}
+        },
+        "ee867ac2": {
+          "replace": [
+            "00e5703f"
+          ],
+          "derive": {}
+        },
+        "4da65048": {
+          "replace": [
+            "998bc53c"
+          ],
+          "derive": {}
+        },
+        "e047ea9c": {
+          "replace": [
+            "2782d638"
+          ],
+          "derive": {}
+        },
+        "258c919f": {
+          "replace": [
+            "c02dbf56"
+          ],
+          "derive": {}
+        },
+        "59b52b44": {
+          "replace": [
+            "f98c7e7c"
+          ],
+          "derive": {}
+        },
+        "1bc98900": {
+          "replace": [
+            "eb70f116"
+          ],
+          "derive": {}
+        },
+        "259c280f": {
+          "replace": [
+            "89da6405"
+          ],
+          "derive": {}
+        },
+        "96177e42": {
+          "replace": [
+            "25e6decf"
+          ],
+          "derive": {}
+        },
+        "ee6e376d": {
+          "replace": [
+            "a97f587b"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "742c5c7b": {
+          "replace": [
+            "21f813ba"
+          ],
+          "derive": {}
+        },
+        "f7627a69": {
+          "replace": [
+            "d71c9476"
+          ],
+          "derive": {}
+        },
+        "f45990c0": {
+          "replace": [
+            "3f2a7371"
+          ],
+          "derive": {}
         }
       }
     },
@@ -4163,6 +5828,15 @@
           "derive": {
             "injured": [
               "d53a5a8c"
+            ],
+            "lod_derived": [
+              "506f0b79",
+              "d53a5a8c",
+              "5e14be5b",
+              "9a431a66",
+              "83563f0a",
+              "c249d5b4",
+              "d8303fe2"
             ]
           }
         },
@@ -4177,6 +5851,14 @@
           "derive": {
             "injured": [
               "cedc72aa"
+            ],
+            "lod_derived": [
+              "cedc72aa",
+              "6b304165",
+              "81a53240",
+              "7fe80093",
+              "cfdfc11e",
+              "f9169fa8"
             ]
           }
         },
@@ -4193,6 +5875,14 @@
           "derive": {
             "injured": [
               "3166f81c"
+            ],
+            "lod_derived": [
+              "0a4b1b48",
+              "2de6e57e",
+              "986dc585",
+              "3166f81c",
+              "723978c1",
+              "ba7e29d1"
             ]
           }
         },
@@ -4210,6 +5900,10 @@
           "derive": {
             "injured": [
               "638b7729"
+            ],
+            "lod_derived": [
+              "26a677a1",
+              "778ee915"
             ]
           }
         },
@@ -4224,6 +5918,12 @@
           "derive": {
             "injured": [
               "1f85a874"
+            ],
+            "lod_derived": [
+              "6b1550b0",
+              "55c52ec3",
+              "358df1be",
+              "a7ab2f73"
             ]
           }
         },
@@ -4241,17 +5941,25 @@
             ],
             "injured": [
               "c15ec615"
+            ],
+            "lod_derived": [
+              "8d339085",
+              "72c41737",
+              "be65fe72",
+              "c15ec615"
             ]
           }
         },
         "2970cef1": {
           "replace": [
-            "7ff6e112"
+            "7ff6e112",
+            "a6605a4e"
           ]
         },
         "a5da2563": {
           "replace": [
-            "c7beddc7"
+            "c7beddc7",
+            "d01fdd4f"
           ]
         },
         "2694816c": {
@@ -4268,6 +5976,278 @@
           "replace": [
             "247f4c84"
           ]
+        },
+        "9121c3f8": {
+          "replace": [
+            "c7a7ec1b"
+          ],
+          "derive": {}
+        },
+        "bb49600b": {
+          "replace": [
+            "f869e47c"
+          ],
+          "derive": {}
+        },
+        "403595f8": {
+          "replace": [
+            "0c153c12"
+          ],
+          "derive": {}
+        },
+        "a83a8906": {
+          "replace": [
+            "118a1a1f"
+          ],
+          "derive": {}
+        },
+        "4c7e5ddf": {
+          "replace": [
+            "1af8723c"
+          ],
+          "derive": {}
+        },
+        "6616fe2c": {
+          "replace": [
+            "25367a5b"
+          ],
+          "derive": {}
+        },
+        "4d9c4532": {
+          "replace": [
+            "2e966777"
+          ],
+          "derive": {}
+        },
+        "b4a8aefa": {
+          "replace": [
+            "ceb4b0f5"
+          ],
+          "derive": {}
+        },
+        "ea7a9c63": {
+          "replace": [
+            "4ae5d777"
+          ],
+          "derive": {}
+        },
+        "23b680fe": {
+          "replace": [
+            "bee2935e"
+          ],
+          "derive": {}
+        },
+        "d01fdd4f": {
+          "replace": [
+            "696814e9"
+          ],
+          "derive": {}
+        },
+        "35b4ef7f": {
+          "replace": [
+            "89517d4e",
+            "403595f8"
+          ],
+          "derive": {}
+        },
+        "7b7f1a19": {
+          "replace": [
+            "11105c28"
+          ],
+          "derive": {}
+        },
+        "a6605a4e": {
+          "replace": [
+            "c56a780b"
+          ],
+          "derive": {}
+        },
+        "8348a33b": {
+          "replace": [
+            "37250244",
+            "ea7a9c63"
+          ],
+          "derive": {}
+        },
+        "d8ed7611": {
+          "replace": [
+            "fee91ed9"
+          ],
+          "derive": {}
+        },
+        "06ecbf72": {
+          "replace": [
+            "23b680fe"
+          ],
+          "derive": {}
+        },
+        "d2bc37bc": {
+          "replace": [
+            "790f2cee"
+          ],
+          "derive": {}
+        },
+        "412ba586": {
+          "replace": [
+            "29b60a1b"
+          ],
+          "derive": {}
+        },
+        "2a9050cc": {
+          "replace": [
+            "b95895cf"
+          ],
+          "derive": {}
+        },
+        "0cc6f756": {
+          "replace": [
+            "d1996971"
+          ],
+          "derive": {}
+        },
+        "15cddd7c": {
+          "replace": [
+            "8348a33b"
+          ],
+          "derive": {}
+        },
+        "d6d66a07": {
+          "replace": [
+            "06ecbf72"
+          ],
+          "derive": {}
+        },
+        "662f126a": {
+          "replace": [
+            "9121c3f8"
+          ],
+          "derive": {}
+        },
+        "0aaef5a6": {
+          "replace": [
+            "fadd0cd0"
+          ],
+          "derive": {}
+        },
+        "e783ca72": {
+          "replace": [
+            "bb49600b"
+          ],
+          "derive": {}
+        },
+        "f42f50d6": {
+          "replace": [
+            "4d9c4532"
+          ],
+          "derive": {}
+        },
+        "0fe3a99b": {
+          "replace": [
+            "790f2cee"
+          ],
+          "derive": {}
+        },
+        "9c743ba1": {
+          "replace": [
+            "29b60a1b"
+          ],
+          "derive": {}
+        },
+        "6ae8dd10": {
+          "replace": [
+            "f1c2e889"
+          ],
+          "derive": {}
+        },
+        "506f0b79": {
+          "replace": [
+            "2970cef1"
+          ],
+          "derive": {}
+        },
+        "d8303fe2": {
+          "replace": [
+            "4535e095"
+          ],
+          "derive": {}
+        },
+        "6b304165": {
+          "replace": [
+            "d2bc37bc"
+          ],
+          "derive": {}
+        },
+        "7fe80093": {
+          "replace": [
+            "b839d040"
+          ],
+          "derive": {}
+        },
+        "0a4b1b48": {
+          "replace": [
+            "a5da2563"
+          ],
+          "derive": {}
+        },
+        "2de6e57e": {
+          "replace": [
+            "cabcd46b"
+          ],
+          "derive": {}
+        },
+        "778ee915": {
+          "replace": [
+            "35b4ef7f"
+          ],
+          "derive": {}
+        },
+        "26a677a1": {
+          "replace": [
+            "dae43ce3"
+          ],
+          "derive": {}
+        },
+        "a7ab2f73": {
+          "replace": [
+            "412ba586"
+          ],
+          "derive": {}
+        },
+        "55c52ec3": {
+          "replace": [
+            "efedcf0b"
+          ],
+          "derive": {}
+        },
+        "be65fe72": {
+          "replace": [
+            "2a9050cc"
+          ],
+          "derive": {}
+        },
+        "8d339085": {
+          "replace": [
+            "225c45fb"
+          ],
+          "derive": {}
+        },
+        "8224e584": {
+          "replace": [
+            "1131e4c1"
+          ],
+          "derive": {}
+        },
+        "1d03651f": {
+          "replace": [
+            "fbcb1f4b"
+          ],
+          "derive": {}
+        },
+        "226b31fc": {
+          "replace": [
+            "ac45f0a7"
+          ],
+          "derive": {}
         }
       }
     },
@@ -4278,8 +6258,20 @@
             "e611d493"
           ],
           "new": "95ecef77"
+        },
+        {
+          "old": [],
+          "new": "e611d493"
         }
-      ]
+      ],
+      "textures": {
+        "95ecef77": {
+          "replace": [
+            "e611d493"
+          ],
+          "derive": {}
+        }
+      }
     },
     "Chixia": {
       "main_hashes": [
@@ -4467,6 +6459,114 @@
           "replace": [
             "c26ba661"
           ]
+        },
+        "ab72381e": {
+          "replace": [
+            "eee73787"
+          ],
+          "derive": {}
+        },
+        "aeb47e33": {
+          "replace": [
+            "435d999a"
+          ],
+          "derive": {}
+        },
+        "7988637b": {
+          "replace": [
+            "45e0cedb"
+          ],
+          "derive": {}
+        },
+        "94afca13": {
+          "replace": [
+            "489b5f2a"
+          ],
+          "derive": {}
+        },
+        "94d10f56": {
+          "replace": [
+            "cb974015"
+          ],
+          "derive": {}
+        },
+        "873ca04e": {
+          "replace": [
+            "ba246036"
+          ],
+          "derive": {}
+        },
+        "a7141c04": {
+          "replace": [
+            "4a2657d7"
+          ],
+          "derive": {}
+        },
+        "eee73787": {
+          "replace": [
+            "ab72381e"
+          ],
+          "derive": {}
+        },
+        "4a2657d7": {
+          "replace": [
+            "a7141c04"
+          ],
+          "derive": {}
+        },
+        "489b5f2a": {
+          "replace": [
+            "94afca13"
+          ],
+          "derive": {}
+        },
+        "45e0cedb": {
+          "replace": [
+            "7988637b"
+          ],
+          "derive": {}
+        },
+        "ba246036": {
+          "replace": [
+            "873ca04e"
+          ],
+          "derive": {}
+        },
+        "75333d76": {
+          "replace": [
+            "8f423e37"
+          ],
+          "derive": {}
+        },
+        "d51104f6": {
+          "replace": [
+            "9497a1b9"
+          ],
+          "derive": {}
+        },
+        "8080d570": {
+          "replace": [
+            "e29e63d6"
+          ],
+          "derive": {}
+        },
+        "ebe1f999": {
+          "replace": [
+            "9f2544e0"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "5764478b": {
+          "replace": [
+            "1dcc0f1d"
+          ],
+          "derive": {}
         }
       }
     },
@@ -4477,6 +6577,14 @@
             "e57c9380"
           ],
           "new": "e57c9380"
+        },
+        {
+          "old": [],
+          "new": "9995dd1f"
+        },
+        {
+          "old": [],
+          "new": "7127ee39"
         }
       ],
       "skip_components": [
@@ -4546,7 +6654,8 @@
           },
           "replace": [
             "24af21ae",
-            "d79a3f55"
+            "d79a3f55",
+            "d8a26ff8"
           ]
         },
         "4db471ed": {
@@ -4646,6 +6755,198 @@
             "0448648a",
             "09e98e33"
           ]
+        },
+        "d79a3f55": {
+          "replace": [
+            "24af21ae"
+          ],
+          "derive": {}
+        },
+        "839d2623": {
+          "replace": [
+            "1603d6fa"
+          ],
+          "derive": {}
+        },
+        "24af21ae": {
+          "replace": [
+            "d79a3f55"
+          ],
+          "derive": {}
+        },
+        "3d32cb0e": {
+          "replace": [
+            "9b440397"
+          ],
+          "derive": {}
+        },
+        "8183786e": {
+          "replace": [
+            "e73ee6fb"
+          ],
+          "derive": {}
+        },
+        "21f813ba": {
+          "replace": [
+            "c235c6a7"
+          ],
+          "derive": {}
+        },
+        "f1838b66": {
+          "replace": [
+            "5395f197"
+          ],
+          "derive": {}
+        },
+        "29c8d938": {
+          "replace": [
+            "c26d7da2"
+          ],
+          "derive": {}
+        },
+        "8def9d8b": {
+          "replace": [
+            "34617fc8"
+          ],
+          "derive": {}
+        },
+        "e3e1281a": {
+          "replace": [
+            "cd7ec1f3"
+          ],
+          "derive": {}
+        },
+        "6f62c47a": {
+          "replace": [
+            "61fce32b"
+          ],
+          "derive": {}
+        },
+        "9d0fefda": {
+          "replace": [
+            "beb2b10e"
+          ],
+          "derive": {}
+        },
+        "f7063e17": {
+          "replace": [
+            "c44c3cb9"
+          ],
+          "derive": {}
+        },
+        "996b2e4b": {
+          "replace": [
+            "b5222998"
+          ],
+          "derive": {}
+        },
+        "a20c032a": {
+          "replace": [
+            "19d3de08"
+          ],
+          "derive": {}
+        },
+        "10d1aeac": {
+          "replace": [
+            "fe853fcf"
+          ],
+          "derive": {}
+        },
+        "de5a0f92": {
+          "replace": [
+            "4358f290"
+          ],
+          "derive": {}
+        },
+        "342dcbc3": {
+          "replace": [
+            "852b2b72"
+          ],
+          "derive": {}
+        },
+        "e7f8bb3b": {
+          "replace": [
+            "bf7e0ab1"
+          ],
+          "derive": {}
+        },
+        "6f620405": {
+          "replace": [
+            "4c379f61"
+          ],
+          "derive": {}
+        },
+        "5a41b6fa": {
+          "replace": [
+            "cca1af56"
+          ],
+          "derive": {}
+        },
+        "f58c741e": {
+          "replace": [
+            "2f590d3f"
+          ],
+          "derive": {}
+        },
+        "1cffa7e8": {
+          "replace": [
+            "748f8d97"
+          ],
+          "derive": {}
+        },
+        "37400c45": {
+          "replace": [
+            "3b5e4a9b"
+          ],
+          "derive": {}
+        },
+        "ed5511fe": {
+          "replace": [
+            "4e1fdf28"
+          ],
+          "derive": {}
+        },
+        "1f746639": {
+          "replace": [
+            "1e072c24"
+          ],
+          "derive": {}
+        },
+        "0448648a": {
+          "replace": [
+            "09e98e33"
+          ],
+          "derive": {}
+        },
+        "b017285b": {
+          "replace": [
+            "61d7bfce"
+          ],
+          "derive": {}
+        },
+        "967c93f1": {
+          "replace": [
+            "d89de028"
+          ],
+          "derive": {}
+        },
+        "ab798136": {
+          "replace": [
+            "5954a1e0"
+          ],
+          "derive": {}
+        },
+        "0fac7daf": {
+          "replace": [
+            "25d94733"
+          ],
+          "derive": {}
+        },
+        "742c5c7b": {
+          "replace": [
+            "21f813ba"
+          ],
+          "derive": {}
         }
       }
     },
@@ -4807,6 +7108,30 @@
               "674503ea"
             ]
           }
+        },
+        "aac2561c": {
+          "replace": [
+            "146320ad"
+          ],
+          "derive": {}
+        },
+        "620ad65d": {
+          "replace": [
+            "23c62b79"
+          ],
+          "derive": {}
+        },
+        "1872f98c": {
+          "replace": [
+            "aac2561c"
+          ],
+          "derive": {}
+        },
+        "0f670a57": {
+          "replace": [
+            "620ad65d"
+          ],
+          "derive": {}
         }
       }
     },
@@ -5040,6 +7365,84 @@
               "87f27fb9"
             ]
           }
+        },
+        "45a6240e": {
+          "replace": [
+            "bcf3db0a"
+          ],
+          "derive": {}
+        },
+        "cea68862": {
+          "replace": [
+            "1dd49aa4"
+          ],
+          "derive": {}
+        },
+        "7536f732": {
+          "replace": [
+            "5da1a7ae"
+          ],
+          "derive": {}
+        },
+        "beefbd72": {
+          "replace": [
+            "b7758489"
+          ],
+          "derive": {}
+        },
+        "18a39719": {
+          "replace": [
+            "da15e0f7"
+          ],
+          "derive": {}
+        },
+        "8ae06cff": {
+          "replace": [
+            "f56dbcb4"
+          ],
+          "derive": {}
+        },
+        "3802a4e4": {
+          "replace": [
+            "f6910c93"
+          ],
+          "derive": {}
+        },
+        "659ab32e": {
+          "replace": [
+            "500d4413"
+          ],
+          "derive": {}
+        },
+        "d35da2f0": {
+          "replace": [
+            "7c720662"
+          ],
+          "derive": {}
+        },
+        "6969fb89": {
+          "replace": [
+            "2e599849"
+          ],
+          "derive": {}
+        },
+        "65e1499b": {
+          "replace": [
+            "e2321307"
+          ],
+          "derive": {}
+        },
+        "11315dc1": {
+          "replace": [
+            "b4618a2b"
+          ],
+          "derive": {}
+        },
+        "689e446c": {
+          "replace": [
+            "c1f7edcc"
+          ],
+          "derive": {}
         }
       }
     },
@@ -5062,6 +7465,18 @@
             "b3a9968b"
           ],
           "new": "ac615568"
+        },
+        {
+          "old": [],
+          "new": "89d30421"
+        },
+        {
+          "old": [],
+          "new": "6b2be47e"
+        },
+        {
+          "old": [],
+          "new": "4e4dc18e"
         }
       ],
       "skip_components": [
@@ -5540,6 +7955,114 @@
           "replace": [
             "f54ae09a"
           ]
+        },
+        "50a229fd": {
+          "replace": [
+            "97064dd7"
+          ],
+          "derive": {}
+        },
+        "991fed0d": {
+          "replace": [
+            "ee083830"
+          ],
+          "derive": {}
+        },
+        "022aab80": {
+          "replace": [
+            "1a7930f9"
+          ],
+          "derive": {}
+        },
+        "3ead6468": {
+          "replace": [
+            "698223c8"
+          ],
+          "derive": {}
+        },
+        "768107b7": {
+          "replace": [
+            "4d03e84c"
+          ],
+          "derive": {}
+        },
+        "6172fc3c": {
+          "replace": [
+            "2bee1723"
+          ],
+          "derive": {}
+        },
+        "74b77ed7": {
+          "replace": [
+            "a000a7dd"
+          ],
+          "derive": {}
+        },
+        "0eaf2115": {
+          "replace": [
+            "bee4b470"
+          ],
+          "derive": {}
+        },
+        "2e562077": {
+          "replace": [
+            "66d49b87"
+          ],
+          "derive": {}
+        },
+        "685a3eb1": {
+          "replace": [
+            "ba94532d"
+          ],
+          "derive": {}
+        },
+        "e0338625": {
+          "replace": [
+            "3c2efa1e"
+          ],
+          "derive": {}
+        },
+        "34ea6da3": {
+          "replace": [
+            "59056b31"
+          ],
+          "derive": {}
+        },
+        "b2a439fd": {
+          "replace": [
+            "0e93bbad"
+          ],
+          "derive": {}
+        },
+        "fa0d87d7": {
+          "replace": [
+            "85d85b30"
+          ],
+          "derive": {}
+        },
+        "3aa18794": {
+          "replace": [
+            "00fcac99"
+          ],
+          "derive": {}
+        },
+        "20bb1b79": {
+          "replace": [
+            "ee161660"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "d3029429": {
+          "replace": [
+            "437bbd92"
+          ],
+          "derive": {}
         }
       }
     },
@@ -5791,6 +8314,10 @@
             "b1914728"
           ],
           "new": "b1914728"
+        },
+        {
+          "old": [],
+          "new": "4092b6d1"
         }
       ],
       "textures": {
@@ -5815,6 +8342,54 @@
               "d83f496b"
             ]
           }
+        },
+        "376236e1": {
+          "replace": [
+            "5dfbad2d"
+          ],
+          "derive": {}
+        },
+        "d29f822d": {
+          "replace": [
+            "06a1a270"
+          ],
+          "derive": {}
+        },
+        "db0de158": {
+          "replace": [
+            "2473dd9b"
+          ],
+          "derive": {}
+        },
+        "20150d87": {
+          "replace": [
+            "40414c58"
+          ],
+          "derive": {}
+        },
+        "4cc237ca": {
+          "replace": [
+            "b46d4c5a"
+          ],
+          "derive": {}
+        },
+        "cb370521": {
+          "replace": [
+            "83819cda"
+          ],
+          "derive": {}
+        },
+        "5cc97395": {
+          "replace": [
+            "4cc237ca"
+          ],
+          "derive": {}
+        },
+        "2ecc2a59": {
+          "replace": [
+            "cb370521"
+          ],
+          "derive": {}
         }
       }
     },
@@ -5987,6 +8562,36 @@
           "replace": [
             "320e143c"
           ]
+        },
+        "47c515ac": {
+          "replace": [
+            "a347d2bc"
+          ],
+          "derive": {}
+        },
+        "b6021f06": {
+          "replace": [
+            "6ff2b9f1"
+          ],
+          "derive": {}
+        },
+        "61eca16d": {
+          "replace": [
+            "2e6c434e"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "742c5c7b": {
+          "replace": [
+            "21f813ba"
+          ],
+          "derive": {}
         }
       }
     },
@@ -6081,7 +8686,8 @@
         },
         "cd1bd6f6": {
           "replace": [
-            "6df8bc60"
+            "6df8bc60",
+            "d6f8bc60"
           ]
         },
         "5a007e02": {
@@ -6238,6 +8844,102 @@
           "replace": [
             "89029fdf"
           ]
+        },
+        "c9124759": {
+          "replace": [
+            "d685d037"
+          ],
+          "derive": {}
+        },
+        "c51948e5": {
+          "replace": [
+            "858f3573"
+          ],
+          "derive": {}
+        },
+        "d1534303": {
+          "replace": [
+            "54d78775"
+          ],
+          "derive": {}
+        },
+        "1c8589de": {
+          "replace": [
+            "c344d062"
+          ],
+          "derive": {}
+        },
+        "b9a64e57": {
+          "replace": [
+            "3766bc13"
+          ],
+          "derive": {}
+        },
+        "4bac35dd": {
+          "replace": [
+            "14e47dee"
+          ],
+          "derive": {}
+        },
+        "50de5497": {
+          "replace": [
+            "1f606caf"
+          ],
+          "derive": {}
+        },
+        "c51aa8d2": {
+          "replace": [
+            "f4e65f69"
+          ],
+          "derive": {}
+        },
+        "5eee477c": {
+          "replace": [
+            "8022dc07"
+          ],
+          "derive": {}
+        },
+        "8160bcb0": {
+          "replace": [
+            "73110195"
+          ],
+          "derive": {}
+        },
+        "bd9cd630": {
+          "replace": [
+            "00a2663b"
+          ],
+          "derive": {}
+        },
+        "40cd7ff6": {
+          "replace": [
+            "48e09820"
+          ],
+          "derive": {}
+        },
+        "8721570a": {
+          "replace": [
+            "439a22f3"
+          ],
+          "derive": {}
+        },
+        "2416ec07": {
+          "replace": [
+            "6a6cd394"
+          ],
+          "derive": {}
+        },
+        "f510ebbd": {
+          "replace": [
+            "21d627d4"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
         }
       }
     },
@@ -6260,7 +8962,8 @@
         "a880ef80": {
           "replace": [
             "4caf3bfb",
-            "5fe74f52"
+            "5fe74f52",
+            "523314c0"
           ]
         },
         "e4221484": {
@@ -6279,6 +8982,60 @@
           "replace": [
             "14423efd"
           ]
+        },
+        "d8fd081b": {
+          "replace": [
+            "e4951cd7"
+          ],
+          "derive": {}
+        },
+        "4caf3bfb": {
+          "replace": [
+            "5fe74f52"
+          ],
+          "derive": {}
+        },
+        "b200ba2d": {
+          "replace": [
+            "57acff23"
+          ],
+          "derive": {}
+        },
+        "8ec7f935": {
+          "replace": [
+            "68ea6ae4"
+          ],
+          "derive": {}
+        },
+        "deacf373": {
+          "replace": [
+            "f488d64b"
+          ],
+          "derive": {}
+        },
+        "523314c0": {
+          "replace": [
+            "4caf3bfb"
+          ],
+          "derive": {}
+        },
+        "8ac7f935": {
+          "replace": [
+            "8ec7f935"
+          ],
+          "derive": {}
+        },
+        "79fe16cd": {
+          "replace": [
+            "b200ba2d"
+          ],
+          "derive": {}
+        },
+        "7e1916af": {
+          "replace": [
+            "8ac7f935"
+          ],
+          "derive": {}
         }
       }
     },
@@ -6311,6 +9068,12 @@
             "4082c8ea",
             "99977887"
           ]
+        },
+        "ff615a59": {
+          "replace": [
+            "7233337e"
+          ],
+          "derive": {}
         }
       }
     },
@@ -6726,8 +9489,69 @@
         },
         "caf28767": {
           "replace": [
-            "cd3cab33"
+            "cd3cab33",
+            "b2304a16"
           ]
+        },
+        "3765f0a6": {
+          "replace": [
+            "cff007ea"
+          ],
+          "derive": {}
+        },
+        "6ae8dd10": {
+          "replace": [
+            "f1c2e889"
+          ],
+          "derive": {}
+        },
+        "ea3b578e": {
+          "replace": [
+            "8a1d2f74"
+          ],
+          "derive": {}
+        },
+        "64667cee": {
+          "replace": [
+            "850ac1e0"
+          ],
+          "derive": {}
+        },
+        "1db11140": {
+          "replace": [
+            "cd3cab33"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "d6f82799": {
+          "replace": [
+            "b9414ce7"
+          ],
+          "derive": {}
+        },
+        "6bf7a371": {
+          "replace": [
+            "40b7b42f"
+          ],
+          "derive": {}
+        },
+        "6ffbda44": {
+          "replace": [
+            "5a2cd96d"
+          ],
+          "derive": {}
+        },
+        "30e747b7": {
+          "replace": [
+            "49b26249"
+          ],
+          "derive": {}
         }
       }
     },
@@ -7274,6 +10098,60 @@
           "replace": [
             "481123ae"
           ]
+        },
+        "d83b3034": {
+          "replace": [
+            "14d6362b"
+          ],
+          "derive": {}
+        },
+        "91cff509": {
+          "replace": [
+            "d83b3034"
+          ],
+          "derive": {}
+        },
+        "5edbaac9": {
+          "replace": [
+            "4b9655be"
+          ],
+          "derive": {}
+        },
+        "123f0570": {
+          "replace": [
+            "82c11611"
+          ],
+          "derive": {}
+        },
+        "7ed83a67": {
+          "replace": [
+            "de4dc39c"
+          ],
+          "derive": {}
+        },
+        "b0f668d2": {
+          "replace": [
+            "8a1d2f74"
+          ],
+          "derive": {}
+        },
+        "30205e0f": {
+          "replace": [
+            "97f11e2e"
+          ],
+          "derive": {}
+        },
+        "416b3c2f": {
+          "replace": [
+            "9e43c7d0"
+          ],
+          "derive": {}
+        },
+        "b522140b": {
+          "replace": [
+            "2d8bbdd2"
+          ],
+          "derive": {}
         }
       }
     },
@@ -7296,8 +10174,13 @@
             "6cd1cc5d"
           ],
           "new": "d87014b0"
+        },
+        {
+          "old": [],
+          "new": "9bb8b247"
         }
-      ]
+      ],
+      "textures": {}
     },
     "HsinLiber": {
       "main_hashes": [
@@ -7464,6 +10347,30 @@
           "replace": [
             "d2b23835"
           ]
+        },
+        "5b2ef834": {
+          "replace": [
+            "7517fa0e"
+          ],
+          "derive": {}
+        },
+        "34a83aaf": {
+          "replace": [
+            "f026fa9b"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "742c5c7b": {
+          "replace": [
+            "21f813ba"
+          ],
+          "derive": {}
         }
       }
     },
@@ -7696,6 +10603,150 @@
               "392e1cb0"
             ]
           }
+        },
+        "e9f8341f": {
+          "replace": [
+            "80f8caf9"
+          ],
+          "derive": {}
+        },
+        "82d39ecb": {
+          "replace": [
+            "affc2fc3"
+          ],
+          "derive": {}
+        },
+        "068dd115": {
+          "replace": [
+            "ead048c8"
+          ],
+          "derive": {}
+        },
+        "9b60ec42": {
+          "replace": [
+            "e9f8341f"
+          ],
+          "derive": {}
+        },
+        "29ba85c5": {
+          "replace": [
+            "82d39ecb"
+          ],
+          "derive": {}
+        },
+        "bc9677ff": {
+          "replace": [
+            "068dd115"
+          ],
+          "derive": {}
+        },
+        "6b0f5c7a": {
+          "replace": [
+            "5f672bb2"
+          ],
+          "derive": {}
+        },
+        "af3ba321": {
+          "replace": [
+            "21bc79a7"
+          ],
+          "derive": {}
+        },
+        "83744475": {
+          "replace": [
+            "0862e376"
+          ],
+          "derive": {}
+        },
+        "21f813ba": {
+          "replace": [
+            "c235c6a7"
+          ],
+          "derive": {}
+        },
+        "ae193e08": {
+          "replace": [
+            "6c077c81"
+          ],
+          "derive": {}
+        },
+        "55023199": {
+          "replace": [
+            "6700cf35"
+          ],
+          "derive": {}
+        },
+        "329a04e7": {
+          "replace": [
+            "11dd8502"
+          ],
+          "derive": {}
+        },
+        "4c0805e1": {
+          "replace": [
+            "534c2615"
+          ],
+          "derive": {}
+        },
+        "837eb0d7": {
+          "replace": [
+            "3782ab1b"
+          ],
+          "derive": {}
+        },
+        "55a56862": {
+          "replace": [
+            "a7275cef"
+          ],
+          "derive": {}
+        },
+        "134a5c16": {
+          "replace": [
+            "dab9d56b"
+          ],
+          "derive": {}
+        },
+        "4701ab34": {
+          "replace": [
+            "09f954e5"
+          ],
+          "derive": {}
+        },
+        "a42480d2": {
+          "replace": [
+            "68c6a3a6"
+          ],
+          "derive": {}
+        },
+        "be729d1a": {
+          "replace": [
+            "f095bfbc"
+          ],
+          "derive": {}
+        },
+        "f524ad06": {
+          "replace": [
+            "45f7105b"
+          ],
+          "derive": {}
+        },
+        "78490bfd": {
+          "replace": [
+            "a42480d2"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "742c5c7b": {
+          "replace": [
+            "21f813ba"
+          ],
+          "derive": {}
         }
       }
     },
@@ -7712,6 +10763,10 @@
             "8fb7baf7"
           ],
           "new": "8fb7baf7"
+        },
+        {
+          "old": [],
+          "new": "9cb5f88d"
         }
       ],
       "textures": {
@@ -7894,8 +10949,87 @@
         },
         "ab9067bf": {
           "replace": [
-            "c864a274"
+            "c864a274",
+            "913631e7"
           ]
+        },
+        "27036b65": {
+          "replace": [
+            "21828bbd"
+          ],
+          "derive": {}
+        },
+        "188f9150": {
+          "replace": [
+            "14ecacf3"
+          ],
+          "derive": {}
+        },
+        "9d12b710": {
+          "replace": [
+            "4296f0e8"
+          ],
+          "derive": {}
+        },
+        "439ed7f4": {
+          "replace": [
+            "354569e8"
+          ],
+          "derive": {}
+        },
+        "95034a03": {
+          "replace": [
+            "27f4ef91"
+          ],
+          "derive": {}
+        },
+        "81bc8818": {
+          "replace": [
+            "e51cf6a4"
+          ],
+          "derive": {}
+        },
+        "d00f99ad": {
+          "replace": [
+            "e7191b19"
+          ],
+          "derive": {}
+        },
+        "7031d19e": {
+          "replace": [
+            "3943dca3"
+          ],
+          "derive": {}
+        },
+        "88aafbc0": {
+          "replace": [
+            "911dca0f"
+          ],
+          "derive": {}
+        },
+        "5b14639e": {
+          "replace": [
+            "27036b65"
+          ],
+          "derive": {}
+        },
+        "e51f0115": {
+          "replace": [
+            "64bbdb18"
+          ],
+          "derive": {}
+        },
+        "829180c8": {
+          "replace": [
+            "70b95d89"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
         }
       }
     },
@@ -8174,6 +11308,24 @@
               "071f01b1"
             ]
           }
+        },
+        "f73d7577": {
+          "replace": [
+            "697a05d5"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "ab9067bf": {
+          "replace": [
+            "913631e7"
+          ],
+          "derive": {}
         }
       }
     },
@@ -8386,6 +11538,114 @@
               "323ca928"
             ]
           }
+        },
+        "9631335c": {
+          "replace": [
+            "b05fac63"
+          ],
+          "derive": {}
+        },
+        "7741698a": {
+          "replace": [
+            "1b3a68de"
+          ],
+          "derive": {}
+        },
+        "55f78d68": {
+          "replace": [
+            "9a8dc04e"
+          ],
+          "derive": {}
+        },
+        "40346675": {
+          "replace": [
+            "46f910cf"
+          ],
+          "derive": {}
+        },
+        "64d51f09": {
+          "replace": [
+            "70727fb3"
+          ],
+          "derive": {}
+        },
+        "05fa5a06": {
+          "replace": [
+            "cbe41f58"
+          ],
+          "derive": {}
+        },
+        "18c53df4": {
+          "replace": [
+            "781bb5d4"
+          ],
+          "derive": {}
+        },
+        "d8621e79": {
+          "replace": [
+            "1b3a68de"
+          ],
+          "derive": {}
+        },
+        "7367d0af": {
+          "replace": [
+            "919672df"
+          ],
+          "derive": {}
+        },
+        "deab020e": {
+          "replace": [
+            "8bba6141"
+          ],
+          "derive": {}
+        },
+        "16662002": {
+          "replace": [
+            "36807a81"
+          ],
+          "derive": {}
+        },
+        "e82d0d1f": {
+          "replace": [
+            "b05fac63"
+          ],
+          "derive": {}
+        },
+        "92e1b9ce": {
+          "replace": [
+            "adcb548e"
+          ],
+          "derive": {}
+        },
+        "adcb548e": {
+          "replace": [
+            "aedc62a4"
+          ],
+          "derive": {}
+        },
+        "9e6ec5e2": {
+          "replace": [
+            "31b50c1d"
+          ],
+          "derive": {}
+        },
+        "05d536cf": {
+          "replace": [
+            "e47fd93e"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "742c5c7b": {
+          "replace": [
+            "21f813ba"
+          ],
+          "derive": {}
         }
       }
     },
@@ -8568,7 +11828,8 @@
         },
         "9925d10e": {
           "replace": [
-            "587edf05"
+            "587edf05",
+            "8b3c13f9"
           ]
         },
         "74b96fd2": {
@@ -8614,6 +11875,36 @@
               "bee38667"
             ]
           }
+        },
+        "d02c1cb1": {
+          "replace": [
+            "b239a59d"
+          ],
+          "derive": {}
+        },
+        "2e3de562": {
+          "replace": [
+            "497106c3"
+          ],
+          "derive": {}
+        },
+        "1fb61127": {
+          "replace": [
+            "84488d7d"
+          ],
+          "derive": {}
+        },
+        "5ecab350": {
+          "replace": [
+            "0d10fb38"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
         }
       }
     },
@@ -8639,6 +11930,18 @@
             "82da25c6"
           ],
           "new": "3a7dbcc1"
+        },
+        {
+          "old": [],
+          "new": "24d1e3e3"
+        },
+        {
+          "old": [],
+          "new": "356cc2a3"
+        },
+        {
+          "old": [],
+          "new": "9c29365d"
         }
       ],
       "skip_components": [
@@ -8808,12 +12111,16 @@
           },
           "replace": [
             "a2b2a26d",
-            "1d9b95f0"
+            "1d9b95f0",
+            "6b4f1a7e"
           ],
           "derive": {
             "LOD": [
               "7fed3c4a",
               "c95f44f9"
+            ],
+            "lod_derived": [
+              "b76a23ec"
             ]
           }
         },
@@ -8850,12 +12157,16 @@
           },
           "replace": [
             "1bcf4e3e",
-            "39af7830"
+            "39af7830",
+            "56af240d"
           ],
           "derive": {
             "LOD": [
               "c690d019",
               "ecf1597f"
+            ],
+            "lod_derived": [
+              "3a5f285d"
             ]
           }
         },
@@ -8866,7 +12177,8 @@
           },
           "replace": [
             "927f7e52",
-            "afbfb1df"
+            "afbfb1df",
+            "e379df53"
           ],
           "derive": {
             "LOD": [
@@ -9146,6 +12458,48 @@
           "replace": [
             "067db31a"
           ]
+        },
+        "7ed83a67": {
+          "replace": [
+            "45986bf4"
+          ],
+          "derive": {}
+        },
+        "b0f668d2": {
+          "replace": [
+            "8a1d2f74"
+          ],
+          "derive": {}
+        },
+        "c69ef92d": {
+          "replace": [
+            "11fa3f7d"
+          ],
+          "derive": {}
+        },
+        "20bb1b79": {
+          "replace": [
+            "ee161660"
+          ],
+          "derive": {}
+        },
+        "3b7bb80a": {
+          "replace": [
+            "5d18e123"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "d73201db": {
+          "replace": [
+            "f67bed9d"
+          ],
+          "derive": {}
         }
       }
     },
@@ -9391,7 +12745,8 @@
           },
           "replace": [
             "1e238f6c",
-            "4dba3f46"
+            "4dba3f46",
+            "53037e57"
           ],
           "derive": {
             "LOD": [
@@ -9408,7 +12763,8 @@
         "691d1eee": {
           "replace": [
             "80fdc4d8",
-            "2212362c"
+            "2212362c",
+            "091af072"
           ]
         },
         "c38e9ebc": {
@@ -9418,7 +12774,8 @@
         },
         "3b5c69d2": {
           "replace": [
-            "c3b2f4ed"
+            "c3b2f4ed",
+            "3038f25c"
           ]
         },
         "091af072": {
@@ -9426,14 +12783,20 @@
             "LOD": [
               "199ac912"
             ]
-          }
+          },
+          "replace": [
+            "80fdc4d8"
+          ]
         },
         "3038f25c": {
           "derive": {
             "LOD": [
               "5754039c"
             ]
-          }
+          },
+          "replace": [
+            "c3b2f4ed"
+          ]
         },
         "53037e57": {
           "replace": [
@@ -9444,6 +12807,102 @@
               "8d4e40cf"
             ]
           }
+        },
+        "8e28c8e7": {
+          "replace": [
+            "0390820a"
+          ],
+          "derive": {}
+        },
+        "27308969": {
+          "replace": [
+            "a2c25060"
+          ],
+          "derive": {}
+        },
+        "68916487": {
+          "replace": [
+            "a9b2a415"
+          ],
+          "derive": {}
+        },
+        "d23090a3": {
+          "replace": [
+            "2decd61b"
+          ],
+          "derive": {}
+        },
+        "33d29aa1": {
+          "replace": [
+            "73dc0ecf"
+          ],
+          "derive": {}
+        },
+        "ac26dd3b": {
+          "replace": [
+            "dda29ba9"
+          ],
+          "derive": {}
+        },
+        "43682482": {
+          "replace": [
+            "35c1c5cf"
+          ],
+          "derive": {}
+        },
+        "a614279c": {
+          "replace": [
+            "97e43063"
+          ],
+          "derive": {}
+        },
+        "1e238f6c": {
+          "replace": [
+            "4dba3f46"
+          ],
+          "derive": {}
+        },
+        "d2ad31db": {
+          "replace": [
+            "0249a0f6"
+          ],
+          "derive": {}
+        },
+        "801f9d6e": {
+          "replace": [
+            "4afb92ae"
+          ],
+          "derive": {}
+        },
+        "f515fdbd": {
+          "replace": [
+            "a614279c"
+          ],
+          "derive": {}
+        },
+        "cc83d4fc": {
+          "replace": [
+            "1e238f6c"
+          ],
+          "derive": {}
+        },
+        "cb79c2db": {
+          "replace": [
+            "f515fdbd"
+          ],
+          "derive": {}
+        },
+        "5764478b": {
+          "replace": [
+            "1dcc0f1d"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
         }
       }
     },
@@ -9664,6 +13123,102 @@
           "replace": [
             "bcf7cb03"
           ]
+        },
+        "312fc5e4": {
+          "replace": [
+            "e541ab4b"
+          ],
+          "derive": {}
+        },
+        "3ba4af04": {
+          "replace": [
+            "eb4d05bb"
+          ],
+          "derive": {}
+        },
+        "20927988": {
+          "replace": [
+            "06c9cbd2"
+          ],
+          "derive": {}
+        },
+        "d1c82bf3": {
+          "replace": [
+            "c5d64764"
+          ],
+          "derive": {}
+        },
+        "21f813ba": {
+          "replace": [
+            "c235c6a7"
+          ],
+          "derive": {}
+        },
+        "41532ac9": {
+          "replace": [
+            "5d7d3f28"
+          ],
+          "derive": {}
+        },
+        "3cf552bd": {
+          "replace": [
+            "84206d9f"
+          ],
+          "derive": {}
+        },
+        "bbb18270": {
+          "replace": [
+            "77ba7584"
+          ],
+          "derive": {}
+        },
+        "8f9bacd2": {
+          "replace": [
+            "bd1bcfd8"
+          ],
+          "derive": {}
+        },
+        "4c57726e": {
+          "replace": [
+            "e4638507"
+          ],
+          "derive": {}
+        },
+        "b7a16140": {
+          "replace": [
+            "62ef42ef"
+          ],
+          "derive": {}
+        },
+        "9d5fe765": {
+          "replace": [
+            "79b6c3f4"
+          ],
+          "derive": {}
+        },
+        "1443c0c0": {
+          "replace": [
+            "c347ca65"
+          ],
+          "derive": {}
+        },
+        "7fb7147f": {
+          "replace": [
+            "0bf5cead"
+          ],
+          "derive": {}
+        },
+        "742c5c7b": {
+          "replace": [
+            "21f813ba"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
         }
       }
     },
@@ -9733,6 +13288,55 @@
           "replace": [
             "1b7cac73"
           ]
+        },
+        "8e7d74f6": {
+          "replace": [
+            "0ad8f0ae"
+          ],
+          "derive": {}
+        },
+        "016c4ac8": {
+          "replace": [
+            "d1c82bf3",
+            "e6a0fc37"
+          ],
+          "derive": {}
+        },
+        "39be6236": {
+          "replace": [
+            "fc4e944d"
+          ],
+          "derive": {}
+        },
+        "887b3ae0": {
+          "replace": [
+            "8033f387"
+          ],
+          "derive": {}
+        },
+        "5a278994": {
+          "replace": [
+            "cd6fde8d"
+          ],
+          "derive": {}
+        },
+        "d57faa60": {
+          "replace": [
+            "17e5a31f"
+          ],
+          "derive": {}
+        },
+        "693c1e17": {
+          "replace": [
+            "8994beb0"
+          ],
+          "derive": {}
+        },
+        "156e9370": {
+          "replace": [
+            "ff93591b"
+          ],
+          "derive": {}
         }
       }
     },
@@ -9799,6 +13403,10 @@
             "3bbfa5a0"
           ],
           "new": "f16f00ed"
+        },
+        {
+          "old": [],
+          "new": "3bbfa5a0"
         }
       ],
       "skip_components": [
@@ -9817,6 +13425,10 @@
             "LOD": [
               "3a171aeb",
               "8d6eef63"
+            ],
+            "lod_high": [
+              "bc6b08aa",
+              "33d84baf"
             ]
           }
         },
@@ -9826,7 +13438,8 @@
             "type": "L"
           },
           "replace": [
-            "44a7d030"
+            "44a7d030",
+            "51292b44"
           ],
           "derive": {
             "LOD": [
@@ -9838,7 +13451,13 @@
         "2845cb12": {
           "replace": [
             "61c8b5d0"
-          ]
+          ],
+          "derive": {
+            "lod_high": [
+              "99f84e17",
+              "bbee91dd"
+            ]
+          }
         },
         "0f43c23c": {
           "meta": {
@@ -9852,6 +13471,10 @@
             "LOD": [
               "d21c5c1b",
               "af0d30e6"
+            ],
+            "lod_high": [
+              "29cbe246",
+              "46339426"
             ]
           }
         },
@@ -9861,12 +13484,17 @@
             "type": "L"
           },
           "replace": [
-            "cbef30ae"
+            "cbef30ae",
+            "3a09966e"
           ],
           "derive": {
             "LOD": [
               "66f750c9",
               "25ba7513"
+            ],
+            "lod_high": [
+              "a03b6e72",
+              "16b0ae89"
             ]
           }
         },
@@ -9881,7 +13509,8 @@
             "type": "D"
           },
           "replace": [
-            "205a6c11"
+            "205a6c11",
+            "9d5bff35"
           ],
           "derive": {
             "LOD": [
@@ -9902,6 +13531,10 @@
             "LOD": [
               "01fc0e90",
               "7bae4a06"
+            ],
+            "lod_high": [
+              "20aa0f18",
+              "c7f4bae4"
             ]
           }
         },
@@ -9917,6 +13550,10 @@
             "LOD": [
               "515be99b",
               "2a8ecde6"
+            ],
+            "lod_high": [
+              "8fa945ae",
+              "888edcb8"
             ]
           }
         },
@@ -9932,6 +13569,10 @@
             "LOD": [
               "c645b2be",
               "ae6c9016"
+            ],
+            "lod_high": [
+              "9fb2c53e",
+              "a85bd5db"
             ]
           }
         },
@@ -9944,8 +13585,15 @@
             "LOD": [
               "aa3624d2",
               "138fe85e"
+            ],
+            "lod_high": [
+              "138fe85e",
+              "aa3624d2"
             ]
-          }
+          },
+          "replace": [
+            "138fe85e"
+          ]
         },
         "2d780faa": {
           "meta": {
@@ -9959,6 +13607,10 @@
             "LOD": [
               "f027918d",
               "560c8a08"
+            ],
+            "lod_high": [
+              "a27e260c",
+              "8cbddd43"
             ]
           }
         },
@@ -9974,6 +13626,10 @@
             "LOD": [
               "7417afb5",
               "4c29939c"
+            ],
+            "lod_high": [
+              "961e0832",
+              "5f1f1eec"
             ]
           }
         },
@@ -9989,6 +13645,10 @@
             "LOD": [
               "8a09f007",
               "ecf6c36c"
+            ],
+            "lod_high": [
+              "513f8b01",
+              "fd37b518"
             ]
           }
         },
@@ -10001,8 +13661,15 @@
             "LOD": [
               "a9a8d5d5",
               "47bb4149"
+            ],
+            "lod_high": [
+              "47bb4149",
+              "a9a8d5d5"
             ]
-          }
+          },
+          "replace": [
+            "47bb4149"
+          ]
         },
         "c3e7bbd3": {
           "meta": {
@@ -10016,6 +13683,10 @@
             "LOD": [
               "1eb825f4",
               "26eff430"
+            ],
+            "lod_high": [
+              "da651c72",
+              "ac3a0c62"
             ]
           }
         },
@@ -10031,6 +13702,10 @@
             "LOD": [
               "27484c6c",
               "37d97bdd"
+            ],
+            "lod_high": [
+              "310f7090",
+              "d92be979"
             ]
           }
         },
@@ -10042,6 +13717,10 @@
             "LOD": [
               "27a021c5",
               "690f9352"
+            ],
+            "lod_high": [
+              "a56ee0a8",
+              "a8f453e7"
             ]
           }
         },
@@ -10057,6 +13736,10 @@
             "LOD": [
               "b802cea3",
               "d5b53375"
+            ],
+            "lod_high": [
+              "923d0a86",
+              "6c254ea5"
             ]
           }
         },
@@ -10069,8 +13752,15 @@
             "LOD": [
               "06fde543",
               "51f0c0f3"
+            ],
+            "lod_high": [
+              "51f0c0f3",
+              "06fde543"
             ]
-          }
+          },
+          "replace": [
+            "51f0c0f3"
+          ]
         },
         "70bb6f8e": {
           "meta": {
@@ -10078,12 +13768,17 @@
             "type": "D"
           },
           "replace": [
-            "dc3785f8"
+            "dc3785f8",
+            "cd2fb13d"
           ],
           "derive": {
             "LOD": [
               "e29db143",
               "a66e567f"
+            ],
+            "lod_high": [
+              "cd2fb13d",
+              "01681bdf"
             ]
           }
         },
@@ -10093,12 +13788,17 @@
             "type": "L"
           },
           "replace": [
-            "9e5a4789"
+            "9e5a4789",
+            "ad470f49"
           ],
           "derive": {
             "LOD": [
               "f6dc9898",
               "0b0bf437"
+            ],
+            "lod_high": [
+              "ad470f49",
+              "4305d9ae"
             ]
           }
         },
@@ -10108,7 +13808,8 @@
             "type": "N"
           },
           "replace": [
-            "c53088e7"
+            "c53088e7",
+            "cdff8e24"
           ],
           "derive": {
             "LOD": [
@@ -10143,12 +13844,132 @@
             "type": "D"
           },
           "replace": [
-            "6946794b"
+            "6946794b",
+            "9a33b4f6"
           ],
           "derive": {
             "LOD": [
               "d1689f49",
               "a57a599b"
+            ],
+            "lod_high": [
+              "13e2aab0",
+              "b419e76c"
+            ]
+          }
+        },
+        "f16f00ed": {
+          "replace": [
+            "3bbfa5a0"
+          ],
+          "derive": {}
+        },
+        "61c8b5d0": {
+          "replace": [
+            "44a7d030"
+          ],
+          "derive": {}
+        },
+        "cd2fb13d": {
+          "replace": [
+            "dc3785f8"
+          ],
+          "derive": {}
+        },
+        "3a09966e": {
+          "replace": [
+            "cbef30ae"
+          ],
+          "derive": {}
+        },
+        "9d5bff35": {
+          "replace": [
+            "205a6c11"
+          ],
+          "derive": {}
+        },
+        "ad470f49": {
+          "replace": [
+            "9e5a4789"
+          ],
+          "derive": {}
+        },
+        "a39a5d37": {
+          "replace": [
+            "5f628b3b"
+          ],
+          "derive": {}
+        },
+        "9a33b4f6": {
+          "replace": [
+            "6946794b"
+          ],
+          "derive": {}
+        },
+        "ba87a76f": {
+          "replace": [
+            "5c1f374c"
+          ],
+          "derive": {}
+        },
+        "dedf04d9": {
+          "replace": [
+            "0057395d"
+          ],
+          "derive": {}
+        },
+        "3c2a2dbe": {
+          "replace": [
+            "36b7090c"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "747198c9": {
+          "replace": [
+            "a39a5d37"
+          ],
+          "derive": {
+            "lod_high": [
+              "afd47370",
+              "5f628b3b"
+            ]
+          }
+        },
+        "d0524bfb": {
+          "replace": [
+            "c88cc1fc"
+          ],
+          "derive": {}
+        },
+        "a8439c02": {
+          "replace": [],
+          "derive": {
+            "lod_high": [
+              "9cd23722"
+            ]
+          }
+        },
+        "c53088e7": {
+          "replace": [],
+          "derive": {
+            "lod_high": [
+              "cdff8e24",
+              "186f16c0"
+            ]
+          }
+        },
+        "b1ed5893": {
+          "replace": [],
+          "derive": {
+            "lod_high": [
+              "7fa978b6",
+              "6cb2c6b4"
             ]
           }
         }
@@ -10191,6 +14012,10 @@
             "0c33d628"
           ],
           "new": "7e400733"
+        },
+        {
+          "old": [],
+          "new": "0c33d628"
         }
       ],
       "skip_components": [
@@ -10232,6 +14057,9 @@
               "acc8e74a",
               "aa39082d",
               "7197796d"
+            ],
+            "lod_high": [
+              "6db7fa4d"
             ]
           }
         },
@@ -10241,12 +14069,16 @@
             "type": "L"
           },
           "replace": [
-            "6ac45992"
+            "6ac45992",
+            "8e20c909"
           ],
           "derive": {
             "LOD": [
               "1f28cf9e",
               "bb1de432"
+            ],
+            "lod_high": [
+              "537f572e"
             ]
           }
         },
@@ -10273,6 +14105,9 @@
               "ce203875",
               "196a084f",
               "137fa652"
+            ],
+            "lod_high": [
+              "ad3a2e99"
             ]
           }
         },
@@ -10282,12 +14117,16 @@
             "type": "L"
           },
           "replace": [
-            "c5ff72a6"
+            "c5ff72a6",
+            "47df9d42"
           ],
           "derive": {
             "LOD": [
               "39f5f53c",
               "81790070"
+            ],
+            "lod_high": [
+              "9a800365"
             ]
           }
         },
@@ -10315,6 +14154,9 @@
               "9564c78b",
               "5d97825c",
               "483b59ac"
+            ],
+            "lod_high": [
+              "f33f544b"
             ]
           }
         },
@@ -10338,6 +14180,9 @@
               "51e80eed",
               "d2187726",
               "fe7f9a4c"
+            ],
+            "lod_high": [
+              "bd95722c"
             ]
           }
         },
@@ -10356,6 +14201,9 @@
             ],
             "Gacha": [
               "91b7fedc"
+            ],
+            "lod_high": [
+              "e537f0af"
             ]
           }
         },
@@ -10376,6 +14224,9 @@
               "4bdeea88",
               "37acf629",
               "968174af"
+            ],
+            "lod_high": [
+              "f28a011d"
             ]
           }
         },
@@ -10417,6 +14268,9 @@
               "b143f6ad",
               "9425ab8d",
               "13ec60c2"
+            ],
+            "lod_high": [
+              "fe862f0f"
             ]
           }
         },
@@ -10435,6 +14289,9 @@
             ],
             "Gacha": [
               "4feb8f2c"
+            ],
+            "lod_high": [
+              "0002508d"
             ]
           }
         },
@@ -10456,6 +14313,9 @@
               "6a1b490e",
               "dee612b2",
               "b744d729"
+            ],
+            "lod_high": [
+              "b1564ef0"
             ]
           }
         },
@@ -10489,6 +14349,9 @@
               "dc28ff2e",
               "0d8bd0a7",
               "01776109"
+            ],
+            "lod_high": [
+              "adb1f678"
             ]
           }
         },
@@ -10504,6 +14367,9 @@
             "LOD": [
               "0fb09a1f",
               "0fc46a2c"
+            ],
+            "lod_high": [
+              "cd97ef19"
             ]
           }
         },
@@ -10525,6 +14391,9 @@
               "c51ad9c1",
               "055dbe4c",
               "184547e6"
+            ],
+            "lod_high": [
+              "e8d01339"
             ]
           }
         },
@@ -10675,6 +14544,65 @@
               "241abdb6"
             ]
           }
+        },
+        "1261dcbc": {
+          "replace": [
+            "513eace9"
+          ],
+          "derive": {}
+        },
+        "b5453395": {
+          "replace": [
+            "17372a89"
+          ],
+          "derive": {}
+        },
+        "70ee685f": {
+          "replace": [
+            "879f275e"
+          ],
+          "derive": {}
+        },
+        "6c09d0d7": {
+          "replace": [
+            "ec6b0edc"
+          ],
+          "derive": {}
+        },
+        "358f8d1e": {
+          "replace": [
+            "a8e46264"
+          ],
+          "derive": {}
+        },
+        "37cdf366": {
+          "replace": [
+            "211e50f4"
+          ],
+          "derive": {}
+        },
+        "ba2b09a1": {
+          "replace": [
+            "391a7fde"
+          ],
+          "derive": {}
+        },
+        "c84b599c": {
+          "replace": [
+            "cb04a3d7"
+          ],
+          "derive": {
+            "lod_high": [
+              "1514c7bb",
+              "9a2f9587"
+            ]
+          }
+        },
+        "7e400733": {
+          "replace": [
+            "0c33d628"
+          ],
+          "derive": {}
         }
       }
     },
@@ -11188,6 +15116,18 @@
           "replace": [
             "c09333a0"
           ]
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "7ed83a67": {
+          "replace": [
+            "45986bf4"
+          ],
+          "derive": {}
         }
       }
     },
@@ -11217,6 +15157,9 @@
             "LOD": [
               "d5565d4f",
               "aa17ec66"
+            ],
+            "lod_high": [
+              "dad2d521"
             ]
           }
         },
@@ -11233,6 +15176,9 @@
             "LOD": [
               "93f62a4a",
               "babe8a04"
+            ],
+            "lod_high": [
+              "99d11a52"
             ]
           }
         },
@@ -11246,6 +15192,9 @@
             "LOD": [
               "01540320",
               "78cc5c56"
+            ],
+            "lod_high": [
+              "9e035ced"
             ]
           }
         },
@@ -11262,6 +15211,9 @@
             "LOD": [
               "036b8763",
               "600b0f77"
+            ],
+            "lod_high": [
+              "38f56c33"
             ]
           }
         },
@@ -11279,6 +15231,9 @@
             "LOD": [
               "33dac50b",
               "ce711a61"
+            ],
+            "lod_high": [
+              "a3365311"
             ]
           }
         },
@@ -11296,6 +15251,9 @@
             "LOD": [
               "7ac504ba",
               "dc6ff2be"
+            ],
+            "lod_high": [
+              "5fb9722b"
             ]
           }
         },
@@ -11312,6 +15270,9 @@
             "LOD": [
               "abe960af",
               "12d2245a"
+            ],
+            "lod_high": [
+              "fd4009b2"
             ]
           }
         },
@@ -11327,6 +15288,9 @@
             "LOD": [
               "aeae40ad",
               "072842e1"
+            ],
+            "lod_high": [
+              "d8f2f751"
             ]
           }
         },
@@ -11343,6 +15307,9 @@
             "LOD": [
               "d6ee7a14",
               "24ff0077"
+            ],
+            "lod_high": [
+              "653b3ddd"
             ]
           }
         },
@@ -11355,6 +15322,9 @@
             "LOD": [
               "262591f5",
               "1596428b"
+            ],
+            "lod_high": [
+              "262591f5"
             ]
           }
         },
@@ -11375,6 +15345,9 @@
             "LOD": [
               "1b8378c6",
               "1110df65"
+            ],
+            "lod_high": [
+              "70e89fda"
             ]
           }
         },
@@ -11408,6 +15381,9 @@
             "LOD": [
               "702725b1",
               "0ba56ddf"
+            ],
+            "lod_high": [
+              "08bbee12"
             ]
           }
         },
@@ -11424,6 +15400,9 @@
             "LOD": [
               "118b2841",
               "23db69a5"
+            ],
+            "lod_high": [
+              "f6a6ce4b"
             ]
           }
         },
@@ -11440,6 +15419,9 @@
             "LOD": [
               "ad40e58b",
               "4e32c219"
+            ],
+            "lod_high": [
+              "c808ba6c"
             ]
           }
         },
@@ -11452,6 +15434,9 @@
             "LOD": [
               "bc89dd22",
               "30d78e31"
+            ],
+            "lod_high": [
+              "bc89dd22"
             ]
           }
         },
@@ -11474,6 +15459,9 @@
           "derive": {
             "LOD": [
               "c3b2fd1a"
+            ],
+            "lod_high": [
+              "f07936d9"
             ]
           }
         },
@@ -11490,6 +15478,9 @@
             "LOD": [
               "7fec084f",
               "3cac1ec4"
+            ],
+            "lod_high": [
+              "983a13b7"
             ]
           }
         },
@@ -11505,6 +15496,9 @@
             "LOD": [
               "c452005f",
               "b00ffd73"
+            ],
+            "lod_high": [
+              "86894cf7"
             ]
           }
         },
@@ -11521,6 +15515,9 @@
             "LOD": [
               "d0617849",
               "8e14be18"
+            ],
+            "lod_high": [
+              "fc850acc"
             ]
           }
         },
@@ -11533,6 +15530,9 @@
             "LOD": [
               "2931a1c1",
               "ec6993a9"
+            ],
+            "lod_high": [
+              "2931a1c1"
             ]
           }
         },
@@ -11557,6 +15557,9 @@
             "LOD": [
               "f08c487a",
               "d3992a2a"
+            ],
+            "lod_high": [
+              "a8919206"
             ]
           }
         },
@@ -11592,6 +15595,166 @@
           "replace": [
             "c64dda5f"
           ]
+        },
+        "448e8475": {
+          "replace": [
+            "350db74d"
+          ],
+          "derive": {}
+        },
+        "e5aaf214": {
+          "replace": [
+            "69fb6d9d"
+          ],
+          "derive": {}
+        },
+        "201f9795": {
+          "replace": [
+            "d4b685ff"
+          ],
+          "derive": {}
+        },
+        "82e6ec0c": {
+          "replace": [
+            "4d520209"
+          ],
+          "derive": {}
+        },
+        "adb701fd": {
+          "replace": [
+            "4b7131f7"
+          ],
+          "derive": {}
+        },
+        "45658d90": {
+          "replace": [
+            "7b258721"
+          ],
+          "derive": {}
+        },
+        "d5e47035": {
+          "replace": [
+            "3ea68ef7"
+          ],
+          "derive": {}
+        },
+        "2d26a8fe": {
+          "replace": [
+            "84a341b4"
+          ],
+          "derive": {}
+        },
+        "345146b8": {
+          "replace": [
+            "8e65d75a"
+          ],
+          "derive": {}
+        },
+        "435cc2ca": {
+          "replace": [
+            "242b3c97"
+          ],
+          "derive": {}
+        },
+        "dc90fe92": {
+          "replace": [
+            "5a92790e"
+          ],
+          "derive": {}
+        },
+        "b864a3fa": {
+          "replace": [
+            "37971681"
+          ],
+          "derive": {}
+        },
+        "7e69cd36": {
+          "replace": [
+            "4249bbc8"
+          ],
+          "derive": {}
+        },
+        "21da94eb": {
+          "replace": [
+            "1b14a741"
+          ],
+          "derive": {}
+        },
+        "75f3ce40": {
+          "replace": [
+            "4979c5b0"
+          ],
+          "derive": {
+            "lod_high": [
+              "a8ac5067"
+            ]
+          }
+        },
+        "afacbd93": {
+          "replace": [
+            "1e7c100d"
+          ],
+          "derive": {}
+        },
+        "2bf9506c": {
+          "replace": [
+            "2a6aa36b"
+          ],
+          "derive": {}
+        },
+        "1557244b": {
+          "replace": [
+            "f2768109"
+          ],
+          "derive": {}
+        },
+        "d2d1925e": {
+          "replace": [
+            "435cc2ca"
+          ],
+          "derive": {}
+        },
+        "9f7de295": {
+          "replace": [
+            "7e69cd36"
+          ],
+          "derive": {}
+        },
+        "f81f66ee": {
+          "replace": [
+            "82e6ec0c"
+          ],
+          "derive": {}
+        },
+        "4ba9f939": {
+          "replace": [
+            "adb701fd"
+          ],
+          "derive": {}
+        },
+        "da119917": {
+          "replace": [
+            "078d4b06"
+          ],
+          "derive": {}
+        },
+        "ca37a23c": {
+          "replace": [
+            "2d26a8fe"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "742c5c7b": {
+          "replace": [
+            "21f813ba"
+          ],
+          "derive": {}
         }
       }
     },
@@ -11642,7 +15805,8 @@
         },
         "10b21030": {
           "replace": [
-            "76826cfe"
+            "76826cfe",
+            "76826fce"
           ]
         },
         "b69d1e56": {
@@ -11764,6 +15928,97 @@
             "3f6dc5cc",
             "27c4d37a"
           ]
+        },
+        "2a5da812": {
+          "replace": [
+            "11b18904"
+          ],
+          "derive": {}
+        },
+        "6a56519c": {
+          "replace": [
+            "92474c68"
+          ],
+          "derive": {}
+        },
+        "0f14dc92": {
+          "replace": [
+            "6d76b1cc"
+          ],
+          "derive": {}
+        },
+        "6e183bd5": {
+          "replace": [
+            "7eee35f8"
+          ],
+          "derive": {}
+        },
+        "794917a4": {
+          "replace": [
+            "27c4d37a",
+            "bedffbf4"
+          ],
+          "derive": {}
+        },
+        "39e87ecf": {
+          "replace": [
+            "885fa0c2"
+          ],
+          "derive": {}
+        },
+        "1d2ca7a8": {
+          "replace": [
+            "18fb0f57"
+          ],
+          "derive": {}
+        },
+        "800ac367": {
+          "replace": [
+            "97ef5c1a"
+          ],
+          "derive": {}
+        },
+        "39144df1": {
+          "replace": [
+            "413c2f2e"
+          ],
+          "derive": {}
+        },
+        "b8690bc1": {
+          "replace": [
+            "62949a6c"
+          ],
+          "derive": {}
+        },
+        "b775a156": {
+          "replace": [
+            "5e6a779f"
+          ],
+          "derive": {}
+        },
+        "fbf9f66a": {
+          "replace": [
+            "f81811a7"
+          ],
+          "derive": {}
+        },
+        "539b81a3": {
+          "replace": [
+            "be6d8bde"
+          ],
+          "derive": {}
+        },
+        "5764478b": {
+          "replace": [
+            "1dcc0f1d"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
         }
       }
     },
@@ -11923,6 +16178,24 @@
           "replace": [
             "e3586cd3"
           ]
+        },
+        "3a9e3271": {
+          "replace": [
+            "b66c1d6d"
+          ],
+          "derive": {}
+        },
+        "6ad5bace": {
+          "replace": [
+            "ef382afc"
+          ],
+          "derive": {}
+        },
+        "ddc4deb0": {
+          "replace": [
+            "3e230345"
+          ],
+          "derive": {}
         }
       }
     },
@@ -12348,6 +16621,138 @@
               "9a9f046e"
             ]
           }
+        },
+        "8ee2fb7c": {
+          "replace": [
+            "3a4bf877"
+          ],
+          "derive": {}
+        },
+        "00b2a919": {
+          "replace": [
+            "a284a970"
+          ],
+          "derive": {}
+        },
+        "ecac2cc5": {
+          "replace": [
+            "baea13f2"
+          ],
+          "derive": {}
+        },
+        "026f7616": {
+          "replace": [
+            "8ee2fb7c"
+          ],
+          "derive": {}
+        },
+        "8ba3d365": {
+          "replace": [
+            "00b2a919"
+          ],
+          "derive": {}
+        },
+        "2c8f9580": {
+          "replace": [
+            "ecac2cc5"
+          ],
+          "derive": {}
+        },
+        "83bc4e8a": {
+          "replace": [
+            "4a30f1df"
+          ],
+          "derive": {}
+        },
+        "cd290e05": {
+          "replace": [
+            "04c4949f"
+          ],
+          "derive": {}
+        },
+        "eeefa6b0": {
+          "replace": [
+            "1641ec82"
+          ],
+          "derive": {}
+        },
+        "cb5eca8c": {
+          "replace": [
+            "bace929a"
+          ],
+          "derive": {}
+        },
+        "22a9e382": {
+          "replace": [
+            "08ee69e1"
+          ],
+          "derive": {}
+        },
+        "06b39fed": {
+          "replace": [
+            "18b491c2"
+          ],
+          "derive": {}
+        },
+        "620fd27a": {
+          "replace": [
+            "a04d2480"
+          ],
+          "derive": {}
+        },
+        "76402ba3": {
+          "replace": [
+            "0da7ba9d"
+          ],
+          "derive": {}
+        },
+        "78fa07fc": {
+          "replace": [
+            "cbe73490"
+          ],
+          "derive": {}
+        },
+        "18aae516": {
+          "replace": [
+            "2b6e5340"
+          ],
+          "derive": {}
+        },
+        "0758a784": {
+          "replace": [
+            "83bc4e8a"
+          ],
+          "derive": {}
+        },
+        "5198cff7": {
+          "replace": [
+            "99f06647"
+          ],
+          "derive": {}
+        },
+        "21f813ba": {
+          "replace": [
+            "c235c6a7"
+          ],
+          "derive": {}
+        },
+        "1bc4da29": {
+          "replace": [
+            "3e216e73"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "742c5c7b": {
+          "replace": [
+            "21f813ba"
+          ],
+          "derive": {}
         }
       }
     },
@@ -12390,6 +16795,10 @@
             "2819cef7"
           ],
           "new": "2819cef7"
+        },
+        {
+          "old": [],
+          "new": "92791b2f"
         }
       ],
       "textures": {
@@ -12508,6 +16917,204 @@
             "f528fff3",
             "2a818c36"
           ]
+        },
+        "d8121963": {
+          "replace": [
+            "9b2007f8"
+          ],
+          "derive": {}
+        },
+        "b7d01975": {
+          "replace": [
+            "8592dec8"
+          ],
+          "derive": {}
+        },
+        "e6819fc8": {
+          "replace": [
+            "be835337"
+          ],
+          "derive": {}
+        },
+        "c9a55c1a": {
+          "replace": [
+            "e6819fc8"
+          ],
+          "derive": {}
+        },
+        "742c5c7b": {
+          "replace": [
+            "21f813ba"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "d0524bfb": {
+          "replace": [
+            "c88cc1fc"
+          ],
+          "derive": {}
+        },
+        "c874b0de": {
+          "replace": [
+            "e7ed69b6"
+          ],
+          "derive": {}
+        },
+        "d3723f37": {
+          "replace": [
+            "80b6ae66"
+          ],
+          "derive": {}
+        },
+        "c1cab82f": {
+          "replace": [
+            "97ff23ce"
+          ],
+          "derive": {}
+        },
+        "1ceb92a5": {
+          "replace": [
+            "656b52c5"
+          ],
+          "derive": {}
+        },
+        "7b3a89a4": {
+          "replace": [
+            "0c43a0db"
+          ],
+          "derive": {}
+        },
+        "45bcc4b2": {
+          "replace": [
+            "722d9ffd"
+          ],
+          "derive": {}
+        },
+        "d8e84b81": {
+          "replace": [
+            "780d1500"
+          ],
+          "derive": {}
+        },
+        "70ec305e": {
+          "replace": [
+            "bfd0d86b"
+          ],
+          "derive": {}
+        },
+        "c6bc0f32": {
+          "replace": [
+            "eb18eb44"
+          ],
+          "derive": {}
+        },
+        "873d1779": {
+          "replace": [
+            "9602a5f6"
+          ],
+          "derive": {}
+        },
+        "9d9b1fb4": {
+          "replace": [
+            "861339d0"
+          ],
+          "derive": {}
+        },
+        "a66f31b4": {
+          "replace": [
+            "a4bcb528"
+          ],
+          "derive": {}
+        },
+        "af55fe5a": {
+          "replace": [
+            "ad5d10b3"
+          ],
+          "derive": {}
+        },
+        "2a7ebe89": {
+          "replace": [
+            "3a530d80"
+          ],
+          "derive": {}
+        },
+        "363ad371": {
+          "replace": [
+            "3e91d0c9"
+          ],
+          "derive": {}
+        },
+        "248056df": {
+          "replace": [
+            "9b4aae44"
+          ],
+          "derive": {}
+        },
+        "e8eb7e62": {
+          "replace": [
+            "d70b595a"
+          ],
+          "derive": {}
+        },
+        "f611a612": {
+          "replace": [
+            "fd485581"
+          ],
+          "derive": {}
+        },
+        "92e4b2de": {
+          "replace": [
+            "5e2fc91b"
+          ],
+          "derive": {}
+        },
+        "08b260c3": {
+          "replace": [
+            "2548f454"
+          ],
+          "derive": {}
+        },
+        "0ed57181": {
+          "replace": [
+            "b9f4eeec"
+          ],
+          "derive": {}
+        },
+        "ea92087c": {
+          "replace": [
+            "8b06ec86"
+          ],
+          "derive": {}
+        },
+        "fc17a0d1": {
+          "replace": [
+            "02322d01"
+          ],
+          "derive": {}
+        },
+        "2cbaec3e": {
+          "replace": [
+            "4668b8eb"
+          ],
+          "derive": {}
+        },
+        "cfb87699": {
+          "replace": [
+            "306b4e54"
+          ],
+          "derive": {}
+        },
+        "0d967fa9": {
+          "replace": [
+            "91324119"
+          ],
+          "derive": {}
         }
       }
     },
@@ -12651,6 +17258,18 @@
           "replace": [
             "66e6fa10"
           ]
+        },
+        "742c5c7b": {
+          "replace": [
+            "21f813ba"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
         }
       }
     },
@@ -13015,6 +17634,54 @@
           "replace": [
             "7980bf2c"
           ]
+        },
+        "75cdd95d": {
+          "replace": [
+            "8af034cf"
+          ],
+          "derive": {}
+        },
+        "6afea497": {
+          "replace": [
+            "390455ca"
+          ],
+          "derive": {}
+        },
+        "7980bf2c": {
+          "replace": [
+            "96d3cc82"
+          ],
+          "derive": {}
+        },
+        "b3ff5221": {
+          "replace": [
+            "58b9505f"
+          ],
+          "derive": {}
+        },
+        "06755b5a": {
+          "replace": [
+            "75cdd95d"
+          ],
+          "derive": {}
+        },
+        "7c22ee5f": {
+          "replace": [
+            "6afea497"
+          ],
+          "derive": {}
+        },
+        "5b973026": {
+          "replace": [
+            "7980bf2c"
+          ],
+          "derive": {}
+        },
+        "590b3e91": {
+          "replace": [
+            "b3ff5221"
+          ],
+          "derive": {}
         }
       }
     },
@@ -13075,7 +17742,8 @@
         },
         "904100ac": {
           "replace": [
-            "9c46eccc"
+            "9c46eccc",
+            "9c46eccd"
           ]
         },
         "8cf59acd": {
@@ -13178,6 +17846,116 @@
           "replace": [
             "a3db372f"
           ]
+        },
+        "ea12c00e": {
+          "replace": [
+            "df813937"
+          ],
+          "derive": {}
+        },
+        "21ff0f89": {
+          "replace": [
+            "87d73bf2"
+          ],
+          "derive": {}
+        },
+        "98decec7": {
+          "replace": [
+            "42d605d4"
+          ],
+          "derive": {}
+        },
+        "39db08c0": {
+          "replace": [
+            "86f266a5"
+          ],
+          "derive": {}
+        },
+        "48bd8b69": {
+          "replace": [
+            "6f2fd0ce"
+          ],
+          "derive": {}
+        },
+        "c915f11c": {
+          "replace": [
+            "1d5ea77e"
+          ],
+          "derive": {}
+        },
+        "7515ea2e": {
+          "replace": [
+            "1e5ddfd3"
+          ],
+          "derive": {}
+        },
+        "859f8f55": {
+          "replace": [
+            "16558db2"
+          ],
+          "derive": {}
+        },
+        "24b44872": {
+          "replace": [
+            "8c76d557"
+          ],
+          "derive": {}
+        },
+        "8759aa05": {
+          "replace": [
+            "b56a599b",
+            "843152d9"
+          ],
+          "derive": {}
+        },
+        "84e10138": {
+          "replace": [
+            "c1803315",
+            "af77fb44"
+          ],
+          "derive": {}
+        },
+        "9c92e45e": {
+          "replace": [
+            "e7e6a2e3"
+          ],
+          "derive": {}
+        },
+        "4c151aa4": {
+          "replace": [
+            "c9c9ae65"
+          ],
+          "derive": {}
+        },
+        "778a83a4": {
+          "replace": [
+            "f10f32ad"
+          ],
+          "derive": {}
+        },
+        "0807dcc7": {
+          "replace": [
+            "718589a4"
+          ],
+          "derive": {}
+        },
+        "059eb09d": {
+          "replace": [
+            "9c92e45e"
+          ],
+          "derive": {}
+        },
+        "742c5c7b": {
+          "replace": [
+            "21f813ba"
+          ],
+          "derive": {}
+        },
+        "d0524bfb": {
+          "replace": [
+            "c88cc1fc"
+          ],
+          "derive": {}
         }
       }
     },
@@ -13213,6 +17991,50 @@
             "feef1128"
           ],
           "new": "de97705a"
+        },
+        {
+          "old": [],
+          "new": "e8b5a730"
+        },
+        {
+          "old": [],
+          "new": "3533a957"
+        },
+        {
+          "old": [],
+          "new": "bd26f515"
+        },
+        {
+          "old": [],
+          "new": "06482222"
+        },
+        {
+          "old": [],
+          "new": "4d3d06a6"
+        },
+        {
+          "old": [],
+          "new": "25a5716a"
+        },
+        {
+          "old": [],
+          "new": "680c3e35"
+        },
+        {
+          "old": [],
+          "new": "2330a489"
+        },
+        {
+          "old": [],
+          "new": "a38211d3"
+        },
+        {
+          "old": [],
+          "new": "e8b0d332"
+        },
+        {
+          "old": [],
+          "new": "aa9d9edb"
         }
       ],
       "checksum": "2742",
@@ -13633,7 +18455,8 @@
           },
           "replace": [
             "a2207e11",
-            "52c18227"
+            "52c18227",
+            "acbed1bb"
           ],
           "derive": {
             "LOD": [
@@ -13641,6 +18464,343 @@
               "6182f808"
             ]
           }
+        },
+        "e8b5a730": {
+          "replace": [
+            "be84b775"
+          ],
+          "derive": {}
+        },
+        "372bd73a": {
+          "replace": [
+            "2d5b41f6"
+          ],
+          "derive": {}
+        },
+        "99d33a32": {
+          "replace": [
+            "c446a221"
+          ],
+          "derive": {}
+        },
+        "e04dea55": {
+          "replace": [
+            "aeb47e33"
+          ],
+          "derive": {}
+        },
+        "3533a957": {
+          "replace": [
+            "e8b5a730"
+          ],
+          "derive": {}
+        },
+        "04192868": {
+          "replace": [
+            "6aac203f"
+          ],
+          "derive": {}
+        },
+        "68a6b802": {
+          "replace": [
+            "dcae957e"
+          ],
+          "derive": {}
+        },
+        "2ff23d4c": {
+          "replace": [
+            "a2aed964"
+          ],
+          "derive": {}
+        },
+        "a01c9b96": {
+          "replace": [
+            "be8666c3"
+          ],
+          "derive": {}
+        },
+        "946ec36c": {
+          "replace": [
+            "1fe7c3f1"
+          ],
+          "derive": {}
+        },
+        "84025dca": {
+          "replace": [
+            "7bc718ed"
+          ],
+          "derive": {}
+        },
+        "c79b5772": {
+          "replace": [
+            "99d33a32"
+          ],
+          "derive": {}
+        },
+        "ab6288a3": {
+          "replace": [
+            "12407ce2"
+          ],
+          "derive": {}
+        },
+        "747ada83": {
+          "replace": [
+            "c39ea10a"
+          ],
+          "derive": {}
+        },
+        "f85b1b15": {
+          "replace": [
+            "cccc4663"
+          ],
+          "derive": {}
+        },
+        "29304593": {
+          "replace": [
+            "fa3f84a8",
+            "85700b55"
+          ],
+          "derive": {}
+        },
+        "1dcc0f1d": {
+          "replace": [
+            "3cd03f60"
+          ],
+          "derive": {}
+        },
+        "52c18227": {
+          "replace": [
+            "a2207e11"
+          ],
+          "derive": {}
+        },
+        "bd26f515": {
+          "replace": [
+            "3533a957"
+          ],
+          "derive": {}
+        },
+        "06482222": {
+          "replace": [
+            "bd26f515"
+          ],
+          "derive": {}
+        },
+        "4d3d06a6": {
+          "replace": [
+            "06482222"
+          ],
+          "derive": {}
+        },
+        "85700b55": {
+          "replace": [
+            "29304593"
+          ],
+          "derive": {}
+        },
+        "c8064e9e": {
+          "replace": [
+            "84025dca"
+          ],
+          "derive": {}
+        },
+        "e57c98f4": {
+          "replace": [
+            "c79b5772"
+          ],
+          "derive": {}
+        },
+        "25a5716a": {
+          "replace": [
+            "4d3d06a6"
+          ],
+          "derive": {}
+        },
+        "3877f0da": {
+          "replace": [
+            "a0a808af"
+          ],
+          "derive": {}
+        },
+        "feef1128": {
+          "replace": [
+            "bb67ac16"
+          ],
+          "derive": {}
+        },
+        "680c3e35": {
+          "replace": [
+            "25a5716a"
+          ],
+          "derive": {}
+        },
+        "2330a489": {
+          "replace": [
+            "680c3e35"
+          ],
+          "derive": {}
+        },
+        "2ffcc8ce": {
+          "replace": [
+            "071744c8"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "d0524bfb": {
+          "replace": [
+            "c88cc1fc"
+          ],
+          "derive": {}
+        },
+        "a38211d3": {
+          "replace": [
+            "2330a489"
+          ],
+          "derive": {}
+        },
+        "b7b6abd9": {
+          "replace": [
+            "a38211d3"
+          ],
+          "derive": {}
+        },
+        "aa9d9edb": {
+          "replace": [
+            "e8b0d332"
+          ],
+          "derive": {}
+        },
+        "0e990ce3": {
+          "replace": [
+            "129f1dd8"
+          ],
+          "derive": {}
+        },
+        "f6f06932": {
+          "replace": [
+            "a8a08519"
+          ],
+          "derive": {}
+        },
+        "a17125b7": {
+          "replace": [
+            "c917c0f0"
+          ],
+          "derive": {}
+        },
+        "acbed1bb": {
+          "replace": [
+            "3f7bfcca"
+          ],
+          "derive": {}
+        },
+        "82ed6a64": {
+          "replace": [
+            "55089a35"
+          ],
+          "derive": {}
+        },
+        "02ff8fd2": {
+          "replace": [
+            "c2dc3697"
+          ],
+          "derive": {}
+        },
+        "aac65558": {
+          "replace": [
+            "0a136c79"
+          ],
+          "derive": {}
+        },
+        "59b28407": {
+          "replace": [
+            "0e990ce3"
+          ],
+          "derive": {}
+        },
+        "cbad5f85": {
+          "replace": [
+            "ca2115c4"
+          ],
+          "derive": {}
+        },
+        "a140aad3": {
+          "replace": [
+            "47e8b051"
+          ],
+          "derive": {}
+        },
+        "fe792723": {
+          "replace": [
+            "f6f06932"
+          ],
+          "derive": {}
+        },
+        "f7763c9e": {
+          "replace": [
+            "eaf4ddb5"
+          ],
+          "derive": {}
+        },
+        "3099fc8d": {
+          "replace": [
+            "a17125b7"
+          ],
+          "derive": {}
+        },
+        "8711becc": {
+          "replace": [
+            "071744c8"
+          ],
+          "derive": {}
+        },
+        "3409f0dc": {
+          "replace": [
+            "bcea36b2"
+          ],
+          "derive": {}
+        },
+        "8c77bccd": {
+          "replace": [
+            "ac811d4b"
+          ],
+          "derive": {}
+        },
+        "2154238f": {
+          "replace": [
+            "4fca3f55"
+          ],
+          "derive": {}
+        },
+        "aa75b5a9": {
+          "replace": [
+            "4a5502b1"
+          ],
+          "derive": {}
+        },
+        "5e5d935c": {
+          "replace": [
+            "c9bbe473"
+          ],
+          "derive": {}
+        },
+        "58d681aa": {
+          "replace": [
+            "6d4a87ef"
+          ],
+          "derive": {}
+        },
+        "2b3e162b": {
+          "replace": [
+            "dbfb288a"
+          ],
+          "derive": {}
         }
       }
     },
@@ -13676,6 +18836,42 @@
             "49c00841"
           ],
           "new": "e7fdfccc"
+        },
+        {
+          "old": [],
+          "new": "a1c0d97c"
+        },
+        {
+          "old": [],
+          "new": "c9db8418"
+        },
+        {
+          "old": [],
+          "new": "e18ca2cc"
+        },
+        {
+          "old": [],
+          "new": "b22dacf9"
+        },
+        {
+          "old": [],
+          "new": "8b386efa"
+        },
+        {
+          "old": [],
+          "new": "1e003b5a"
+        },
+        {
+          "old": [],
+          "new": "b8b24b6c"
+        },
+        {
+          "old": [],
+          "new": "f1f5aa2a"
+        },
+        {
+          "old": [],
+          "new": "c698c02f"
         }
       ],
       "checksum": "1718",
@@ -14050,7 +19246,8 @@
           },
           "replace": [
             "56343b28",
-            "6913dea1"
+            "6913dea1",
+            "3c9f2f86"
           ],
           "derive": {
             "LOD": [
@@ -14070,6 +19267,285 @@
             "id": 6,
             "type": "L"
           }
+        },
+        "c9db8418": {
+          "replace": [
+            "d53c2cc7"
+          ],
+          "derive": {}
+        },
+        "3ab7c4d1": {
+          "replace": [
+            "f8375eb4"
+          ],
+          "derive": {}
+        },
+        "a4be44e5": {
+          "replace": [
+            "6e2f48ba"
+          ],
+          "derive": {}
+        },
+        "a1c0d97c": {
+          "replace": [
+            "f16d5dae"
+          ],
+          "derive": {}
+        },
+        "e18ca2cc": {
+          "replace": [
+            "c9db8418",
+            "249200ff"
+          ],
+          "derive": {}
+        },
+        "f8375eb4": {
+          "replace": [
+            "3ab7c4d1"
+          ],
+          "derive": {}
+        },
+        "6e2f48ba": {
+          "replace": [
+            "a4be44e5"
+          ],
+          "derive": {}
+        },
+        "f16d5dae": {
+          "replace": [
+            "a1c0d97c"
+          ],
+          "derive": {}
+        },
+        "fedfec0e": {
+          "replace": [
+            "7931ea8a"
+          ],
+          "derive": {}
+        },
+        "b22dacf9": {
+          "replace": [
+            "e18ca2cc"
+          ],
+          "derive": {}
+        },
+        "7de9f13a": {
+          "replace": [
+            "275382c9",
+            "b4855e43"
+          ],
+          "derive": {}
+        },
+        "e2c06226": {
+          "replace": [
+            "fedfec0e"
+          ],
+          "derive": {}
+        },
+        "6bc458a2": {
+          "replace": [
+            "65af60de"
+          ],
+          "derive": {}
+        },
+        "7997ade0": {
+          "replace": [
+            "454843d1"
+          ],
+          "derive": {}
+        },
+        "5606456f": {
+          "replace": [
+            "db7ba06b"
+          ],
+          "derive": {}
+        },
+        "756ab255": {
+          "replace": [
+            "13bc29e0"
+          ],
+          "derive": {}
+        },
+        "29304593": {
+          "replace": [
+            "fa3f84a8",
+            "85700b55"
+          ],
+          "derive": {}
+        },
+        "1dcc0f1d": {
+          "replace": [
+            "3cd03f60"
+          ],
+          "derive": {}
+        },
+        "6913dea1": {
+          "replace": [
+            "56343b28"
+          ],
+          "derive": {}
+        },
+        "8b386efa": {
+          "replace": [
+            "b22dacf9"
+          ],
+          "derive": {}
+        },
+        "ec747460": {
+          "replace": [
+            "f8375eb4"
+          ],
+          "derive": {}
+        },
+        "89e3b104": {
+          "replace": [
+            "6e2f48ba"
+          ],
+          "derive": {}
+        },
+        "85700b55": {
+          "replace": [
+            "29304593"
+          ],
+          "derive": {}
+        },
+        "1e003b5a": {
+          "replace": [
+            "8b386efa"
+          ],
+          "derive": {}
+        },
+        "67650e1c": {
+          "replace": [
+            "ec747460"
+          ],
+          "derive": {}
+        },
+        "49c00841": {
+          "replace": [
+            "89e3b104"
+          ],
+          "derive": {}
+        },
+        "9ac598b5": {
+          "replace": [
+            "a2ac355e"
+          ],
+          "derive": {}
+        },
+        "101e8dbb": {
+          "replace": [
+            "1e003b5a"
+          ],
+          "derive": {}
+        },
+        "b22a0531": {
+          "replace": [
+            "43fd9661"
+          ],
+          "derive": {}
+        },
+        "4f567ac0": {
+          "replace": [
+            "917263d5"
+          ],
+          "derive": {}
+        },
+        "52c1090e": {
+          "replace": [
+            "b8b24b6c"
+          ],
+          "derive": {}
+        },
+        "c698c02f": {
+          "replace": [
+            "f1f5aa2a"
+          ],
+          "derive": {}
+        },
+        "3c9f2f86": {
+          "replace": [
+            "a0b6bb44"
+          ],
+          "derive": {}
+        },
+        "38840111": {
+          "replace": [
+            "5c3a5000"
+          ],
+          "derive": {}
+        },
+        "a93b8d36": {
+          "replace": [
+            "0e54d7d2"
+          ],
+          "derive": {}
+        },
+        "bbac047c": {
+          "replace": [
+            "05fa5499"
+          ],
+          "derive": {}
+        },
+        "90dd4c10": {
+          "replace": [
+            "30ffe4c7"
+          ],
+          "derive": {}
+        },
+        "cc662295": {
+          "replace": [
+            "bbac047c"
+          ],
+          "derive": {}
+        },
+        "1d33408b": {
+          "replace": [
+            "fe1fe650"
+          ],
+          "derive": {}
+        },
+        "d35ec8a5": {
+          "replace": [
+            "e17e9a42"
+          ],
+          "derive": {}
+        },
+        "a34a9f18": {
+          "replace": [
+            "d9dcc6b9"
+          ],
+          "derive": {}
+        },
+        "cb360609": {
+          "replace": [
+            "a970af87"
+          ],
+          "derive": {}
+        },
+        "b7be162e": {
+          "replace": [
+            "8670cb75"
+          ],
+          "derive": {}
+        },
+        "bb2435ab": {
+          "replace": [
+            "36128005"
+          ],
+          "derive": {}
+        },
+        "26f0b75f": {
+          "replace": [
+            "dc98d804"
+          ],
+          "derive": {}
+        },
+        "0ca12e3d": {
+          "replace": [
+            "75173227"
+          ],
+          "derive": {}
         }
       }
     },
@@ -14394,6 +19870,12 @@
           "replace": [
             "ef7274f2"
           ]
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
         }
       }
     },
@@ -14638,6 +20120,120 @@
               "9db60343"
             ]
           }
+        },
+        "cef6494f": {
+          "replace": [
+            "2584190a"
+          ],
+          "derive": {}
+        },
+        "0bd3b5ab": {
+          "replace": [
+            "28708ab8"
+          ],
+          "derive": {}
+        },
+        "89ba19a1": {
+          "replace": [
+            "5efe7892"
+          ],
+          "derive": {}
+        },
+        "f0713dc7": {
+          "replace": [
+            "11b9cadd"
+          ],
+          "derive": {}
+        },
+        "ae6e9014": {
+          "replace": [
+            "48616ac9"
+          ],
+          "derive": {}
+        },
+        "1c0c8b91": {
+          "replace": [
+            "345368c9"
+          ],
+          "derive": {}
+        },
+        "1035197c": {
+          "replace": [
+            "1bdd0987"
+          ],
+          "derive": {}
+        },
+        "1dcc0f1d": {
+          "replace": [
+            "3cd03f60"
+          ],
+          "derive": {}
+        },
+        "68ca7071": {
+          "replace": [
+            "98b9635b"
+          ],
+          "derive": {}
+        },
+        "881c236d": {
+          "replace": [
+            "aa70ef15"
+          ],
+          "derive": {}
+        },
+        "e39835c7": {
+          "replace": [
+            "03d9850b"
+          ],
+          "derive": {}
+        },
+        "fde0f298": {
+          "replace": [
+            "4b6d52b9"
+          ],
+          "derive": {}
+        },
+        "efb25eb3": {
+          "replace": [
+            "0521977a"
+          ],
+          "derive": {}
+        },
+        "abda232b": {
+          "replace": [
+            "ebeeda8c"
+          ],
+          "derive": {}
+        },
+        "c689a8ee": {
+          "replace": [
+            "2c0c2728"
+          ],
+          "derive": {}
+        },
+        "f3b217ab": {
+          "replace": [
+            "16695017"
+          ],
+          "derive": {}
+        },
+        "fecfdcdb": {
+          "replace": [
+            "abda232b"
+          ],
+          "derive": {}
+        },
+        "5764478b": {
+          "replace": [
+            "1dcc0f1d"
+          ],
+          "derive": {}
+        },
+        "d0524bfb": {
+          "replace": [
+            "c88cc1fc"
+          ],
+          "derive": {}
         }
       }
     },
@@ -14828,6 +20424,78 @@
               "0e10dcc6"
             ]
           }
+        },
+        "f8d5c991": {
+          "replace": [
+            "31a5f36a"
+          ],
+          "derive": {}
+        },
+        "63c807fe": {
+          "replace": [
+            "d153e37f"
+          ],
+          "derive": {}
+        },
+        "c74af063": {
+          "replace": [
+            "d78ad0f5"
+          ],
+          "derive": {}
+        },
+        "4478285f": {
+          "replace": [
+            "f22348f0"
+          ],
+          "derive": {}
+        },
+        "c98e83cd": {
+          "replace": [
+            "464256d1"
+          ],
+          "derive": {}
+        },
+        "11171f1c": {
+          "replace": [
+            "9522bbc7"
+          ],
+          "derive": {}
+        },
+        "9febd992": {
+          "replace": [
+            "a0cf932f"
+          ],
+          "derive": {}
+        },
+        "52f35e6d": {
+          "replace": [
+            "168462a9"
+          ],
+          "derive": {}
+        },
+        "72739d6e": {
+          "replace": [
+            "d5a089c8"
+          ],
+          "derive": {}
+        },
+        "1d50aa4a": {
+          "replace": [
+            "43dc9bdf"
+          ],
+          "derive": {}
+        },
+        "8e5306a9": {
+          "replace": [
+            "fd078186"
+          ],
+          "derive": {}
+        },
+        "221b8ad6": {
+          "replace": [
+            "d96aa9b8"
+          ],
+          "derive": {}
         }
       }
     },
@@ -15068,6 +20736,138 @@
           "replace": [
             "87e93853"
           ]
+        },
+        "c148034c": {
+          "replace": [
+            "1fb14596"
+          ],
+          "derive": {}
+        },
+        "8e19fa21": {
+          "replace": [
+            "952d9960"
+          ],
+          "derive": {}
+        },
+        "13baf2f6": {
+          "replace": [
+            "a2f6b3e4"
+          ],
+          "derive": {}
+        },
+        "fb389390": {
+          "replace": [
+            "2779cda7"
+          ],
+          "derive": {}
+        },
+        "41b0d744": {
+          "replace": [
+            "5e0383e5"
+          ],
+          "derive": {}
+        },
+        "529645a1": {
+          "replace": [
+            "be955444"
+          ],
+          "derive": {}
+        },
+        "2293ef8e": {
+          "replace": [
+            "6a6c419b"
+          ],
+          "derive": {}
+        },
+        "5aa61d2f": {
+          "replace": [
+            "15d38062"
+          ],
+          "derive": {}
+        },
+        "ec2a6255": {
+          "replace": [
+            "26ef0c33"
+          ],
+          "derive": {}
+        },
+        "a8ef808e": {
+          "replace": [
+            "5ae09e60"
+          ],
+          "derive": {}
+        },
+        "f47bc395": {
+          "replace": [
+            "5019e88f"
+          ],
+          "derive": {}
+        },
+        "d2f2fe3e": {
+          "replace": [
+            "2cb33efd"
+          ],
+          "derive": {}
+        },
+        "b9136153": {
+          "replace": [
+            "b7997090"
+          ],
+          "derive": {}
+        },
+        "4b0e4779": {
+          "replace": [
+            "33b7a4d5"
+          ],
+          "derive": {}
+        },
+        "a7c9acc3": {
+          "replace": [
+            "49f91bc3"
+          ],
+          "derive": {}
+        },
+        "03284c19": {
+          "replace": [
+            "f510cf89"
+          ],
+          "derive": {}
+        },
+        "6e3d31e6": {
+          "replace": [
+            "00b2fa86"
+          ],
+          "derive": {}
+        },
+        "41bd7de9": {
+          "replace": [
+            "9699548f"
+          ],
+          "derive": {}
+        },
+        "cd690fce": {
+          "replace": [
+            "02d1aab5"
+          ],
+          "derive": {}
+        },
+        "5333daf8": {
+          "replace": [
+            "835b9e48"
+          ],
+          "derive": {}
+        },
+        "7beb75dc": {
+          "replace": [
+            "4d2ecdef"
+          ],
+          "derive": {}
+        },
+        "98a5d5fa": {
+          "replace": [
+            "68f24fa7"
+          ],
+          "derive": {}
         }
       }
     },
@@ -15558,6 +21358,12 @@
               "fcfc3cb2"
             ]
           }
+        },
+        "37cf7e92": {
+          "replace": [
+            "0c9de429"
+          ],
+          "derive": {}
         }
       }
     },
@@ -15580,6 +21386,30 @@
           "replace": [
             "29d61c94"
           ]
+        },
+        "29d61c94": {
+          "replace": [
+            "75cdd95d"
+          ],
+          "derive": {}
+        },
+        "df2ba6d4": {
+          "replace": [
+            "29d61c94"
+          ],
+          "derive": {}
+        },
+        "f18c37c5": {
+          "replace": [
+            "df2ba6d4"
+          ],
+          "derive": {}
+        },
+        "0344af98": {
+          "replace": [
+            "26d963ce"
+          ],
+          "derive": {}
         }
       }
     },
@@ -15787,6 +21617,60 @@
               "bbea0537"
             ]
           }
+        },
+        "b5c93936": {
+          "replace": [
+            "9557c49e"
+          ],
+          "derive": {}
+        },
+        "a39f43c8": {
+          "replace": [
+            "3b69e4b4"
+          ],
+          "derive": {}
+        },
+        "d5ba0088": {
+          "replace": [
+            "982bdcc5"
+          ],
+          "derive": {}
+        },
+        "4e4bbb32": {
+          "replace": [
+            "dec4f75e"
+          ],
+          "derive": {}
+        },
+        "16d55d60": {
+          "replace": [
+            "b0e248c5"
+          ],
+          "derive": {}
+        },
+        "6c4bd3dc": {
+          "replace": [
+            "33a41964"
+          ],
+          "derive": {}
+        },
+        "b51d4fd4": {
+          "replace": [
+            "b1372fdd"
+          ],
+          "derive": {}
+        },
+        "8a1d8b17": {
+          "replace": [
+            "9b47f413"
+          ],
+          "derive": {}
+        },
+        "2c5e38b6": {
+          "replace": [
+            "4ba577c5"
+          ],
+          "derive": {}
         }
       }
     },
@@ -15822,6 +21706,24 @@
           "replace": [
             "db05b110"
           ]
+        },
+        "79971f8c": {
+          "replace": [
+            "db05b110"
+          ],
+          "derive": {}
+        },
+        "20d22882": {
+          "replace": [
+            "1a108cd4"
+          ],
+          "derive": {}
+        },
+        "d8b42d15": {
+          "replace": [
+            "7276db74"
+          ],
+          "derive": {}
         }
       }
     },
@@ -16015,6 +21917,108 @@
           "replace": [
             "b81ebdb2"
           ]
+        },
+        "82aa82e1": {
+          "replace": [
+            "83ced9f7"
+          ],
+          "derive": {}
+        },
+        "953daba7": {
+          "replace": [
+            "fd892e3c"
+          ],
+          "derive": {}
+        },
+        "40f3c4ea": {
+          "replace": [
+            "5981e400"
+          ],
+          "derive": {}
+        },
+        "c0ca0958": {
+          "replace": [
+            "63d590db"
+          ],
+          "derive": {}
+        },
+        "16b54cef": {
+          "replace": [
+            "679ad2f5"
+          ],
+          "derive": {}
+        },
+        "edc699f5": {
+          "replace": [
+            "309b25ba"
+          ],
+          "derive": {}
+        },
+        "03416881": {
+          "replace": [
+            "cb01a05c"
+          ],
+          "derive": {}
+        },
+        "21f813ba": {
+          "replace": [
+            "c235c6a7"
+          ],
+          "derive": {}
+        },
+        "5e99cc67": {
+          "replace": [
+            "24c1883d"
+          ],
+          "derive": {}
+        },
+        "e2a003ed": {
+          "replace": [
+            "fcc47274"
+          ],
+          "derive": {}
+        },
+        "e2887be0": {
+          "replace": [
+            "ae7043eb"
+          ],
+          "derive": {}
+        },
+        "48c627b9": {
+          "replace": [
+            "953daba7"
+          ],
+          "derive": {}
+        },
+        "08be5cdb": {
+          "replace": [
+            "c0ca0958"
+          ],
+          "derive": {}
+        },
+        "a2d01f96": {
+          "replace": [
+            "40f3c4ea"
+          ],
+          "derive": {}
+        },
+        "412de025": {
+          "replace": [
+            "dc7f97f7"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "742c5c7b": {
+          "replace": [
+            "21f813ba"
+          ],
+          "derive": {}
         }
       }
     },
@@ -16279,6 +22283,132 @@
               "232efa20"
             ]
           }
+        },
+        "65f5a746": {
+          "replace": [
+            "59f0cae9"
+          ],
+          "derive": {}
+        },
+        "aa467d8c": {
+          "replace": [
+            "794bf372"
+          ],
+          "derive": {}
+        },
+        "19190a12": {
+          "replace": [
+            "d966cc04"
+          ],
+          "derive": {}
+        },
+        "312a23b3": {
+          "replace": [
+            "1ccddcaf"
+          ],
+          "derive": {}
+        },
+        "847d7908": {
+          "replace": [
+            "a6ddeb73"
+          ],
+          "derive": {}
+        },
+        "d3334af2": {
+          "replace": [
+            "30766750"
+          ],
+          "derive": {}
+        },
+        "c5e3d837": {
+          "replace": [
+            "392cfad5"
+          ],
+          "derive": {}
+        },
+        "707ddd83": {
+          "replace": [
+            "ae7af048"
+          ],
+          "derive": {}
+        },
+        "77fc9adf": {
+          "replace": [
+            "580004ac"
+          ],
+          "derive": {}
+        },
+        "df7dcbad": {
+          "replace": [
+            "ab04dbfe"
+          ],
+          "derive": {}
+        },
+        "fcc7fe3a": {
+          "replace": [
+            "7ce42dd7"
+          ],
+          "derive": {}
+        },
+        "ccea891f": {
+          "replace": [
+            "7f1ed7f3"
+          ],
+          "derive": {}
+        },
+        "0f2ce004": {
+          "replace": [
+            "3865a786"
+          ],
+          "derive": {}
+        },
+        "12f7f3a3": {
+          "replace": [
+            "9af1a3b1"
+          ],
+          "derive": {}
+        },
+        "21f813ba": {
+          "replace": [
+            "c235c6a7"
+          ],
+          "derive": {}
+        },
+        "dfbe6069": {
+          "replace": [
+            "2fed1aa0"
+          ],
+          "derive": {}
+        },
+        "548b37ed": {
+          "replace": [
+            "7c17bb8d"
+          ],
+          "derive": {}
+        },
+        "f0ba2ca2": {
+          "replace": [
+            "7291186a"
+          ],
+          "derive": {}
+        },
+        "1f38018a": {
+          "replace": [
+            "9a0854f4"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "742c5c7b": {
+          "replace": [
+            "21f813ba"
+          ],
+          "derive": {}
         }
       }
     },
@@ -16307,6 +22437,14 @@
             "15a4a9b9"
           ],
           "new": "d58710fc"
+        },
+        {
+          "old": [],
+          "new": "bb5dfeaf"
+        },
+        {
+          "old": [],
+          "new": "15fb50a9"
         }
       ],
       "skip_components": [
@@ -16630,6 +22768,241 @@
               "c1a3ff90"
             ]
           }
+        },
+        "d25b9648": {
+          "replace": [
+            "77fe24ce"
+          ],
+          "derive": {}
+        },
+        "3bd37212": {
+          "replace": [
+            "edf438d9"
+          ],
+          "derive": {}
+        },
+        "250c59b6": {
+          "replace": [
+            "95caeb9c",
+            "fc40048f"
+          ],
+          "derive": {}
+        },
+        "fba3de34": {
+          "replace": [
+            "123bcc8e"
+          ],
+          "derive": {}
+        },
+        "c3b2a42e": {
+          "replace": [
+            "bd8fff82"
+          ],
+          "derive": {}
+        },
+        "8e27c9a2": {
+          "replace": [
+            "f42c4870"
+          ],
+          "derive": {}
+        },
+        "1a9b9391": {
+          "replace": [
+            "69c48be0"
+          ],
+          "derive": {}
+        },
+        "49b790e0": {
+          "replace": [
+            "92d4ad47"
+          ],
+          "derive": {}
+        },
+        "ae886086": {
+          "replace": [
+            "16f9802d"
+          ],
+          "derive": {}
+        },
+        "6905a9bd": {
+          "replace": [
+            "b487d389"
+          ],
+          "derive": {}
+        },
+        "02e9009d": {
+          "replace": [
+            "1607589b"
+          ],
+          "derive": {}
+        },
+        "77fe24ce": {
+          "replace": [
+            "d25b9648"
+          ],
+          "derive": {}
+        },
+        "123bcc8e": {
+          "replace": [
+            "fba3de34"
+          ],
+          "derive": {}
+        },
+        "69c48be0": {
+          "replace": [
+            "1a9b9391"
+          ],
+          "derive": {}
+        },
+        "edf438d9": {
+          "replace": [
+            "3bd37212"
+          ],
+          "derive": {}
+        },
+        "f42c4870": {
+          "replace": [
+            "8e27c9a2"
+          ],
+          "derive": {}
+        },
+        "bd8fff82": {
+          "replace": [
+            "c3b2a42e"
+          ],
+          "derive": {}
+        },
+        "fc40048f": {
+          "replace": [
+            "250c59b6"
+          ],
+          "derive": {}
+        },
+        "16f9802d": {
+          "replace": [
+            "ae886086"
+          ],
+          "derive": {}
+        },
+        "1607589b": {
+          "replace": [
+            "02e9009d"
+          ],
+          "derive": {}
+        },
+        "92d4ad47": {
+          "replace": [
+            "49b790e0"
+          ],
+          "derive": {}
+        },
+        "0293109d": {
+          "replace": [
+            "93072758"
+          ],
+          "derive": {}
+        },
+        "a871413a": {
+          "replace": [
+            "1e9a1fb8"
+          ],
+          "derive": {}
+        },
+        "2da427ff": {
+          "replace": [
+            "6905a9bd"
+          ],
+          "derive": {}
+        },
+        "29942440": {
+          "replace": [
+            "cc7a443c"
+          ],
+          "derive": {}
+        },
+        "4684b2e8": {
+          "replace": [
+            "bb5dfeaf"
+          ],
+          "derive": {}
+        },
+        "562bc9a8": {
+          "replace": [
+            "0293109d"
+          ],
+          "derive": {}
+        },
+        "1aa4714e": {
+          "replace": [
+            "95caeb9c"
+          ],
+          "derive": {}
+        },
+        "ef2fa766": {
+          "replace": [
+            "0e3eb7d9"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "5764478b": {
+          "replace": [
+            "1dcc0f1d"
+          ],
+          "derive": {}
+        },
+        "afcffa8b": {
+          "replace": [
+            "1685ee4b"
+          ],
+          "derive": {}
+        },
+        "b5a883f0": {
+          "replace": [
+            "348c9329"
+          ],
+          "derive": {}
+        },
+        "d8904fe1": {
+          "replace": [
+            "62d877e3"
+          ],
+          "derive": {}
+        },
+        "a4492cc1": {
+          "replace": [
+            "621a6f4f"
+          ],
+          "derive": {}
+        },
+        "3cf63def": {
+          "replace": [
+            "7d8d1ae0"
+          ],
+          "derive": {}
+        },
+        "efd45ce3": {
+          "replace": [
+            "15fb50a9"
+          ],
+          "derive": {}
+        },
+        "1a646636": {
+          "replace": [
+            "7fe8c94e"
+          ],
+          "derive": {}
+        },
+        "6fe81411": {
+          "replace": [
+            "81378bbb"
+          ],
+          "derive": {}
         }
       }
     },
@@ -16820,6 +23193,10 @@
             "41d656e8"
           ],
           "new": "41d656e8"
+        },
+        {
+          "old": [],
+          "new": "42702199"
         }
       ],
       "textures": {
@@ -16990,6 +23367,132 @@
               "05e142f0"
             ]
           }
+        },
+        "86b95122": {
+          "replace": [
+            "00120eee"
+          ],
+          "derive": {}
+        },
+        "750390fa": {
+          "replace": [
+            "584b7755"
+          ],
+          "derive": {}
+        },
+        "30053482": {
+          "replace": [
+            "87bbb0c1"
+          ],
+          "derive": {}
+        },
+        "76967821": {
+          "replace": [
+            "9ea4dc96"
+          ],
+          "derive": {}
+        },
+        "1f0f6dc8": {
+          "replace": [
+            "58b06268"
+          ],
+          "derive": {}
+        },
+        "7d1b007a": {
+          "replace": [
+            "71525c2a"
+          ],
+          "derive": {}
+        },
+        "e56f82b1": {
+          "replace": [
+            "e50849e0"
+          ],
+          "derive": {}
+        },
+        "5f0fbdb9": {
+          "replace": [
+            "3271530d"
+          ],
+          "derive": {}
+        },
+        "71525c2a": {
+          "replace": [
+            "7d1b007a"
+          ],
+          "derive": {}
+        },
+        "3271530d": {
+          "replace": [
+            "5f0fbdb9"
+          ],
+          "derive": {}
+        },
+        "58b06268": {
+          "replace": [
+            "1f0f6dc8"
+          ],
+          "derive": {}
+        },
+        "00120eee": {
+          "replace": [
+            "86b95122"
+          ],
+          "derive": {}
+        },
+        "9ea4dc96": {
+          "replace": [
+            "76967821"
+          ],
+          "derive": {}
+        },
+        "87bbb0c1": {
+          "replace": [
+            "30053482"
+          ],
+          "derive": {}
+        },
+        "584b7755": {
+          "replace": [
+            "750390fa"
+          ],
+          "derive": {}
+        },
+        "55c63039": {
+          "replace": [
+            "711af10e"
+          ],
+          "derive": {}
+        },
+        "c425fd58": {
+          "replace": [
+            "8493df3e"
+          ],
+          "derive": {}
+        },
+        "e50849e0": {
+          "replace": [
+            "e56f82b1"
+          ],
+          "derive": {}
+        },
+        "0b8b7323": {
+          "replace": [
+            "42702199"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "742c5c7b": {
+          "replace": [
+            "21f813ba"
+          ],
+          "derive": {}
         }
       }
     },
@@ -17233,6 +23736,90 @@
             "bcbd3086",
             "fdeae97b"
           ]
+        },
+        "bf48c10e": {
+          "replace": [
+            "9b11d340"
+          ],
+          "derive": {}
+        },
+        "5d5ee265": {
+          "replace": [
+            "1012570b"
+          ],
+          "derive": {}
+        },
+        "a3b840f8": {
+          "replace": [
+            "a2cc097f"
+          ],
+          "derive": {}
+        },
+        "cf0ae3d8": {
+          "replace": [
+            "7e251226"
+          ],
+          "derive": {}
+        },
+        "221d712d": {
+          "replace": [
+            "aa28d63e"
+          ],
+          "derive": {}
+        },
+        "ae2fe6e9": {
+          "replace": [
+            "39ffdf33"
+          ],
+          "derive": {}
+        },
+        "41ced95a": {
+          "replace": [
+            "450040b2"
+          ],
+          "derive": {}
+        },
+        "39696fc7": {
+          "replace": [
+            "a95def0b"
+          ],
+          "derive": {}
+        },
+        "a0e3c5cb": {
+          "replace": [
+            "eb5b96b2"
+          ],
+          "derive": {}
+        },
+        "bfd993d3": {
+          "replace": [
+            "baee6fc5"
+          ],
+          "derive": {}
+        },
+        "37dcbf53": {
+          "replace": [
+            "dd54d712"
+          ],
+          "derive": {}
+        },
+        "2d7bb11f": {
+          "replace": [
+            "0eb7da46"
+          ],
+          "derive": {}
+        },
+        "5e0d738a": {
+          "replace": [
+            "c1078929"
+          ],
+          "derive": {}
+        },
+        "1079fd6f": {
+          "replace": [
+            "8b1913b4"
+          ],
+          "derive": {}
         }
       }
     },
@@ -17285,7 +23872,8 @@
           },
           "replace": [
             "a6c496bb",
-            "389f5e85"
+            "389f5e85",
+            "31d64d0d"
           ]
         },
         "09e333de": {
@@ -17296,7 +23884,8 @@
         "4cc71297": {
           "replace": [
             "31d64d0d",
-            "6aa8b697"
+            "6aa8b697",
+            "a6c496bb"
           ]
         },
         "398ece52": {
@@ -17367,6 +23956,96 @@
             "bda4f564",
             "43799dd2"
           ]
+        },
+        "d6b9870f": {
+          "replace": [
+            "a59c17cb"
+          ],
+          "derive": {}
+        },
+        "7b4fd238": {
+          "replace": [
+            "ce0a295e"
+          ],
+          "derive": {}
+        },
+        "7681bf3d": {
+          "replace": [
+            "2ba57c1b"
+          ],
+          "derive": {}
+        },
+        "31d64d0d": {
+          "replace": [
+            "6aa8b697"
+          ],
+          "derive": {}
+        },
+        "a6c496bb": {
+          "replace": [
+            "389f5e85"
+          ],
+          "derive": {}
+        },
+        "d9a6d77f": {
+          "replace": [
+            "14df60bb"
+          ],
+          "derive": {}
+        },
+        "53e67a3d": {
+          "replace": [
+            "1319b682"
+          ],
+          "derive": {}
+        },
+        "091b887c": {
+          "replace": [
+            "de05e406"
+          ],
+          "derive": {}
+        },
+        "7a0e2aa2": {
+          "replace": [
+            "8c299dbf"
+          ],
+          "derive": {}
+        },
+        "7feb53b2": {
+          "replace": [
+            "c6025664"
+          ],
+          "derive": {}
+        },
+        "bda4f564": {
+          "replace": [
+            "43799dd2"
+          ],
+          "derive": {}
+        },
+        "5764478b": {
+          "replace": [
+            "1dcc0f1d"
+          ],
+          "derive": {}
+        },
+        "73ee1d2e": {
+          "replace": [
+            "d9a6d77f"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "6f010fdd": {
+          "replace": [
+            "bda4f564"
+          ],
+          "derive": {}
         }
       }
     },
@@ -17378,6 +24057,26 @@
             "c2727ed7"
           ],
           "new": "3d7098cb"
+        },
+        {
+          "old": [],
+          "new": "b9f4b0b4"
+        },
+        {
+          "old": [],
+          "new": "c2727ed7"
+        },
+        {
+          "old": [],
+          "new": "dbc0a3d1"
+        },
+        {
+          "old": [],
+          "new": "616f86d7"
+        },
+        {
+          "old": [],
+          "new": "c99c5635"
         }
       ],
       "skip_components": [
@@ -17593,6 +24292,276 @@
             "2ba75c9c",
             "a6006726"
           ]
+        },
+        "8acf0a92": {
+          "replace": [
+            "eb7b28e3"
+          ],
+          "derive": {}
+        },
+        "07352718": {
+          "replace": [
+            "12b90236"
+          ],
+          "derive": {}
+        },
+        "c2727ed7": {
+          "replace": [
+            "b9f4b0b4"
+          ],
+          "derive": {}
+        },
+        "5bcca6de": {
+          "replace": [
+            "7f15f013"
+          ],
+          "derive": {}
+        },
+        "1133b076": {
+          "replace": [
+            "71f1a895"
+          ],
+          "derive": {}
+        },
+        "6df52af4": {
+          "replace": [
+            "a7869af0"
+          ],
+          "derive": {}
+        },
+        "2ba75c9c": {
+          "replace": [
+            "a6006726"
+          ],
+          "derive": {}
+        },
+        "ac687edd": {
+          "replace": [
+            "988c2332"
+          ],
+          "derive": {}
+        },
+        "17d03603": {
+          "replace": [
+            "ce1aa29a"
+          ],
+          "derive": {}
+        },
+        "85371f27": {
+          "replace": [
+            "6b885af9"
+          ],
+          "derive": {}
+        },
+        "de4463e0": {
+          "replace": [
+            "69ce5914"
+          ],
+          "derive": {}
+        },
+        "612a235b": {
+          "replace": [
+            "66ec53c0"
+          ],
+          "derive": {}
+        },
+        "5fe6e3f5": {
+          "replace": [
+            "c91bc37a"
+          ],
+          "derive": {}
+        },
+        "67316edd": {
+          "replace": [
+            "bfaa82b4"
+          ],
+          "derive": {}
+        },
+        "18a76e47": {
+          "replace": [
+            "c676996a"
+          ],
+          "derive": {}
+        },
+        "726c6138": {
+          "replace": [
+            "73c4cc50"
+          ],
+          "derive": {}
+        },
+        "eba837f6": {
+          "replace": [
+            "f005294b"
+          ],
+          "derive": {}
+        },
+        "a5da61f8": {
+          "replace": [
+            "4fb245db"
+          ],
+          "derive": {}
+        },
+        "34fd8ff4": {
+          "replace": [
+            "ac0a77cf"
+          ],
+          "derive": {}
+        },
+        "3624cd00": {
+          "replace": [
+            "34774f22"
+          ],
+          "derive": {}
+        },
+        "21f813ba": {
+          "replace": [
+            "c235c6a7"
+          ],
+          "derive": {}
+        },
+        "a4a04996": {
+          "replace": [
+            "c28372b3"
+          ],
+          "derive": {}
+        },
+        "de0e0858": {
+          "replace": [
+            "6070986d"
+          ],
+          "derive": {}
+        },
+        "616f86d7": {
+          "replace": [
+            "8acf0a92"
+          ],
+          "derive": {}
+        },
+        "c99c5635": {
+          "replace": [
+            "07352718"
+          ],
+          "derive": {}
+        },
+        "3d7098cb": {
+          "replace": [
+            "c2727ed7"
+          ],
+          "derive": {}
+        },
+        "d1c1a195": {
+          "replace": [
+            "612a235b"
+          ],
+          "derive": {}
+        },
+        "61de7097": {
+          "replace": [
+            "18a76e47"
+          ],
+          "derive": {}
+        },
+        "eba80d04": {
+          "replace": [
+            "d1c1a195"
+          ],
+          "derive": {}
+        },
+        "eec46ff3": {
+          "replace": [
+            "61de7097"
+          ],
+          "derive": {}
+        },
+        "e8dc6680": {
+          "replace": [
+            "2ba75c9c"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "944088a4": {
+          "replace": [
+            "eba837f6"
+          ],
+          "derive": {}
+        },
+        "f25552ba": {
+          "replace": [
+            "3c1567ae"
+          ],
+          "derive": {}
+        },
+        "de2d50ef": {
+          "replace": [
+            "34fd8ff4"
+          ],
+          "derive": {}
+        },
+        "5b31df44": {
+          "replace": [
+            "a5da61f8"
+          ],
+          "derive": {}
+        },
+        "742c5c7b": {
+          "replace": [
+            "21f813ba"
+          ],
+          "derive": {}
+        },
+        "6e30fa73": {
+          "replace": [
+            "3624cd00"
+          ],
+          "derive": {}
+        },
+        "1d87721d": {
+          "replace": [
+            "5261a986"
+          ],
+          "derive": {}
+        },
+        "4b6a79a3": {
+          "replace": [
+            "a4a04996"
+          ],
+          "derive": {}
+        },
+        "89164754": {
+          "replace": [
+            "de0e0858"
+          ],
+          "derive": {}
+        },
+        "2fe74da6": {
+          "replace": [
+            "944088a4"
+          ],
+          "derive": {}
+        },
+        "a98669ce": {
+          "replace": [
+            "de2d50ef"
+          ],
+          "derive": {}
+        },
+        "4f72c012": {
+          "replace": [
+            "4b6a79a3"
+          ],
+          "derive": {}
+        },
+        "c6452fb0": {
+          "replace": [
+            "6e30fa73"
+          ],
+          "derive": {}
         }
       }
     },
@@ -17989,6 +24958,10 @@
             "7ebe61e9"
           ],
           "new": "2208a16a"
+        },
+        {
+          "old": [],
+          "new": "6275f463"
         }
       ],
       "rules": [
@@ -18166,7 +25139,8 @@
         "5177eec5": {
           "replace": [
             "861bd2d1",
-            "a39c7832"
+            "a39c7832",
+            "6ba42f12"
           ],
           "derive": {
             "LOD": [
@@ -18201,8 +25175,814 @@
             "d9a6d77f",
             "14df60bb"
           ]
+        },
+        "b4525ff8": {
+          "replace": [
+            "c8b08afd"
+          ],
+          "derive": {}
+        },
+        "a7ff2cab": {
+          "replace": [
+            "4cdc5987"
+          ],
+          "derive": {}
+        },
+        "2208a16a": {
+          "replace": [
+            "7ebe61e9"
+          ],
+          "derive": {}
+        },
+        "15d8e51d": {
+          "replace": [
+            "16bf75a8"
+          ],
+          "derive": {}
+        },
+        "8f1f16f2": {
+          "replace": [
+            "dc383c2f"
+          ],
+          "derive": {}
+        },
+        "a07dd592": {
+          "replace": [
+            "e2ff72ff"
+          ],
+          "derive": {}
+        },
+        "cc072002": {
+          "replace": [
+            "04f24eb9"
+          ],
+          "derive": {}
+        },
+        "333217d7": {
+          "replace": [
+            "2c9428d3"
+          ],
+          "derive": {}
+        },
+        "082752de": {
+          "replace": [
+            "8427b202"
+          ],
+          "derive": {}
+        },
+        "1f4bb8ab": {
+          "replace": [
+            "a28f18f6"
+          ],
+          "derive": {}
+        },
+        "d9a6d77f": {
+          "replace": [
+            "14df60bb"
+          ],
+          "derive": {}
+        },
+        "db2412ad": {
+          "replace": [
+            "9122d2f2"
+          ],
+          "derive": {}
+        },
+        "9bf218c0": {
+          "replace": [
+            "815d50a9"
+          ],
+          "derive": {}
+        },
+        "42b99a48": {
+          "replace": [
+            "2931bfa1"
+          ],
+          "derive": {}
+        },
+        "6ba42f12": {
+          "replace": [
+            "93904edd"
+          ],
+          "derive": {}
+        },
+        "246557d6": {
+          "replace": [
+            "26045936"
+          ],
+          "derive": {}
+        },
+        "cf80d28e": {
+          "replace": [
+            "861bd2d1"
+          ],
+          "derive": {}
+        },
+        "1c4ac885": {
+          "replace": [
+            "e5393d0e"
+          ],
+          "derive": {}
+        },
+        "ef3c7928": {
+          "replace": [
+            "cc072002"
+          ],
+          "derive": {}
+        },
+        "a506a70d": {
+          "replace": [
+            "8383cbbf"
+          ],
+          "derive": {}
+        },
+        "742c5c7b": {
+          "replace": [
+            "21f813ba"
+          ],
+          "derive": {}
         }
       }
+    },
+    "LupaForteTail": {
+      "main_hashes": [
+        {
+          "old": [],
+          "new": "c8a3ba12"
+        }
+      ],
+      "textures": {
+        "3beea079": {
+          "replace": [
+            "c3e2ae42"
+          ],
+          "derive": {}
+        },
+        "e2fe6821": {
+          "replace": [
+            "da627d6f"
+          ],
+          "derive": {}
+        },
+        "7403b44b": {
+          "replace": [
+            "46ba6b95"
+          ],
+          "derive": {}
+        }
+      },
+      "vg_remaps": []
+    },
+    "WeaponAugustaGreatSword": {
+      "main_hashes": [
+        {
+          "old": [],
+          "new": "300c0bc2"
+        }
+      ],
+      "textures": {
+        "764b404e": {
+          "replace": [
+            "1113b525"
+          ],
+          "derive": {}
+        },
+        "e80cb374": {
+          "replace": [
+            "fb607615"
+          ],
+          "derive": {}
+        },
+        "68620d7f": {
+          "replace": [
+            "b7825f28"
+          ],
+          "derive": {}
+        },
+        "0729ebca": {
+          "replace": [
+            "a962a05e"
+          ],
+          "derive": {}
+        },
+        "a8b24d7a": {
+          "replace": [
+            "3ac3a471"
+          ],
+          "derive": {}
+        },
+        "33400757": {
+          "replace": [
+            "764b404e"
+          ],
+          "derive": {}
+        },
+        "edb3c7c6": {
+          "replace": [
+            "e80cb374"
+          ],
+          "derive": {}
+        },
+        "e61a3bcd": {
+          "replace": [
+            "68620d7f"
+          ],
+          "derive": {}
+        },
+        "8f24987f": {
+          "replace": [
+            "bb641eb0"
+          ],
+          "derive": {}
+        },
+        "6a7de8fc": {
+          "replace": [
+            "0729ebca"
+          ],
+          "derive": {}
+        },
+        "59734472": {
+          "replace": [
+            "a8b24d7a"
+          ],
+          "derive": {}
+        }
+      },
+      "vg_remaps": []
+    },
+    "WeaponAemeathLaserSword": {
+      "main_hashes": [
+        {
+          "old": [],
+          "new": "aec01e61"
+        }
+      ],
+      "textures": {
+        "93be2368": {
+          "replace": [
+            "5c469503"
+          ],
+          "derive": {}
+        },
+        "a1e2e0cd": {
+          "replace": [
+            "aefdd4ec"
+          ],
+          "derive": {}
+        },
+        "449a1d2c": {
+          "replace": [
+            "d4a876d0"
+          ],
+          "derive": {}
+        },
+        "4069afd9": {
+          "replace": [
+            "fb3b2312"
+          ],
+          "derive": {}
+        }
+      },
+      "vg_remaps": []
+    },
+    "WeaponChisaScissors": {
+      "main_hashes": [
+        {
+          "old": [],
+          "new": "b00403dc"
+        }
+      ],
+      "textures": {
+        "50bb611a": {
+          "replace": [
+            "4e8ca281"
+          ],
+          "derive": {}
+        },
+        "c7c8e963": {
+          "replace": [
+            "3814c6cd"
+          ],
+          "derive": {}
+        },
+        "327bf64a": {
+          "replace": [
+            "744045d5"
+          ],
+          "derive": {}
+        },
+        "ec9a069d": {
+          "replace": [
+            "6fef6308"
+          ],
+          "derive": {}
+        },
+        "90adf0cf": {
+          "replace": [
+            "1ae01aac"
+          ],
+          "derive": {}
+        }
+      },
+      "vg_remaps": []
+    },
+    "WeaponDeniaStaff": {
+      "main_hashes": [
+        {
+          "old": [],
+          "new": "312b4ec7"
+        }
+      ],
+      "textures": {
+        "9dafb89c": {
+          "replace": [
+            "3e1a2c7b"
+          ],
+          "derive": {}
+        },
+        "e22c6692": {
+          "replace": [
+            "3fc390c9"
+          ],
+          "derive": {}
+        },
+        "135dc5bb": {
+          "replace": [
+            "12c26e2e"
+          ],
+          "derive": {}
+        },
+        "65c1a175": {
+          "replace": [
+            "71edeb02"
+          ],
+          "derive": {}
+        },
+        "74a765c7": {
+          "replace": [
+            "8251fb2e"
+          ],
+          "derive": {}
+        }
+      },
+      "vg_remaps": []
+    },
+    "WeaponCartethyiaSig": {
+      "main_hashes": [
+        {
+          "old": [],
+          "new": "7096764e"
+        }
+      ],
+      "textures": {
+        "567eafd2": {
+          "replace": [
+            "f3a16b38"
+          ],
+          "derive": {}
+        },
+        "9f8f95eb": {
+          "replace": [
+            "da36a3a0"
+          ],
+          "derive": {}
+        },
+        "ce4bdb6d": {
+          "replace": [
+            "bf1a41f9"
+          ],
+          "derive": {}
+        },
+        "5a81dd62": {
+          "replace": [
+            "8f17aa18"
+          ],
+          "derive": {}
+        },
+        "390fabf5": {
+          "replace": [
+            "610ba2ed"
+          ],
+          "derive": {}
+        },
+        "728cb387": {
+          "replace": [
+            "b506fe8c"
+          ],
+          "derive": {}
+        },
+        "f0d0b0da": {
+          "replace": [
+            "66a3042f"
+          ],
+          "derive": {}
+        }
+      },
+      "vg_remaps": []
+    },
+    "WeaponEverbrightPolestar": {
+      "main_hashes": [
+        {
+          "old": [],
+          "new": "a293fdab"
+        }
+      ],
+      "textures": {
+        "2e6793d3": {
+          "replace": [
+            "1445e3b2"
+          ],
+          "derive": {}
+        },
+        "7639376c": {
+          "replace": [
+            "7b2faa9f"
+          ],
+          "derive": {}
+        },
+        "d365c42f": {
+          "replace": [
+            "9291bb0b"
+          ],
+          "derive": {}
+        },
+        "57ebdcbd": {
+          "replace": [
+            "f1f03f66"
+          ],
+          "derive": {}
+        }
+      },
+      "vg_remaps": []
+    },
+    "WeaponFormlessSword": {
+      "main_hashes": [
+        {
+          "old": [],
+          "new": "7121ea1d"
+        }
+      ],
+      "textures": {
+        "42a110df": {
+          "replace": [
+            "5315f9db"
+          ],
+          "derive": {}
+        },
+        "b7e123be": {
+          "replace": [
+            "b46ab8ec"
+          ],
+          "derive": {}
+        }
+      },
+      "vg_remaps": []
+    },
+    "WeaponFrostburn": {
+      "main_hashes": [
+        {
+          "old": [],
+          "new": "6faee601"
+        }
+      ],
+      "textures": {
+        "f764016d": {
+          "replace": [
+            "6c1fd582"
+          ],
+          "derive": {}
+        },
+        "23279fc6": {
+          "replace": [
+            "347f9db4"
+          ],
+          "derive": {}
+        },
+        "ad587070": {
+          "replace": [
+            "e9636cd2"
+          ],
+          "derive": {}
+        },
+        "0d9eebfd": {
+          "replace": [
+            "e98856e8"
+          ],
+          "derive": {}
+        }
+      },
+      "vg_remaps": []
+    },
+    "WeaponHiyukiKatana": {
+      "main_hashes": [
+        {
+          "old": [],
+          "new": "ae744b48"
+        }
+      ],
+      "textures": {
+        "6a20f637": {
+          "replace": [
+            "6cdb746f"
+          ],
+          "derive": {}
+        },
+        "0d9eebfd": {
+          "replace": [
+            "e98856e8"
+          ],
+          "derive": {}
+        },
+        "ad85a13f": {
+          "replace": [
+            "4cb75214"
+          ],
+          "derive": {}
+        },
+        "09888379": {
+          "replace": [
+            "8b0ec0c4"
+          ],
+          "derive": {}
+        },
+        "66100fda": {
+          "replace": [
+            "9030b5e1"
+          ],
+          "derive": {}
+        },
+        "c6721b16": {
+          "replace": [
+            "ad8f79aa"
+          ],
+          "derive": {}
+        },
+        "000dc699": {
+          "replace": [
+            "c6c77084"
+          ],
+          "derive": {}
+        }
+      },
+      "vg_remaps": []
+    },
+    "WeaponIunoChakram": {
+      "main_hashes": [
+        {
+          "old": [],
+          "new": "0452defd"
+        }
+      ],
+      "textures": {
+        "48128d83": {
+          "replace": [
+            "26f60b32"
+          ],
+          "derive": {}
+        },
+        "4bf1b50c": {
+          "replace": [
+            "414d071c"
+          ],
+          "derive": {}
+        }
+      },
+      "vg_remaps": []
+    },
+    "WeaponOceanGift": {
+      "main_hashes": [
+        {
+          "old": [],
+          "new": "5ec97864"
+        }
+      ],
+      "textures": {
+        "77c07ddc": {
+          "replace": [
+            "292d8d3a"
+          ],
+          "derive": {}
+        },
+        "1c30760c": {
+          "replace": [
+            "10419bd2"
+          ],
+          "derive": {}
+        },
+        "9c55d27a": {
+          "replace": [
+            "f8cb597d"
+          ],
+          "derive": {}
+        },
+        "1cf73f2a": {
+          "replace": [
+            "77c07ddc"
+          ],
+          "derive": {}
+        },
+        "6aba3f23": {
+          "replace": [
+            "1c30760c"
+          ],
+          "derive": {}
+        }
+      },
+      "vg_remaps": []
+    },
+    "WeaponPhoebeStaff": {
+      "main_hashes": [
+        {
+          "old": [],
+          "new": "af088a1e"
+        }
+      ],
+      "textures": {
+        "2946ce99": {
+          "replace": [
+            "1fc35af1"
+          ],
+          "derive": {}
+        },
+        "acaabac5": {
+          "replace": [
+            "38a8ddae"
+          ],
+          "derive": {}
+        }
+      },
+      "vg_remaps": []
+    },
+    "WeaponQiuyuanBamboo": {
+      "main_hashes": [
+        {
+          "old": [],
+          "new": "6a1121c6"
+        }
+      ],
+      "textures": {
+        "3d2bc6fd": {
+          "replace": [
+            "292bf7cf"
+          ],
+          "derive": {}
+        },
+        "3a209af3": {
+          "replace": [
+            "d5c2f642"
+          ],
+          "derive": {}
+        }
+      },
+      "vg_remaps": []
+    },
+    "WeaponZaniShield": {
+      "main_hashes": [
+        {
+          "old": [],
+          "new": "76834247"
+        }
+      ],
+      "textures": {
+        "68ef2c73": {
+          "replace": [
+            "4e718e13"
+          ],
+          "derive": {}
+        },
+        "736c9645": {
+          "replace": [
+            "78c7ca2a"
+          ],
+          "derive": {}
+        }
+      },
+      "vg_remaps": []
+    },
+    "ETCInfernoRider": {
+      "main_hashes": [
+        {
+          "old": [],
+          "new": "d138e61d"
+        }
+      ],
+      "textures": {
+        "0d01485e": {
+          "replace": [
+            "82b4690c"
+          ],
+          "derive": {}
+        },
+        "d2c6f6c0": {
+          "replace": [
+            "0863cfc6"
+          ],
+          "derive": {}
+        },
+        "697775d6": {
+          "replace": [
+            "073d2c0d"
+          ],
+          "derive": {}
+        },
+        "44c22b27": {
+          "replace": [
+            "1013d828"
+          ],
+          "derive": {}
+        },
+        "c4734a15": {
+          "replace": [
+            "395b834d"
+          ],
+          "derive": {}
+        },
+        "11fe8281": {
+          "replace": [
+            "68104905"
+          ],
+          "derive": {}
+        },
+        "b2525a89": {
+          "replace": [
+            "10bbe355"
+          ],
+          "derive": {}
+        },
+        "e957db46": {
+          "replace": [
+            "cb7a76dc"
+          ],
+          "derive": {}
+        },
+        "3ea4b99a": {
+          "replace": [
+            "b231fa75"
+          ],
+          "derive": {}
+        },
+        "7eaef2b1": {
+          "replace": [
+            "3d09fcaf"
+          ],
+          "derive": {}
+        },
+        "a16df2a3": {
+          "replace": [
+            "fe727409"
+          ],
+          "derive": {}
+        },
+        "0964b37f": {
+          "replace": [
+            "cee84ad0"
+          ],
+          "derive": {}
+        },
+        "c3fa1279": {
+          "replace": [
+            "c5ec66af"
+          ],
+          "derive": {}
+        },
+        "febac1be": {
+          "replace": [
+            "071bf959"
+          ],
+          "derive": {}
+        },
+        "9a92fecc": {
+          "replace": [
+            "2c93d3ff"
+          ],
+          "derive": {}
+        },
+        "6067f9c1": {
+          "replace": [
+            "54bce24e"
+          ],
+          "derive": {}
+        },
+        "aa793731": {
+          "replace": [
+            "04f5e660"
+          ],
+          "derive": {}
+        },
+        "b6340b8b": {
+          "replace": [
+            "15c7bdbf"
+          ],
+          "derive": {}
+        },
+        "c6d93664": {
+          "replace": [
+            "b892caa1"
+          ],
+          "derive": {}
+        }
+      },
+      "vg_remaps": []
     }
   }
 }
