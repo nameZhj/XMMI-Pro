@@ -11,18 +11,20 @@ from typing import Optional, List
 from customtkinter import CTkToplevel, CTkFrame, CTkLabel, CTkEntry, CTkButton, CTkProgressBar, CTkOptionMenu
 
 from core.gamebanana_service import GameBananaService, GameBananaModInfo, GameBananaFileInfo
-from gui.modern_dialogs import show_warning, show_info
+from core.mod_sites import detect_site_from_url
+from gui.modern_dialogs import show_warning
 
 
 class GameBananaDownloadDialog(CTkToplevel):
-    def __init__(self, parent, on_import_success=None, initial_url: str = ""):
+    def __init__(self, parent, on_import_success=None, on_open_in_browser=None, initial_url: str = ""):
         super().__init__(parent)
-        self.title("🍌 GameBanana 模组在线解析与下载")
+        self.title("🔗 模组链接解析与一键下载")
         self.geometry("640x460")
         self.resizable(False, False)
         self.configure(fg_color="#0f172a")
 
         self.on_import_success = on_import_success
+        self.on_open_in_browser = on_open_in_browser
         self.mod_info: Optional[GameBananaModInfo] = None
         self.cancel_download = False
         self.is_downloading = False
@@ -56,18 +58,12 @@ class GameBananaDownloadDialog(CTkToplevel):
         header = CTkFrame(self, fg_color="transparent")
         header.pack(fill="x", padx=20, pady=(18, 10))
 
+        CTkLabel(header, text="🔗 模组链接解析与一键下载", font=("Microsoft YaHei", 18, "bold"), text_color="#f8fafc").pack(anchor="w")
         CTkLabel(
             header,
-            text="🍌 GameBanana 模组解析与一键下载",
-            font=("Microsoft YaHei", 18, "bold"),
-            text_color="#f8fafc"
-        ).pack(anchor="w")
-
-        CTkLabel(
-            header,
-            text="支持粘贴 Mod 详情页、下载页链接或数字 ID，自动高速下载、解压并就绪！",
+            text="支持 GameBanana 直链解析、.zip/.7z/.rar 直链下载，以及 NexusMods / Nahida / Arca 等外链在内置浏览器打开！",
             font=("Microsoft YaHei", 11),
-            text_color="#94a3b8"
+            text_color="#94a3b8",
         ).pack(anchor="w", pady=(4, 0))
 
         # 2. Input Bar
@@ -192,7 +188,7 @@ class GameBananaDownloadDialog(CTkToplevel):
     def _try_auto_paste(self):
         try:
             cb = self.clipboard_get().strip()
-            if "gamebanana.com" in cb.lower():
+            if detect_site_from_url(cb) or cb.lower().endswith((".zip", ".7z", ".rar")):
                 self.entry_url.delete(0, "end")
                 self.entry_url.insert(0, cb)
         except Exception:
@@ -200,20 +196,29 @@ class GameBananaDownloadDialog(CTkToplevel):
 
     def _start_parse(self):
         raw = self.entry_url.get().strip()
-        mod_id = GameBananaService.parse_mod_id(raw)
-        if not mod_id:
-            show_warning("输入提示", "未识别到有效的 GameBanana Mod ID 或链接！\n格式如：https://gamebanana.com/mods/530000", parent=self)
+        if raw.lower().startswith(("http://", "https://")) and raw.split("?")[0].lower().endswith((".zip", ".7z", ".rar")):
+            fname = os.path.basename(raw.split("?")[0]) or "direct_mod.zip"
+            info = GameBananaModInfo(mod_id="direct", name=f"直链文件：{fname}", files=[
+                GameBananaFileInfo(file_id="0", filename=fname, filesize=0, download_url=raw)
+            ])
+            self._on_parse_done(info, "直链")
             return
 
-        self.btn_parse.configure(state="disabled")
-        self.lbl_status.configure(text=f"🔍 正在从 GameBanana API 解析 Mod #{mod_id}...")
-        self.lbl_mod_title.configure(text=f"Mod #{mod_id} 解析中...")
+        mod_id = GameBananaService.parse_mod_id(raw)
+        if mod_id:
+            self.btn_parse.configure(state="disabled")
+            self.lbl_status.configure(text=f"🔍 正在从 GameBanana API 解析 Mod #{mod_id}...")
+            self.lbl_mod_title.configure(text=f"Mod #{mod_id} 解析中...")
+            threading.Thread(target=lambda: self.after(0, lambda: self._on_parse_done(GameBananaService.fetch_mod_details(mod_id), mod_id)), daemon=True, name="GBParser").start()
+            return
 
-        def worker():
-            info = GameBananaService.fetch_mod_details(mod_id)
-            self.after(0, lambda: self._on_parse_done(info, mod_id))
+        site = detect_site_from_url(raw)
+        if site and self.on_open_in_browser:
+            self._on_close()
+            self.on_open_in_browser(site.site_id, raw)
+            return
 
-        threading.Thread(target=worker, daemon=True, name="GBParser").start()
+        show_warning("输入提示", "请粘贴 GameBanana / NexusMods / Nahida / Arca / GitHub / MOD实验室 链接或 .zip/.7z/.rar 直链！", parent=self)
 
     def _on_parse_done(self, info: Optional[GameBananaModInfo], mod_id: str):
         self.btn_parse.configure(state="normal")

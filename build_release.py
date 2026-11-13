@@ -102,6 +102,14 @@ def build(tag: str = "v1.0.0"):
         "--hidden-import", "gui.modern_dialogs",
         "--hidden-import", "gui.copyable_error_dialog",
         "--hidden-import", "gui.windows.hot_update_dialog",
+        "--hidden-import", "core.wuwa_char_translator",
+        "--hidden-import", "core.mod_sites",
+        "--hidden-import", "core.readfrog_translator",
+        "--hidden-import", "gui.windows.gamebanana_browser",
+        "--hidden-import", "gui.windows.mod_browser_bridge",
+        "--hidden-import", "gui.windows.mod_browser_dialogs",
+        "--hidden-import", "gui.windows.mod_browser_downloads",
+        "--hidden-import", "gui.windows.mod_site_launcher_dialog",
         "--hidden-import", "gui.windows.gamebanana_download_dialog",
         "--hidden-import", "gui.windows.main.mod_manager_frame.mod_manager_frame",
         "--hidden-import", "dacite",
@@ -123,6 +131,7 @@ def build(tag: str = "v1.0.0"):
         "--hidden-import", "ctypes.wintypes",
         "--add-data", f"{SRC_DIR / 'core' / 'wuwa_fix_config.json'}{os.pathsep}core",
         "--add-data", f"{SRC_DIR / 'core' / 'wuwa_char_names.json'}{os.pathsep}core",
+        "--add-data", f"{SRC_DIR / 'core' / 'readfrog_inject.js'}{os.pathsep}core",
     ]
     try:
         import av

@@ -1407,15 +1407,15 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
 
         self.gamebanana_btn = CTkButton(
             self.actions_frame,
-            text="🍌 GameBanana 模组站",
-            width=138,
+            text="🌐 鸣潮模组站",
+            width=126,
             height=32,
             corner_radius=6,
             font=("Microsoft YaHei", 11, "bold"),
             fg_color="#ea580c",
             hover_color="#c2410c",
             text_color="#ffffff",
-            command=self._open_gamebanana_browser
+            command=self._open_mod_site_launcher
         )
         self.gamebanana_btn.pack(side="left", padx=2)
 
@@ -2468,11 +2468,26 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
         GameBananaDownloadDialog(
             parent=self.winfo_toplevel(),
             on_import_success=self._on_hot_update_success,
+            on_open_in_browser=lambda site_id, url: self._open_gamebanana_browser(site_id=site_id, target_url=url),
             initial_url=initial_url
         )
 
-    def _open_gamebanana_browser(self):
-        """Opens the integrated GameBanana Mod Download Center window."""
+    def _open_mod_site_launcher(self):
+        """Opens the multi-site Wuthering Waves mod site picker with login-first routing."""
+        from gui.windows.mod_site_launcher_dialog import ModSiteLauncherDialog
+        ModSiteLauncherDialog(
+            parent=self.winfo_toplevel(),
+            on_open_site=self._launch_mod_site_browser,
+        )
+
+    def _launch_mod_site_browser(self, site, login_first: bool = False):
+        """Routes to the selected mod site home or login page inside embedded browser."""
+        target = site.login_url if login_first else site.home_url
+        pending = site.home_url if login_first else ""
+        self._open_gamebanana_browser(site_id=site.site_id, target_url=target, pending_url=pending)
+
+    def _open_gamebanana_browser(self, site_id: str = "gamebanana", target_url: str = "", pending_url: str = ""):
+        """Opens or navigates the integrated multi-site Mod Download Center window."""
         mods_folder = ModService.get_active_mods_folder()
         if not mods_folder or not mods_folder.exists():
             show_warning(
@@ -2482,12 +2497,39 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
             )
             return
 
+        # Determine initial URL according to requested site or active game importer
+        if target_url:
+            initial_url = target_url
+        else:
+            try:
+                from core.config_manager import Config
+                active_importer = getattr(Config.Launcher, "active_importer", "WWMI")
+            except Exception:
+                active_importer = "WWMI"
+
+            gamebanana_urls = {
+                'WWMI': 'https://gamebanana.com/games/20357',  # 鸣潮
+                'ZZMI': 'https://gamebanana.com/games/18951',  # 绝区零
+                'SRMI': 'https://gamebanana.com/games/18261',  # 崩铁
+                'GIMI': 'https://gamebanana.com/games/8552',   # 原神
+                'HIMI': 'https://gamebanana.com/games/15446',  # 崩坏3
+            }
+            initial_url = gamebanana_urls.get(active_importer, "https://gamebanana.com/games/20357")
+
         # Check if browser process is already alive
         if hasattr(self, '_gamebanana_proc') and self._gamebanana_proc and self._gamebanana_proc.poll() is None:
             try:
+                if self._gamebanana_proc.stdin and target_url:
+                    cmd_msg = json.dumps({"action": "navigate", "url": initial_url, "pending_url": pending_url}, ensure_ascii=False) + "\n"
+                    self._gamebanana_proc.stdin.write(cmd_msg)
+                    self._gamebanana_proc.stdin.flush()
+            except Exception:
+                pass
+            try:
                 import win32gui, win32con
                 def enum_handler(hwnd, extra):
-                    if win32gui.IsWindowVisible(hwnd) and "GameBanana" in win32gui.GetWindowText(hwnd):
+                    title = win32gui.GetWindowText(hwnd)
+                    if win32gui.IsWindowVisible(hwnd) and ("GameBanana" in title or "鸣潮模组站" in title):
                         win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
                         win32gui.SetForegroundWindow(hwnd)
                 win32gui.EnumWindows(enum_handler, None)
@@ -2505,22 +2547,6 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
         cache_dir = app_root / "UserData" / "GameBananaBrowser"
         cache_dir.mkdir(parents=True, exist_ok=True)
 
-        # Determine initial GameBanana URL according to active game importer
-        try:
-            from core.config_manager import Config
-            active_importer = getattr(Config.Launcher, "active_importer", "WWMI")
-        except Exception:
-            active_importer = "WWMI"
-
-        gamebanana_urls = {
-            'WWMI': 'https://gamebanana.com/games/20357',  # 鸣潮
-            'ZZMI': 'https://gamebanana.com/games/18951',  # 绝区零
-            'SRMI': 'https://gamebanana.com/games/18261',  # 崩铁
-            'GIMI': 'https://gamebanana.com/games/8552',   # 原神
-            'HIMI': 'https://gamebanana.com/games/15446',  # 崩坏3
-        }
-        initial_url = gamebanana_urls.get(active_importer, "https://gamebanana.com/games/20357")
-
         cmd = [sys.executable]
 
         if getattr(sys, 'frozen', False):
@@ -2529,6 +2555,7 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
                 '--mods-dir', str(mods_folder),
                 '--download-dir', str(download_dir),
                 '--cache-dir', str(cache_dir),
+                '--site', str(site_id),
                 '--initial-url', str(initial_url),
                 '--parent-pid', str(os.getpid())
             ])
@@ -2542,6 +2569,7 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
                 '--mods-dir', str(mods_folder),
                 '--download-dir', str(download_dir),
                 '--cache-dir', str(cache_dir),
+                '--site', str(site_id),
                 '--initial-url', str(initial_url),
                 '--parent-pid', str(os.getpid())
             ])
