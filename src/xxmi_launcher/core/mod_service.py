@@ -11,7 +11,7 @@ import ctypes
 from ctypes import wintypes
 from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Optional, List, Tuple, Set, Dict, Callable
+from typing import Optional, List, Tuple, Set, Dict, Callable, Any
 
 import psutil
 import platform
@@ -1208,116 +1208,496 @@ class ModService:
         t = threading.Thread(target=_worker, daemon=True, name="WuwaRuleUpdater")
         t.start()
 
+    @staticmethod
+    def _safe_backup_name(display_name: str) -> str:
+        """Sanitizes a mod display name for safe backup zip file paths on Windows."""
+        return re.sub(r'[\\/:*?"<>|]+', '_', display_name).strip() or "mod_backup"
+
+    @classmethod
+    def _resolve_mod_path_for_repair(cls, mod_item: ModItem) -> Optional[Path]:
+        """Resolves a mod directory even if toggled (DISABLED_ prefix) after UI scan."""
+        if mod_item.path.exists():
+            return mod_item.path
+        parent = mod_item.path.parent
+        if not parent.exists():
+            return None
+        name = mod_item.path.name
+        alt_name = name[9:] if name.upper().startswith("DISABLED_") else f"DISABLED_{name}"
+        alt_path = parent / alt_name
+        if alt_path.exists():
+            mod_item.path = alt_path
+            mod_item.name = alt_path.name
+            mod_item.enabled = not alt_path.name.upper().startswith("DISABLED_")
+            return alt_path
+        return None
+
+    @staticmethod
+    def _extract_hashes_no_comments(lines: List[str]) -> Set[str]:
+        """Extracts lowercase 8-hex hashes from active (non-comment) ini content."""
+        active_text = '\n'.join(l.split(';', 1)[0] for l in lines)
+        return set(re.findall(r'\b[0-9a-fA-F]{8}\b', active_text.lower()))
+
+    @staticmethod
+    def _clean_legacy_corrupt_ini_lines(lines: List[str]) -> Tuple[List[str], int]:
+        """Removes invalid lines left behind by earlier buggy fixer versions."""
+        cleaned: List[str] = []
+        removed = 0
+        for line in lines:
+            low = line.strip().lower()
+            if (
+                re.match(r'^checktextureoverride\s*=\s*0\b', low)
+                or low.startswith('$\\wwmiv1\\vg_remap')
+                or low.startswith('; [auto-generated vertex group remap')
+            ):
+                removed += 1
+                continue
+            cleaned.append(line)
+        return cleaned, removed
+
+    @staticmethod
+    def _parse_vg_remap_mapping(remap_str: str) -> Dict[int, int]:
+        """Parses comma-separated 'src:dst' vertex group remap pairs."""
+        mapping: Dict[int, int] = {}
+        for part in str(remap_str).split(','):
+            if ':' not in part:
+                continue
+            src_s, dst_s = part.split(':', 1)
+            try:
+                src, dst = int(src_s.strip()), int(dst_s.strip())
+            except ValueError:
+                continue
+            if 0 <= src <= 255 and 0 <= dst <= 255 and src != dst:
+                mapping[src] = dst
+        return mapping
+
+    @classmethod
+    def _apply_blend_vg_remap(cls, mod_path: Path, remap_str: str) -> int:
+        """Remaps 8-byte stride bone indices in *Blend*.buf files when weights > 0."""
+        mapping = cls._parse_vg_remap_mapping(remap_str)
+        if not mapping:
+            return 0
+        modified_files = 0
+        for buf_path in list(mod_path.rglob('*Blend*.buf')):
+            if '.bak' in buf_path.name.lower() or not buf_path.is_file():
+                continue
+            try:
+                raw = buf_path.read_bytes()
+                if len(raw) < 8 or len(raw) % 8 != 0:
+                    continue
+                buf = bytearray(raw)
+                changed = False
+                for i in range(0, len(buf), 8):
+                    for j in range(4):
+                        if buf[i + 4 + j] > 0 and buf[i + j] in mapping:
+                            buf[i + j] = mapping[buf[i + j]]
+                            changed = True
+                if changed:
+                    bak = buf_path.with_name(f"{buf_path.name}.orig.bak")
+                    if not bak.exists():
+                        bak.write_bytes(raw)
+                    buf_path.write_bytes(buf)
+                    modified_files += 1
+            except Exception as e:
+                log.debug(f"Error remapping blend buffer {buf_path}: {e}")
+        return modified_files
+
+    @staticmethod
+    def _parse_ini_sections(lines: List[str]) -> List[Tuple[Optional[str], List[str]]]:
+        """Splits ini lines into (header_line_or_None, body_lines) tuples safely."""
+        sections: List[Tuple[Optional[str], List[str]]] = []
+        cur_header: Optional[str] = None
+        cur_body: List[str] = []
+        for line in lines:
+            stripped = line.strip()
+            if stripped.startswith('[') and stripped.endswith(']'):
+                sections.append((cur_header, cur_body))
+                cur_header = line
+                cur_body = []
+            else:
+                cur_body.append(line)
+        sections.append((cur_header, cur_body))
+        return sections
+
+    @classmethod
+    def _collect_derived_sections(
+        cls,
+        lines: List[str],
+        target_chars: List[Tuple[str, Dict]],
+        present_hashes: Set[str]
+    ) -> Tuple[List[str], int]:
+        """Builds derived LOD/state TextureOverride blocks cloning parent 'this = Resource...'."""
+        sections = cls._parse_ini_sections(lines)
+        hash_bodies: Dict[str, List[str]] = {}
+        for header, body in sections:
+            if not header or 'textureoverride' not in header.strip().lower():
+                continue
+            sec_hash = None
+            has_this = False
+            clone_lines: List[str] = []
+            for bl in body:
+                code = bl.split(';', 1)[0].strip()
+                m_hash = re.match(r'(?i)^hash\s*=\s*([0-9a-fA-F]{8})\b', code)
+                if m_hash:
+                    sec_hash = m_hash.group(1).lower()
+                    continue
+                if re.match(r'(?i)^checktextureoverride\s*=', code):
+                    continue
+                if code:
+                    if re.match(r'(?i)^this\s*=', code):
+                        has_this = True
+                    clone_lines.append(bl)
+            if sec_hash and has_this and sec_hash not in hash_bodies:
+                hash_bodies[sec_hash] = clone_lines
+
+        extra_lines: List[str] = []
+        added = 0
+        for c_name, c_def in target_chars:
+            for tex_hash, t_node in c_def.get('textures', {}).items():
+                th_low = tex_hash.lower()
+                if th_low not in present_hashes or th_low not in hash_bodies:
+                    continue
+                for dtype, dlist in t_node.get('derive', {}).items():
+                    for dhash in dlist:
+                        if dhash.lower() in present_hashes:
+                            continue
+                        extra_lines.append(f"")
+                        extra_lines.append(f"; [Auto-generated {dtype} Texture Override for {c_name}]")
+                        extra_lines.append(f"[TextureOverride_{c_name}_{dtype}_{dhash}]")
+                        extra_lines.append(f"hash = {dhash}")
+                        extra_lines.extend(hash_bodies[th_low])
+                        present_hashes.add(dhash.lower())
+                        added += 1
+        return extra_lines, added
+
+    @classmethod
+    def _apply_safe_ini_section_injections(
+        cls,
+        lines: List[str],
+        matched_chars: List[Tuple[str, Dict]],
+        fix_stable: bool,
+        fix_resource_override: bool
+    ) -> Tuple[List[str], bool]:
+        """Applies skip_components and valid CheckTextureOverride = ps-tX without list mutation loops."""
+        if not fix_stable and not fix_resource_override:
+            return lines, False
+        skip_comps = {
+            str(sc).strip().lower()
+            for _, c_def in matched_chars
+            for sc in c_def.get('skip_components', [])
+            if str(sc).strip()
+        }
+        sections = cls._parse_ini_sections(lines)
+        out_lines: List[str] = []
+        changed = False
+        for header, body in sections:
+            new_body = list(body)
+            if header and 'textureoverride' in header.strip().lower():
+                body_code = [bl.split(';', 1)[0].strip() for bl in new_body]
+                body_low = '\n'.join(body_code).lower()
+
+                # Step G: handling = skip for configured unstable components
+                if fix_stable and skip_comps and 'handling = skip' not in body_low and 'handling=skip' not in body_low:
+                    for idx, code in enumerate(body_code):
+                        m_comp = re.match(r'(?i)^component\s*=\s*(\S+)', code)
+                        if m_comp and m_comp.group(1).lower() in skip_comps:
+                            new_body.insert(idx + 1, 'handling = skip')
+                            body_code.insert(idx + 1, 'handling = skip')
+                            changed = True
+                            break
+
+                # Step H: inject CheckTextureOverride = ps-tX on draw sections referencing texture slots
+                if (
+                    fix_resource_override
+                    and 'match_first_index' in body_low
+                    and 'checktextureoverride' not in body_low
+                    and 'commandlisttriggerresourceoverrides' not in body_low
+                ):
+                    slot_match = next(
+                        (m for code in body_code if (m := re.match(r'(?i)^(ps-t\d+)\s*=', code))),
+                        None
+                    )
+                    slot_val = slot_match.group(1).lower() if slot_match else None
+                    if slot_val:
+                        insert_pos = len(new_body)
+                        while insert_pos > 0 and not new_body[insert_pos - 1].strip():
+                            insert_pos -= 1
+                        new_body.insert(insert_pos, f"CheckTextureOverride = {slot_val}")
+                        changed = True
+
+            if header is not None:
+                out_lines.append(header)
+            out_lines.extend(new_body)
+        return out_lines, changed
+
+    @classmethod
+    def _match_ini_characters(
+        cls,
+        chars_db: Dict[str, Any],
+        present_hashes: Set[str],
+        ini_name_lower: str,
+        mod_name_lower: str
+    ) -> Tuple[List[Tuple[str, Dict]], List[Tuple[str, Dict]]]:
+        """Finds matching character/weapon definitions by name or hash presence."""
+        matched_chars: List[Tuple[str, Dict]] = []
+        hash_chars: List[Tuple[str, Dict]] = []
+        for c_name, c_def in chars_db.items():
+            name_keys = [c_name.lower()]
+            for extra_key in ('character_en', 'character_id'):
+                if c_def.get(extra_key):
+                    name_keys.append(str(c_def[extra_key]).lower())
+            name_hit = any(k and (k in ini_name_lower or k in mod_name_lower) for k in name_keys)
+
+            main_hit = any(
+                (mh.get('new') and mh['new'].lower() in present_hashes)
+                or any(oh.lower() in present_hashes for oh in mh.get('old', []))
+                for mh in c_def.get('main_hashes', [])
+            )
+            tex_hit = any(
+                th.lower() in present_hashes
+                or any(ot.lower() in present_hashes for ot in t_node.get('replace', []))
+                for th, t_node in c_def.get('textures', {}).items()
+            )
+            vg_hit = any(
+                th.lower() in present_hashes
+                for vg in c_def.get('vg_remaps', [])
+                for th in vg.get('trigger_hash', [])
+            )
+
+            if name_hit or main_hit or vg_hit:
+                matched_chars.append((c_name, c_def))
+            if main_hit or tex_hit or vg_hit:
+                hash_chars.append((c_name, c_def))
+        target_chars = matched_chars if matched_chars else hash_chars
+        return matched_chars, target_chars
+
+    @classmethod
+    def _create_backup_snapshot(cls, mod_item: ModItem, safe_name: str) -> Optional[str]:
+        """Creates a pre-repair zip snapshot of .ini files if absent."""
+        mods_folder = cls.get_active_mods_folder() or mod_item.path.parent
+        if not mods_folder:
+            return None
+        backup_dir = mods_folder / ".mod_backups"
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        for candidate in (backup_dir / f"{safe_name}.zip", backup_dir / f"{mod_item.display_name}.zip"):
+            if candidate.exists():
+                return None
+        backup_zip = backup_dir / f"{safe_name}.zip"
+        ini_to_save = [p for p in mod_item.path.rglob('*.ini') if not p.name.endswith('.bak')]
+        if not ini_to_save:
+            return None
+        try:
+            with zipfile.ZipFile(backup_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
+                for file_p in ini_to_save:
+                    zf.write(file_p, file_p.relative_to(mod_item.path))
+            return "已创建修复前原始配置安全回滚快照"
+        except Exception as e:
+            log.debug(f"Failed to create pre-repair backup snapshot: {e}")
+            return None
+
+    @classmethod
+    def _clean_mod_trash_and_nesting(cls, mod_path: Path) -> List[str]:
+        """Removes OS junk/legacy files and flattens a redundant single wrapper folder."""
+        fixes: List[str] = []
+        trash_names = {'checktexture.ini', 'references.ini', '.ds_store', 'thumbs.db', 'desktop.ini'}
+        for item in list(mod_path.rglob('*')):
+            if item.is_file() and item.name.lower() in trash_names:
+                try:
+                    item.unlink()
+                    fixes.append(f"已清理冗余/干扰文件: {item.name}")
+                except Exception:
+                    pass
+            elif item.is_dir() and item.name.lower() == '__macosx':
+                shutil.rmtree(item, ignore_errors=True)
+                fixes.append(f"已清理冗余系统目录: {item.name}")
+
+        trash_filter = trash_names | {'__macosx'}
+        sub_items = [p for p in mod_path.iterdir() if p.name.lower() not in trash_filter]
+        if len(sub_items) == 1 and sub_items[0].is_dir() and sub_items[0].name.lower() not in {'textures', 'meshes', 'pinmeshes', '0'}:
+            temp_swap = mod_path.parent / f"_tmp_swap_{int(time.time() * 1000)}"
+            shutil.move(str(sub_items[0]), str(temp_swap))
+            for inner_file in temp_swap.iterdir():
+                shutil.move(str(inner_file), str(mod_path))
+            shutil.rmtree(temp_swap, ignore_errors=True)
+            fixes.append("已自动扁平化单层嵌套子目录结构")
+        return fixes
+
+    @classmethod
+    def _decode_ini_bytes(cls, raw_bytes: bytes) -> str:
+        """Decodes ini bytes using UTF-8/GBK fallback chain."""
+        for enc in ('utf-8-sig', 'utf-8', 'gbk', 'gb18030', 'latin-1'):
+            try:
+                return raw_bytes.decode(enc)
+            except Exception:
+                continue
+        return raw_bytes.decode('utf-8', errors='ignore')
+
+    @classmethod
+    def _apply_hash_and_rule_replacements(
+        cls,
+        lines: List[str],
+        target_chars: List[Tuple[str, Dict]],
+        present_hashes: Set[str],
+        fix_hashes: bool,
+        fix_rules: bool
+    ) -> Tuple[int, int]:
+        """Replaces outdated hashes and draw/index rules cleanly in active ini lines."""
+        hash_count = 0
+        rule_count = 0
+        if fix_hashes:
+            repl_pairs: List[Tuple[str, str]] = []
+            for _, c_def in target_chars:
+                for mh in c_def.get('main_hashes', []):
+                    new_h = mh.get('new', '')
+                    for old_h in mh.get('old', []):
+                        if old_h.lower() != new_h.lower() and old_h.lower() in present_hashes:
+                            repl_pairs.append((old_h, new_h))
+                for new_tex, t_node in c_def.get('textures', {}).items():
+                    for old_tex in t_node.get('replace', []):
+                        if old_tex.lower() != new_tex.lower() and old_tex.lower() in present_hashes:
+                            repl_pairs.append((old_tex, new_tex))
+            for old_h, new_h in repl_pairs:
+                pat = re.compile(rf'\b{re.escape(old_h)}\b', re.IGNORECASE)
+                for idx, l in enumerate(lines):
+                    code, sep, comment = l.partition(';')
+                    if old_h.lower() in code.lower():
+                        new_code = pat.sub(new_h, code)
+                        if new_code != code:
+                            lines[idx] = f"{new_code}{sep}{comment}"
+                            hash_count += 1
+
+        if fix_rules:
+            full_text = '\n'.join(l.split(';', 1)[0] for l in lines)
+            for _, c_def in target_chars:
+                for rule in c_def.get('rules', []):
+                    prefix = rule.get('line_prefix', '').lower()
+                    for rep in rule.get('replacements', []):
+                        new_val = str(rep.get('new', ''))
+                        for old_val in rep.get('old', []):
+                            old_s = str(old_val)
+                            if old_s == new_val or old_s not in full_text:
+                                continue
+                            val_pat = re.compile(rf'(?<!\w){re.escape(old_s)}(?!\w)')
+                            for idx, l in enumerate(lines):
+                                code, sep, comment = l.partition(';')
+                                if prefix in code.lower() and old_s in code:
+                                    new_code = val_pat.sub(new_val, code)
+                                    if new_code != code:
+                                        lines[idx] = f"{new_code}{sep}{comment}"
+                                        rule_count += 1
+        return hash_count, rule_count
+
+    @classmethod
+    def _apply_rendering_33_and_engine_ini(cls, mod_item: ModItem, options: ModRepairOptions, fixes: List[str]) -> None:
+        """Applies Rendering 3.3 TexCoord buffer cleanup and Engine.ini streaming tweaks."""
+        if options.fix_rendering_33:
+            r33_count = 0
+            for tc_buf in list(mod_item.path.rglob('*TexCoord*.buf')):
+                if '.bak' in tc_buf.name.lower() or not tc_buf.is_file():
+                    continue
+                try:
+                    raw = tc_buf.read_bytes()
+                    if len(raw) >= 16 and len(raw) % 16 == 0:
+                        buf = bytearray(raw)
+                        changed = False
+                        for i in range(0, len(buf), 16):
+                            if buf[i + 4] != 0 or buf[i + 6] != 0:
+                                buf[i + 4] = 0
+                                buf[i + 6] = 0
+                                changed = True
+                        if changed:
+                            bak = tc_buf.with_name(f"{tc_buf.name}.orig.bak")
+                            if not bak.exists():
+                                bak.write_bytes(raw)
+                            tc_buf.write_bytes(buf)
+                            r33_count += 1
+                except Exception as e:
+                    log.debug(f"Error applying Rendering 3.3 fix to {tc_buf}: {e}")
+            if r33_count > 0:
+                fixes.append(f"已应用 Rendering 3.3 管线修复：清理 {r33_count} 个缓冲文件中的旧版 COLOR1 顶点掩码 (防黑屏)")
+
+        if options.inject_engine_ini:
+            try:
+                launcher_cfg = getattr(Config, 'Launcher', None)
+                active_importer = getattr(launcher_cfg, 'active_importer', None) if launcher_cfg else None
+                importers_obj = getattr(Config, 'Importers', None)
+                importer_package = getattr(importers_obj, active_importer, None) if (active_importer and importers_obj) else None
+                if importer_package is None and importers_obj and active_importer and hasattr(importers_obj, '__dict__'):
+                    importer_package = importers_obj.__dict__.get(active_importer, None)
+                importer_cfg = getattr(importer_package, 'Importer', None) if importer_package else None
+                game_folder = getattr(importer_cfg, 'game_folder', None) if importer_cfg else None
+                if game_folder:
+                    candidates = [
+                        Path(game_folder) / "Client" / "Saved" / "Config" / "WindowsNoEditor" / "Engine.ini",
+                        Path(game_folder) / "Wuthering Waves Game" / "Client" / "Saved" / "Config" / "WindowsNoEditor" / "Engine.ini",
+                        Path(game_folder) / "Saved" / "Config" / "WindowsNoEditor" / "Engine.ini",
+                    ]
+                    engine_ini = next((p for p in candidates if p.exists() and p.is_file()), candidates[0])
+                    opt_dict = {
+                        "r.Kuro.SkeletalMesh.LODDistanceScale": "25",
+                        "r.Streaming.FullyLoadUsedTextures": "1",
+                        "r.Streaming.HiddenPrimitiveScale": "25",
+                        "r.Streaming.UseAllMips": "1"
+                    }
+                    if LosslessIniEditor.update_sections(engine_ini, {"ConsoleVariables": opt_dict}):
+                        fixes.append("已向游戏 Engine.ini 写入高精模型渲染与防破图参数 (4 项)")
+                    else:
+                        fixes.append("游戏 Engine.ini 渲染参数更新跳过或受权限保护")
+            except Exception as e:
+                log.debug(f"Failed to patch Engine.ini: {e}")
+
     @classmethod
     def has_backup(cls, mod_item: ModItem) -> bool:
         """Checks if a pre-repair backup snapshot exists for the given mod."""
         mods_folder = cls.get_active_mods_folder() or mod_item.path.parent
         if not mods_folder:
             return False
-        backup_zip = mods_folder / ".mod_backups" / f"{mod_item.display_name}.zip"
-        return backup_zip.exists()
+        backup_dir = mods_folder / ".mod_backups"
+        safe_name = cls._safe_backup_name(mod_item.display_name)
+        return (
+            (backup_dir / f"{safe_name}.zip").exists()
+            or (backup_dir / f"{mod_item.display_name}.zip").exists()
+        )
 
     @classmethod
     def repair_mod(cls, mod_item: ModItem, options: Optional[ModRepairOptions] = None) -> Tuple[bool, List[str]]:
         r"""
-        Comprehensive automated repair for Wuthering Waves (WWMI) & 3DMigoto mods,
-        integrating the Wuwa_Mod_Fixer engine:
-        1. Pre-repair backup snapshot creation for 1-click rollback.
-        2. Clean up conflicting / temporary files (.DS_Store, Thumbs.db, CheckTexture.ini, etc.).
-        3. Flatten nested single root directory.
-        4. Normalize .ini encodings to UTF-8 and path separators to backslashes (\).
-        5. Replace game update main hashes and texture hashes across all characters & weapons.
-        6. Apply vertex group remapping (vg_remap) to fix bone deformation and mesh stretching.
-        7. Auto-generate LOD and derivative texture override sections to fix zoomed-out black textures.
-        8. Apply index and shapekey rules (match_first_index, match_index_count, vg_offset).
-        9. Apply Rover materialmap adaptation and female aero rover eye charge fix.
-        10. Apply stable state texture overrides (Aemeath, Camellya).
-        11. Inject Engine.ini high-detail LOD and texture streaming variables.
+        Comprehensive automated repair for Wuthering Waves (WWMI) & 3DMigoto mods:
+        backup snapshots, junk cleanup, path normalization, hash/rule updates,
+        binary Blend.buf vertex group remapping, LOD texture cloning, and safe overrides.
         """
-        fixes = []
-        if not mod_item.path.exists():
+        resolved_path = cls._resolve_mod_path_for_repair(mod_item)
+        if not resolved_path:
             return False, ["模组目录不存在"]
 
         if options is None:
             options = ModRepairOptions()
 
+        fixes: List[str] = []
         try:
-            # 0. Create pre-repair lightweight backup snapshot
-            mods_folder = cls.get_active_mods_folder() or mod_item.path.parent
-            if options.create_backup and mods_folder:
-                backup_dir = mods_folder / ".mod_backups"
-                backup_dir.mkdir(parents=True, exist_ok=True)
-                backup_zip = backup_dir / f"{mod_item.display_name}.zip"
-                if not backup_zip.exists():
-                    try:
-                        # Only backup ini files to avoid compressing gigabytes of textures
-                        ini_to_save = [p for p in mod_item.path.rglob('*.ini') if not p.name.endswith('.bak')]
-                        if ini_to_save:
-                            with zipfile.ZipFile(backup_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
-                                for file_p in ini_to_save:
-                                    zf.write(file_p, file_p.relative_to(mod_item.path))
-                            fixes.append("已创建修复前原始配置安全回滚快照")
-                    except Exception as e:
-                        log.debug(f"Failed to create pre-repair backup snapshot: {e}")
+            if options.create_backup:
+                snap_msg = cls._create_backup_snapshot(mod_item, cls._safe_backup_name(mod_item.display_name))
+                if snap_msg:
+                    fixes.append(snap_msg)
 
-            # 1. Clean conflicting / trash files
             if options.clean_trash_files:
-                trash_names = {'checktexture.ini', 'references.ini', '.ds_store', 'thumbs.db', 'desktop.ini'}
-                trash_dirs = {'__macosx'}
-                for item in list(mod_item.path.rglob('*')):
-                    if item.is_file() and item.name.lower() in trash_names:
-                        try:
-                            item.unlink()
-                            fixes.append(f"已清理冗余/干扰文件: {item.name}")
-                        except Exception:
-                            pass
-                    elif item.is_dir() and item.name.lower() in trash_dirs:
-                        try:
-                            shutil.rmtree(item, ignore_errors=True)
-                            fixes.append(f"已清理冗余系统目录: {item.name}")
-                        except Exception:
-                            pass
+                fixes.extend(cls._clean_mod_trash_and_nesting(mod_item.path))
 
-            # 2. Check and flatten single nested root directory
-            trash_filter = {'checktexture.ini', 'references.ini', '.ds_store', 'thumbs.db', 'desktop.ini', '__macosx'}
-            sub_items = [p for p in mod_item.path.iterdir() if p.name.lower() not in trash_filter]
-            if len(sub_items) == 1 and sub_items[0].is_dir() and sub_items[0].name.lower() not in {'textures', 'meshes', 'pinmeshes', '0'}:
-                inner = sub_items[0]
-                temp_swap = mod_item.path.parent / f"_tmp_swap_{int(time.time()*1000)}"
-                shutil.move(str(inner), str(temp_swap))
-                for inner_file in temp_swap.iterdir():
-                    shutil.move(str(inner_file), str(mod_item.path))
-                shutil.rmtree(temp_swap, ignore_errors=True)
-                fixes.append("已自动扁平化单层嵌套子目录结构")
+            chars_db = cls.get_wuwa_fix_config().get('characters', {})
+            ini_files = [p for p in mod_item.path.rglob('*.ini') if not p.name.lower().endswith('.bak')]
 
-            # Load Wuwa Fix Database
-            wuwa_cfg = cls.get_wuwa_fix_config()
-            chars_db = wuwa_cfg.get('characters', {})
-
-            ini_files = list(mod_item.path.rglob('*.ini'))
-            repaired_ini_count = 0
-            hash_replacements_count = 0
-            vg_remaps_count = 0
-            lod_derives_count = 0
-            rules_applied_count = 0
+            counts = {"ini": 0, "hash": 0, "vg": 0, "derive": 0, "rule": 0, "legacy": 0}
+            applied_vg_keys: Set[Tuple[str, str]] = set()
+            rover_mats = {'RoverFemale': {'3': 'f813702e', '4': 'e40b43c4'}, 'RoverMale': {'2': 'faf5e483'}}
 
             for ini_path in ini_files:
                 try:
                     raw_bytes = ini_path.read_bytes()
-                    text = None
-                    for enc in ['utf-8-sig', 'utf-8', 'gbk', 'gb18030', 'latin-1']:
-                        try:
-                            text = raw_bytes.decode(enc)
-                            break
-                        except Exception:
-                            continue
-                    if text is None:
-                        text = raw_bytes.decode('utf-8', errors='ignore')
+                    lines = cls._decode_ini_bytes(raw_bytes).replace('\r\n', '\n').replace('\r', '\n').split('\n')
 
-                    lines = text.replace('\r\n', '\n').replace('\r', '\n').split('\n')
-                    modified = False
+                    lines, legacy_removed = cls._clean_legacy_corrupt_ini_lines(lines)
+                    modified = legacy_removed > 0
+                    counts["legacy"] += legacy_removed
 
-                    # A. Normalize paths
                     if options.normalize_ini:
                         for idx, line in enumerate(lines):
                             if re.match(r'^\s*filename\s*=', line, re.IGNORECASE):
@@ -1326,269 +1706,88 @@ class ModService:
                                     lines[idx] = new_line
                                     modified = True
 
-                    # Detect which characters/weapons match this ini
-                    full_ini_text = '\n'.join(lines)
-                    present_hashes = set(re.findall(r'\b[0-9a-fA-F]{8}\b', full_ini_text.lower()))
-                    ini_name_lower = ini_path.name.lower()
-                    mod_name_lower = mod_item.name.lower()
+                    present_hashes_before = cls._extract_hashes_no_comments(lines)
+                    matched_chars, target_chars = cls._match_ini_characters(
+                        chars_db, present_hashes_before, ini_path.name.lower(), mod_item.name.lower()
+                    )
 
-                    matched_chars = []
-                    for c_name, c_def in chars_db.items():
-                        c_lower = c_name.lower()
-                        is_matched = False
-                        if c_lower in ini_name_lower or c_lower in mod_name_lower:
-                            is_matched = True
-                        else:
-                            for mh in c_def.get('main_hashes', []):
-                                if (mh.get('new') and mh['new'].lower() in present_hashes) or \
-                                   any(old_h.lower() in present_hashes for old_h in mh.get('old', [])):
-                                    is_matched = True
-                                    break
-                        if is_matched:
-                            matched_chars.append((c_name, c_def))
+                    h_cnt, r_cnt = cls._apply_hash_and_rule_replacements(
+                        lines, target_chars, present_hashes_before, options.fix_hashes, options.fix_rules
+                    )
+                    if h_cnt or r_cnt:
+                        modified = True
+                        counts["hash"] += h_cnt
+                        counts["rule"] += r_cnt
 
-                    # Target characters: matched ones, or characters with at least one matching hash in this ini
-                    target_chars = matched_chars if matched_chars else [
-                        (c_name, c_def) for c_name, c_def in chars_db.items()
-                        if any(
-                            mh.get('new', '').lower() in present_hashes or
-                            any(old_h.lower() in present_hashes for old_h in mh.get('old', []))
-                            for mh in c_def.get('main_hashes', [])
-                        ) or any(
-                            old_t.lower() in present_hashes
-                            for t_node in c_def.get('textures', {}).values()
-                            for old_t in t_node.get('replace', [])
-                        )
-                    ]
+                    present_hashes = cls._extract_hashes_no_comments(lines)
 
-                    # B. Hash & Texture Replacements
-                    if options.fix_hashes:
-                        for c_name, c_def in target_chars:
-                            # Main hashes
-                            for mh in c_def.get('main_hashes', []):
-                                new_h = mh.get('new', '')
-                                for old_h in mh.get('old', []):
-                                    old_lower = old_h.lower()
-                                    if old_lower != new_h.lower() and old_lower in present_hashes:
-                                        pattern = re.compile(rf'\b{re.escape(old_h)}\b', re.IGNORECASE)
-                                        for idx, l in enumerate(lines):
-                                            if old_lower in l.lower():
-                                                new_line = pattern.sub(new_h, l)
-                                                if new_line != l:
-                                                    lines[idx] = new_line
-                                                    modified = True
-                                                    hash_replacements_count += 1
-                            # Textures
-                            for new_tex, t_node in c_def.get('textures', {}).items():
-                                for old_tex in t_node.get('replace', []):
-                                    old_lower = old_tex.lower()
-                                    if old_lower != new_tex.lower() and old_lower in present_hashes:
-                                        pattern = re.compile(rf'\b{re.escape(old_tex)}\b', re.IGNORECASE)
-                                        for idx, l in enumerate(lines):
-                                            if old_lower in l.lower():
-                                                new_line = pattern.sub(new_tex, l)
-                                                if new_line != l:
-                                                    lines[idx] = new_line
-                                                    modified = True
-                                                    hash_replacements_count += 1
-
-                    # C. Rules & Index Replacement (match_first_index, match_index_count, etc.)
-                    if options.fix_rules:
-                        for c_name, c_def in target_chars:
-                            for rule in c_def.get('rules', []):
-                                prefix = rule.get('line_prefix', '').lower()
-                                for rep in rule.get('replacements', []):
-                                    new_val = rep.get('new', '')
-                                    for old_val in rep.get('old', []):
-                                        if old_val != new_val and old_val in full_ini_text:
-                                            for idx, l in enumerate(lines):
-                                                if prefix in l.lower() and old_val in l:
-                                                    lines[idx] = l.replace(old_val, new_val)
-                                                    modified = True
-                                                    rules_applied_count += 1
-
-                    # D. Vertex Group Remapping
                     if options.fix_vertex_groups:
                         for c_name, c_def in target_chars:
                             for vg_remap in c_def.get('vg_remaps', []):
+                                remap_str = vg_remap.get('vertex_groups', '')
                                 trigger_hashes = vg_remap.get('trigger_hash', [])
-                                is_triggered = any(th.lower() in present_hashes for th in trigger_hashes) if trigger_hashes else (c_name in [mc[0] for mc in matched_chars])
-                                if is_triggered and vg_remap.get('vertex_groups'):
-                                    vg_str = vg_remap['vertex_groups']
-                                    has_vg_line = False
-                                    for idx, l in enumerate(lines):
-                                        if 'vg_remap' in l.lower() or 'vertex_groups' in l.lower():
-                                            lines[idx] = f"$\\WWMIv1\\vg_remap = {vg_str}"
-                                            has_vg_line = True
-                                            modified = True
-                                            vg_remaps_count += 1
-                                            break
-                                    if not has_vg_line and '$\\WWMIv1\\' in full_ini_text:
-                                        lines.append(f"\n; [Auto-generated Vertex Group Remap for {c_name}]\n$\\WWMIv1\\vg_remap = {vg_str}\n")
-                                        modified = True
-                                        vg_remaps_count += 1
+                                triggered = (
+                                    any(th.lower() in present_hashes_before for th in trigger_hashes)
+                                    if trigger_hashes else c_name in {mc[0] for mc in matched_chars}
+                                )
+                                vg_key = (c_name, remap_str)
+                                if triggered and remap_str and vg_key not in applied_vg_keys:
+                                    applied_vg_keys.add(vg_key)
+                                    counts["vg"] += cls._apply_blend_vg_remap(mod_item.path, remap_str)
 
-                    # E. Derive / LOD Texture Overrides
                     if options.fix_derive_textures:
-                        cur_text = '\n'.join(lines)
-                        for c_name, c_def in target_chars:
-                            for tex_hash, t_node in c_def.get('textures', {}).items():
-                                derives = t_node.get('derive', {})
-                                if not derives or tex_hash.lower() not in present_hashes:
-                                    continue
-                                if re.search(rf'(?i)\b{re.escape(tex_hash)}\b', cur_text):
-                                    for dtype, dlist in derives.items():
-                                        for dhash in dlist:
-                                            if dhash.lower() not in present_hashes:
-                                                lines.append(f"\n; [Auto-generated {dtype} Texture Override for {c_name}]\n[TextureOverride_{c_name}_{dtype}_{dhash}]\nhash = {dhash}\nCheckTextureOverride = 0\n")
-                                                modified = True
-                                                lod_derives_count += 1
-                                                present_hashes.add(dhash.lower())
-                                                cur_text = '\n'.join(lines)
-
-                    # F. Rover & Special Character Fixes
-                    if options.fix_rover_special:
-                        for c_name, c_def in matched_chars:
-                            if c_name in ['RoverFemale', 'RoverMale']:
-                                rover_mat_maps = {'RoverFemale': {'3': 'f813702e', '4': 'e40b43c4'}, 'RoverMale': {'2': 'faf5e483'}}
-                                for comp_id, mat_hash in rover_mat_maps.get(c_name, {}).items():
-                                    if f"component = {comp_id}" in cur_text.lower() and mat_hash not in cur_text:
-                                        lines.append(f"\n; [Auto-generated Rover Materialmap Override for Component {comp_id}]\n[TextureOverride_Rover_Material_{comp_id}]\nhash = {mat_hash}\nCheckTextureOverride = 0\n")
-                                        modified = True
-                                        cur_text = '\n'.join(lines)
-
-                    # G. State Texture Stabilization & Skip Components (Aemeath/Shorekeeper/Changli etc.)
-                    if options.fix_stable_texture:
-                        for c_name, c_def in matched_chars:
-                            skip_comps = c_def.get('skip_components', [])
-                            for sc in skip_comps:
-                                sc_pattern = rf'(?i)component\s*=\s*{sc}\b'
-                                for idx, l in enumerate(lines):
-                                    if re.search(sc_pattern, l):
-                                        # Ensure handling = skip is applied to this component section
-                                        sec_start = idx
-                                        while sec_start >= 0 and not lines[sec_start].strip().startswith('['):
-                                            sec_start -= 1
-                                        sec_end = idx
-                                        while sec_end < len(lines) and not (sec_end > idx and lines[sec_end].strip().startswith('[')):
-                                            sec_end += 1
-                                        sec_block = '\n'.join(lines[sec_start:sec_end])
-                                        if 'handling = skip' not in sec_block.lower():
-                                            lines.insert(idx + 1, 'handling = skip')
-                                            modified = True
-                                            break
-
-                    # H. Texture Override Check (CheckTextureOverride)
-                    if options.fix_resource_override:
-                        in_override_sec = False
-                        has_check = False
-                        sec_idx = -1
-                        for idx, l in enumerate(lines):
-                            stripped = l.strip()
-                            if stripped.startswith('[') and stripped.endswith(']'):
-                                if in_override_sec and not has_check and sec_idx >= 0:
-                                    lines.insert(sec_idx + 1, 'CheckTextureOverride = 0')
-                                    modified = True
-                                in_override_sec = 'textureoverride' in stripped.lower()
-                                has_check = False
-                                sec_idx = idx
-                            elif in_override_sec:
-                                if 'checktextureoverride' in stripped.lower():
-                                    has_check = True
-                        if in_override_sec and not has_check and sec_idx >= 0:
-                            lines.append('CheckTextureOverride = 0')
+                        extra_lines, d_cnt = cls._collect_derived_sections(lines, target_chars, present_hashes)
+                        if d_cnt > 0:
+                            lines.extend(extra_lines)
                             modified = True
+                            counts["derive"] += d_cnt
 
-                    # Save updated content
-                    fixed_content = '\r\n'.join(lines)
-                    if modified or (options.normalize_ini and raw_bytes != fixed_content.encode('utf-8')):
+                    cur_text_lower = '\n'.join(l.split(';', 1)[0] for l in lines).lower()
+                    if options.fix_rover_special:
+                        for c_name, _ in matched_chars:
+                            for comp_id, mat_hash in rover_mats.get(c_name, {}).items():
+                                if f"component = {comp_id}" in cur_text_lower and mat_hash not in present_hashes:
+                                    lines.append(
+                                        f"\n; [Auto-generated Rover Materialmap Override for Component {comp_id}]\n"
+                                        f"[TextureOverride_Rover_Material_{comp_id}]\nhash = {mat_hash}\n"
+                                    )
+                                    present_hashes.add(mat_hash.lower())
+                                    modified = True
+
+                    lines, sec_changed = cls._apply_safe_ini_section_injections(
+                        lines, matched_chars, options.fix_stable_texture, options.fix_resource_override
+                    )
+                    if sec_changed:
+                        modified = True
+
+                    fixed_bytes = '\r\n'.join(lines).encode('utf-8')
+                    if modified or (options.normalize_ini and raw_bytes != fixed_bytes):
                         bak_file = ini_path.with_name(f"{ini_path.name}.orig.bak")
                         if not bak_file.exists():
-                            try:
-                                bak_file.write_bytes(raw_bytes)
-                            except Exception:
-                                pass
-                        ini_path.write_bytes(fixed_content.encode('utf-8'))
-                        repaired_ini_count += 1
+                            bak_file.write_bytes(raw_bytes)
+                        ini_path.write_bytes(fixed_bytes)
+                        counts["ini"] += 1
                 except Exception as e:
                     log.debug(f"Error repairing ini {ini_path}: {e}")
 
-            # Summary messages
-            if hash_replacements_count > 0:
-                fixes.append(f"已执行 {hash_replacements_count} 处版本变更 Hash 匹配与替换 (主 Hash / 贴图 Hash)")
-            if vg_remaps_count > 0:
-                fixes.append(f"已应用 {vg_remaps_count} 处骨骼与顶点组重映射 (修复破皮拉扯)")
-            if lod_derives_count > 0:
-                fixes.append(f"已自动补全 {lod_derives_count} 个衍生贴图与 LOD 远景防黑材质重载")
-            if rules_applied_count > 0:
-                fixes.append(f"已调整 {rules_applied_count} 处绘制索引与 Shapekey 规则参数")
-            if repaired_ini_count > 0:
-                fixes.append(f"已优化并保存 {repaired_ini_count} 个 .ini 配置文件的编码与路径规范")
+            if counts["legacy"] > 0:
+                fixes.append(f"已自动清理 {counts['legacy']} 处旧版损坏语法/异常参数行")
+            if counts["hash"] > 0:
+                fixes.append(f"已执行 {counts['hash']} 处版本变更 Hash 匹配与替换 (主 Hash / 贴图 Hash)")
+            if counts["vg"] > 0:
+                fixes.append(f"已重构 {counts['vg']} 个 Blend 缓冲文件的骨骼与顶点组映射 (修复破皮拉扯)")
+            if counts["derive"] > 0:
+                fixes.append(f"已自动补全 {counts['derive']} 个衍生贴图与 LOD 远景防黑材质重载")
+            if counts["rule"] > 0:
+                fixes.append(f"已调整 {counts['rule']} 处绘制索引与 Shapekey 规则参数")
+            if counts["ini"] > 0:
+                fixes.append(f"已优化并保存 {counts['ini']} 个 .ini 配置文件的编码与路径规范")
             else:
                 fixes.append(f"已校验全部 {len(ini_files)} 个 .ini 文件（结构完好）")
 
-            # 3.5 Rendering 3.3 pipeline fix (clear invalid COLOR1 vertex mask attributes in TexCoord buffers)
-            if options.fix_rendering_33:
-                r33_count = 0
-                for tc_buf in list(mod_item.path.rglob('*TexCoord*.buf')):
-                    try:
-                        buf_data = bytearray(tc_buf.read_bytes())
-                        stride = 16
-                        if len(buf_data) >= stride and len(buf_data) % stride == 0:
-                            buf_modified = False
-                            for i in range(0, len(buf_data), stride):
-                                if buf_data[i + 4] != 0 or buf_data[i + 6] != 0:
-                                    buf_data[i + 4] = 0
-                                    buf_data[i + 6] = 0
-                                    buf_modified = True
-                            if buf_modified:
-                                tc_buf.write_bytes(buf_data)
-                                r33_count += 1
-                    except Exception as e:
-                        log.debug(f"Error applying Rendering 3.3 fix to {tc_buf}: {e}")
-                if r33_count > 0:
-                    fixes.append(f"已应用 Rendering 3.3 管线修复：清理 {r33_count} 个缓冲文件中的旧版 COLOR1 顶点掩码 (防黑屏)")
-
-            # 4. Engine.ini optimization injection for Wuthering Waves
-            if options.inject_engine_ini:
-                try:
-                    launcher_cfg = getattr(Config, 'Launcher', None)
-                    active_importer = getattr(launcher_cfg, 'active_importer', None) if launcher_cfg else None
-                    importers_obj = getattr(Config, 'Importers', None)
-                    if active_importer and importers_obj:
-                        importer_package = getattr(importers_obj, active_importer, None)
-                        if importer_package is None and hasattr(importers_obj, '__dict__'):
-                            importer_package = importers_obj.__dict__.get(active_importer, None)
-                        if importer_package:
-                            importer_cfg = getattr(importer_package, 'Importer', None)
-                            game_folder = getattr(importer_cfg, 'game_folder', None) if importer_cfg else None
-                            if game_folder:
-                                engine_candidates = [
-                                    Path(game_folder) / "Client" / "Saved" / "Config" / "WindowsNoEditor" / "Engine.ini",
-                                    Path(game_folder) / "Wuthering Waves Game" / "Client" / "Saved" / "Config" / "WindowsNoEditor" / "Engine.ini",
-                                    Path(game_folder) / "Saved" / "Config" / "WindowsNoEditor" / "Engine.ini",
-                                ]
-                                engine_ini = next((p for p in engine_candidates if p.exists() and p.is_file()), None)
-                                if engine_ini is None:
-                                    engine_ini = engine_candidates[0]
-
-                                opt_dict = {
-                                    "r.Kuro.SkeletalMesh.LODDistanceScale": "25",
-                                    "r.Streaming.FullyLoadUsedTextures": "1",
-                                    "r.Streaming.HiddenPrimitiveScale": "25",
-                                    "r.Streaming.UseAllMips": "1"
-                                }
-                                ok = LosslessIniEditor.update_sections(engine_ini, {"ConsoleVariables": opt_dict})
-                                if ok:
-                                    fixes.append("已向游戏 Engine.ini 写入高精模型渲染与防破图参数 (4 项)")
-                                else:
-                                    fixes.append("游戏 Engine.ini 渲染参数更新跳过或受权限保护")
-                except Exception as e:
-                    log.debug(f"Failed to patch Engine.ini: {e}")
-
+            cls._apply_rendering_33_and_engine_ini(mod_item, options, fixes)
             if not fixes:
                 fixes.append("经全面检测，模组文件结构完整且未发现异常。")
-
             return True, fixes
         except Exception as e:
             log.exception(f"Error during repair_mod for {mod_item.name}: {e}")
@@ -1631,32 +1830,37 @@ class ModService:
     @classmethod
     def restore_mod(cls, mod_item: ModItem) -> Tuple[bool, str]:
         """
-        Restores a mod back to its original pre-repair files from the backup snapshot or .orig.bak files.
-        Safely restores only configuration files without deleting texture or mesh files.
+        Restores a mod back to its original pre-repair files from .orig.bak files or backup zip.
+        Safely restores configuration and buffer backups without deleting unrelated mod assets.
         """
-        if not mod_item.path.exists():
+        resolved_path = cls._resolve_mod_path_for_repair(mod_item)
+        if not resolved_path:
             return False, "模组目录不存在"
 
         restored = False
-        # 1. Restore from local .orig.bak files if present
-        for bak_file in list(mod_item.path.rglob('*.orig.bak')):
-            target_ini = bak_file.with_name(bak_file.name[:-9])
+        # 1. Restore from local .orig.bak files if present (.ini and .buf)
+        for bak_file in list(resolved_path.rglob('*.orig.bak')):
+            target_file = bak_file.with_name(bak_file.name[:-9])
             try:
-                shutil.copy2(bak_file, target_ini)
+                shutil.copy2(bak_file, target_file)
                 restored = True
             except Exception:
                 pass
 
         # 2. Restore from backup_zip if present
-        mods_folder = cls.get_active_mods_folder() or mod_item.path.parent
-        backup_zip = (mods_folder / ".mod_backups" / f"{mod_item.display_name}.zip") if mods_folder else None
-        if backup_zip and backup_zip.exists():
-            try:
-                with zipfile.ZipFile(backup_zip, 'r') as zf:
-                    zf.extractall(mod_item.path)
-                restored = True
-            except Exception as e:
-                log.exception(f"Failed to restore from zip {backup_zip}: {e}")
+        mods_folder = cls.get_active_mods_folder() or resolved_path.parent
+        if mods_folder:
+            backup_dir = mods_folder / ".mod_backups"
+            safe_name = cls._safe_backup_name(mod_item.display_name)
+            candidates = (backup_dir / f"{safe_name}.zip", backup_dir / f"{mod_item.display_name}.zip")
+            backup_zip = next((p for p in candidates if p.exists()), None)
+            if backup_zip:
+                try:
+                    with zipfile.ZipFile(backup_zip, 'r') as zf:
+                        zf.extractall(resolved_path)
+                    restored = True
+                except Exception as e:
+                    log.exception(f"Failed to restore from zip {backup_zip}: {e}")
 
         if restored:
             cls.sync_mod_state_to_game()

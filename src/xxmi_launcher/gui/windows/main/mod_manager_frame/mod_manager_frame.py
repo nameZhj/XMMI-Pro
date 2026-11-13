@@ -3,6 +3,7 @@ import sys
 import ctypes
 import io
 import json
+import queue
 import shutil
 import subprocess
 import threading
@@ -113,6 +114,8 @@ class PasswordPromptDialog(ctk.CTkToplevel):
         self.grab_set()
 
         self._is_cancelled = False
+        self._is_repairing = False
+        self._ui_queue: queue.Queue = queue.Queue()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.bind("<Escape>", lambda e: self._on_close())
 
@@ -292,6 +295,8 @@ class ImportProgressDialog(ctk.CTkToplevel):
         self.grab_set()
 
         self._is_cancelled = False
+        self._is_repairing = False
+        self._ui_queue: queue.Queue = queue.Queue()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.bind("<Escape>", lambda e: self._on_close())
 
@@ -401,6 +406,8 @@ class ModRepairDialog(ctk.CTkToplevel):
         self.grab_set()
 
         self._is_cancelled = False
+        self._is_repairing = False
+        self._ui_queue: queue.Queue = queue.Queue()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.bind("<Escape>", lambda e: self._on_close())
 
@@ -766,6 +773,10 @@ class ModRepairDialog(ctk.CTkToplevel):
             pass
 
     def _start_repair(self):
+        if getattr(self, '_is_repairing', False):
+            return
+        self._is_repairing = True
+
         opts = ModRepairOptions(
             fix_hashes=self.var_fix_hashes.get(),
             fix_vertex_groups=self.var_fix_vertex_groups.get(),
@@ -789,55 +800,99 @@ class ModRepairDialog(ctk.CTkToplevel):
         self.log_textbox.delete("1.0", "end")
         self.log_textbox.configure(state="disabled")
 
+        while not self._ui_queue.empty():
+            try:
+                self._ui_queue.get_nowait()
+            except queue.Empty:
+                break
+
+        self.after(40, self._poll_ui_queue)
         threading.Thread(target=self._run_repair_worker, args=(opts,), daemon=True).start()
+
+    def _poll_ui_queue(self):
+        if getattr(self, '_is_cancelled', False):
+            return
+        try:
+            if not self.winfo_exists():
+                return
+        except Exception:
+            return
+
+        finished = False
+        while True:
+            try:
+                item = self._ui_queue.get_nowait()
+            except queue.Empty:
+                break
+            kind = item[0]
+            if kind == "log":
+                self._append_log(item[1])
+            elif kind == "progress":
+                try:
+                    self.progress_bar.set(item[1])
+                except Exception:
+                    pass
+            elif kind == "batch":
+                self._batch_update(item[1], item[2])
+            elif kind == "callback":
+                try:
+                    item[1]()
+                except Exception:
+                    pass
+            elif kind == "done":
+                finished = True
+
+        if finished:
+            self._on_repair_finished()
+        elif getattr(self, '_is_repairing', False) and not getattr(self, '_is_cancelled', False):
+            try:
+                self.after(40, self._poll_ui_queue)
+            except Exception:
+                pass
 
     def _run_repair_worker(self, opts: ModRepairOptions):
         try:
             if not self.is_batch and self.target_mod:
                 if getattr(self, '_is_cancelled', False):
                     return
-                self.after(0, lambda: self._append_log(f"🚀 开始深度修复模组: 【{self.target_mod.display_name}】..."))
-                self.after(0, lambda: self.progress_bar.set(0.3))
+                self._ui_queue.put(("log", f"🚀 开始深度修复模组: 【{self.target_mod.display_name}】..."))
+                self._ui_queue.put(("progress", 0.3))
                 success, fixes = ModService.repair_mod(self.target_mod, options=opts)
                 if getattr(self, '_is_cancelled', False):
                     return
-                log_lines = []
-                for f in fixes:
-                    log_lines.append(f"  • {f}")
+                log_lines = [f"  • {f}" for f in fixes]
                 if success:
                     log_lines.append("\n✨ 模组修复成功并已同步至游戏！")
                 else:
                     log_lines.append("\n❌ 模组修复失败，请查看上方日志。")
-                msg_block = "\n".join(log_lines)
-                self.after(0, lambda b=msg_block: self._batch_update(1.0, b))
+                self._ui_queue.put(("batch", 1.0, "\n".join(log_lines)))
                 ModService.sync_mod_state_to_game()
             else:
                 total = len(self.all_mods)
-                self.after(0, lambda: self._append_log(f"🚀 开始全库批量深度修复 (共 {total} 个模组)..."))
+                self._ui_queue.put(("log", f"🚀 开始全库批量深度修复 (共 {total} 个模组)..."))
                 for idx, m in enumerate(self.all_mods, 1):
                     if getattr(self, '_is_cancelled', False):
-                        self.after(0, lambda: self._append_log("\n⚠️ 用户已取消修复任务"))
+                        self._ui_queue.put(("log", "\n⚠️ 用户已取消修复任务"))
                         break
                     progress = idx / max(1, total)
                     success, fixes = ModService.repair_mod(m, options=opts)
                     mod_log = [f"[{idx}/{total}] 正在处理: {m.display_name}..."]
-                    for f in fixes:
-                        mod_log.append(f"    - {f}")
-                    msg_block = "\n".join(mod_log)
-                    self.after(0, lambda p=progress, b=msg_block: self._batch_update(p, b))
+                    mod_log.extend(f"    - {f}" for f in fixes)
+                    self._ui_queue.put(("batch", progress, "\n".join(mod_log)))
 
                 if not getattr(self, '_is_cancelled', False):
-                    self.after(0, lambda: self._append_log("\n🎉 全库批量模组深度修复完成！"))
+                    self._ui_queue.put(("log", "\n🎉 全库批量模组深度修复完成！"))
                     ModService.sync_mod_state_to_game()
 
             if not getattr(self, '_is_cancelled', False) and self.on_finished:
-                self.after(0, self.on_finished)
+                self._ui_queue.put(("callback", self.on_finished))
         except Exception as e:
-            self.after(0, lambda err=str(e): self._append_log(f"\n❌ 修复过程出现异常: {err}"))
+            self._ui_queue.put(("log", f"\n❌ 修复过程出现异常: {err_msg}" if (err_msg := str(e)) else "\n❌ 修复过程出现未知异常"))
         finally:
-            self.after(0, self._on_repair_finished)
+            self._ui_queue.put(("done",))
 
     def _on_repair_finished(self):
+        self._is_repairing = False
         try:
             self.btn_start.configure(state="normal", text="🚀 开始修复")
             if not self.is_batch and self.target_mod:
