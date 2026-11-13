@@ -17,15 +17,17 @@ from core.hot_update_service import HotUpdateService, HotUpdateStatus
 class HotUpdateDialog(ctk.CTkToplevel):
     """Interactive dialog for hot updates, WWMI-Package importing, and rule syncing."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, on_updated=None):
         super().__init__(parent)
         self.parent_window = parent
+        self.on_updated = on_updated
         self.title("⚡ 软件热更新与规则同步中心 - XMMI-Pro")
         self.geometry("680x580")
         self.resizable(False, False)
         self.configure(fg_color="#131620")
 
         self._is_busy = False
+        self._has_synced = False
         self._init_window()
         self._build_ui()
         self._refresh_status()
@@ -129,6 +131,17 @@ class HotUpdateDialog(ctk.CTkToplevel):
         )
         self.wuwa_btn.pack(side="right")
 
+        # Characters EN-CN Table Card
+        r_names = ctk.CTkFrame(self.cards_frame, fg_color="transparent")
+        r_names.pack(fill="x", padx=12, pady=6)
+        self.names_label = ctk.CTkLabel(r_names, text="🌐 角色中英文对照表: 加载中...", font=ctk.CTkFont(size=12))
+        self.names_label.pack(side="left")
+        self.names_btn = ctk.CTkButton(
+            r_names, text="🔄 拉取对照表", width=90, height=26, fg_color="#0284c7",
+            hover_color="#0369a1", command=self._on_sync_char_names
+        )
+        self.names_btn.pack(side="right")
+
         # WWMI Card
         r2 = ctk.CTkFrame(self.cards_frame, fg_color="transparent")
         r2.pack(fill="x", padx=12, pady=6)
@@ -168,6 +181,9 @@ class HotUpdateDialog(ctk.CTkToplevel):
         self.wuwa_label.configure(
             text=f"🔧 鸣潮修复规则: v{st.wuwa_version} (收录 {st.wuwa_character_count} 个角色与武器规则)"
         )
+        self.names_label.configure(
+            text=f"🌐 角色中英文对照表: 已加载 {st.wuwa_char_name_count} 条角色与武器译名"
+        )
         wwmi_desc = f"v{st.wwmi_version}" if st.wwmi_installed else "未安装 / 需导入"
         self.wwmi_label.configure(
             text=f"📦 WWMI 运行包: {wwmi_desc} (用于鸣潮 3D Migoto 模组加载)"
@@ -193,6 +209,7 @@ class HotUpdateDialog(ctk.CTkToplevel):
 
     def _on_task_done(self) -> None:
         self._is_busy = False
+        self._has_synced = True
         self.sync_all_btn.configure(state="normal")
         self.progress_bar.set(0.0)
         self._refresh_status()
@@ -200,6 +217,14 @@ class HotUpdateDialog(ctk.CTkToplevel):
     def _on_sync_wuwa(self) -> None:
         self._run_async(
             lambda: HotUpdateService.sync_wuwa_rules(
+                force=True,
+                log_cb=lambda m: self.after(0, self._append_log, m)
+            )
+        )
+
+    def _on_sync_char_names(self) -> None:
+        self._run_async(
+            lambda: HotUpdateService.sync_char_names(
                 force=True,
                 log_cb=lambda m: self.after(0, self._append_log, m)
             )
@@ -257,6 +282,11 @@ class HotUpdateDialog(ctk.CTkToplevel):
         except Exception:
             pass
         self.destroy()
+        if self._has_synced and callable(self.on_updated):
+            try:
+                self.on_updated()
+            except Exception:
+                pass
         if self.parent_window is not None:
             try:
                 top = getattr(self.parent_window, "winfo_toplevel", lambda: self.parent_window)()

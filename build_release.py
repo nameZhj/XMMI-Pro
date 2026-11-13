@@ -90,6 +90,7 @@ def build(tag: str = "v1.0.0"):
         "--hidden-import", "gui.windows.gamebanana_browser",
         "--hidden-import", "rarfile",
         "--hidden-import", "core.mod_service",
+        "--hidden-import", "core.wuwa_char_translator",
         "--hidden-import", "core.hot_update_service",
         "--hidden-import", "core.wwmi_importer",
         "--hidden-import", "core.drag_drop",
@@ -121,6 +122,7 @@ def build(tag: str = "v1.0.0"):
         "--hidden-import", "ctypes",
         "--hidden-import", "ctypes.wintypes",
         "--add-data", f"{SRC_DIR / 'core' / 'wuwa_fix_config.json'}{os.pathsep}core",
+        "--add-data", f"{SRC_DIR / 'core' / 'wuwa_char_names.json'}{os.pathsep}core",
     ]
     try:
         import av

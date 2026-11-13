@@ -12,6 +12,7 @@ from typing import Callable, Optional, Tuple
 import urllib.request
 
 from core.mod_service import ModService
+from core.wuwa_char_translator import WuwaCharTranslator
 from core.wwmi_importer import WWMIImporter
 
 log = logging.getLogger(__name__)
@@ -23,6 +24,7 @@ class HotUpdateStatus:
     wuwa_character_count: int
     wwmi_version: str
     wwmi_installed: bool
+    wuwa_char_name_count: int = 0
     upstream_launcher_version: str = "v2.4.9"
 
 
@@ -39,14 +41,36 @@ class HotUpdateService:
 
         wwmi_ver = WWMIImporter.get_installed_version()
         wwmi_installed = wwmi_ver is not None
+        name_data = WuwaCharTranslator.get_name_map_data()
+        name_count = len(name_data.get("characters", {})) + len(name_data.get("weapons", {}))
 
         return HotUpdateStatus(
             wuwa_version=wuwa_ver,
             wuwa_character_count=char_count,
             wwmi_version=wwmi_ver or "未安装",
             wwmi_installed=wwmi_installed,
+            wuwa_char_name_count=name_count,
             upstream_launcher_version="v2.4.9",
         )
+
+    @classmethod
+    def sync_char_names(
+        cls,
+        force: bool = False,
+        log_cb: Optional[Callable[[str], None]] = None
+    ) -> Tuple[bool, str]:
+        """Dynamically pulls latest Wuthering Waves EN-CN character and weapon names."""
+        def _log(msg: str) -> None:
+            if log_cb:
+                log_cb(msg)
+            log.info(msg)
+
+        _log("🌐 正在同步《鸣潮》角色与武器中英文对照表 (Encore.moe)...")
+        ok, msg, _ = WuwaCharTranslator.update_from_remote(
+            force=force,
+            callback=lambda s, m: _log(f"{'✅' if s else 'ℹ️'} {m}")
+        )
+        return ok, msg
 
     @classmethod
     def sync_wuwa_rules(
@@ -54,7 +78,7 @@ class HotUpdateService:
         force: bool = False,
         log_cb: Optional[Callable[[str], None]] = None
     ) -> Tuple[bool, str]:
-        """Hot-updates Wuwa_Mod_Fixer character rules from remote mirrors."""
+        """Hot-updates Wuwa_Mod_Fixer character rules and EN-CN name tables."""
         def _log(msg: str) -> None:
             if log_cb:
                 log_cb(msg)
@@ -65,6 +89,7 @@ class HotUpdateService:
             force=force,
             callback=lambda s, m: _log(f"{'✅' if s else '❌'} {m}")
         )
+        cls.sync_char_names(force=force, log_cb=log_cb)
         return success, msg
 
     @classmethod

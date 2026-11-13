@@ -734,6 +734,7 @@ class ModRepairDialog(ctk.CTkToplevel):
 
         def _worker():
             success, msg, _ = ModService.update_wuwa_fix_config_from_remote(force=False)
+            n_ok, n_msg, _ = ModService.update_wuwa_char_names_from_remote(force=False)
             def _ui_callback():
                 try:
                     self.btn_update_rules.configure(state="normal", text="🔄 检查规则更新")
@@ -743,6 +744,7 @@ class ModRepairDialog(ctk.CTkToplevel):
                         self._append_log(f"✅ {msg}")
                     else:
                         self._append_log(f"⚠️ {msg}")
+                    self._append_log(f"{'✅' if n_ok else 'ℹ️'} {n_msg}")
                 except Exception:
                     pass
             self.after(0, _ui_callback)
@@ -1114,8 +1116,8 @@ class ModCard(CTkFrame):
         )
         self.img_label.pack(fill="x", padx=6, pady=(6, 4))
 
-        # 2. Mod Title (High Contrast)
-        display_title = mod_item.display_name
+        # 2. Mod Title (High Contrast, feature-translated when matched)
+        display_title = mod_item.translated_name or mod_item.display_name
         if len(display_title) > 20:
             short_title = display_title[:18] + "..."
         else:
@@ -1786,6 +1788,7 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
                 q = self.search_text.lower()
                 matched = (
                     q in m.display_name.lower() or
+                    q in m.translated_name.lower() or
                     q in m.name.lower() or
                     q in m.character_name.lower() or
                     q in m.character_en.lower() or
@@ -1944,17 +1947,30 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
         )
         thumb_lbl.pack(fill="x", padx=4, pady=(4, 6))
 
-        # 2. Mod Title
+        # 2. Mod Title (feature-translated when matched, plus subtle original folder name)
+        shown_title = mod.translated_name or mod.display_name
         title_lbl = CTkLabel(
             self.inspector_scroll,
-            text=mod.display_name,
+            text=shown_title,
             font=("Microsoft YaHei", 13, "bold"),
             text_color="#ffffff",
             anchor="w",
             wraplength=275,
             justify="left"
         )
-        title_lbl.pack(fill="x", padx=6, pady=(2, 4))
+        title_lbl.pack(fill="x", padx=6, pady=(2, 2))
+
+        if mod.translated_name and mod.translated_name != mod.display_name:
+            raw_lbl = CTkLabel(
+                self.inspector_scroll,
+                text=f"📁 原名: {mod.display_name}",
+                font=("Microsoft YaHei", 10),
+                text_color="#94a3b8",
+                anchor="w",
+                wraplength=275,
+                justify="left"
+            )
+            raw_lbl.pack(fill="x", padx=6, pady=(0, 4))
 
         # 3. Badges Row (Character Tag + Status Tag)
         tags_frame = CTkFrame(self.inspector_scroll, fg_color="transparent")
@@ -2194,7 +2210,7 @@ class ModManagerFrame(CTkToplevel, UIElementBase):
     def _open_hot_update_dialog(self):
         """Opens interactive Hot Update and Upstream Sync modal dialog."""
         from gui.windows.hot_update_dialog import HotUpdateDialog
-        dialog = HotUpdateDialog(parent=self.winfo_toplevel())
+        dialog = HotUpdateDialog(parent=self.winfo_toplevel(), on_updated=self.refresh_mods)
         dialog.focus()
 
     def _restore_mod(self, mod_item: ModItem):

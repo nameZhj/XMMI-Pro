@@ -17,6 +17,7 @@ from typing import Optional, List, Tuple, Set, Dict, Callable, Any
 import psutil
 import platform
 from core.utils.lossless_ini_editor import LosslessIniEditor, make_file_writable
+from core.wuwa_char_translator import WuwaCharTranslator
 
 import core.config_manager as Config
 import core.path_manager as Paths
@@ -145,6 +146,7 @@ class ModItem:
     display_name: str
     path: Path
     enabled: bool
+    translated_name: str = ''
     thumbnail_path: Optional[Path] = None
     file_count: int = 0
     size_bytes: int = 0
@@ -475,33 +477,66 @@ class ModService:
 
         sorted_guids = sorted(list(guids))
 
+        # Build unified static + dynamically synced EN-CN character table
+        static_cns = {item[1] for item in CHARACTER_DATABASE}
+        static_cids = {item[0] for item in CHARACTER_DATABASE}
+        dynamic_entries = [
+            (dcid, dcn, den, [den.lower(), re.sub(r'[^a-z0-9]', '', den.lower())], [])
+            for dcid, dcn, den in WuwaCharTranslator.get_dynamic_character_entries()
+            if dcid not in static_cids and dcn not in static_cns
+        ]
+        all_chars_db = list(CHARACTER_DATABASE) + dynamic_entries
+
         # 1. Match by GUID in database
         for g in sorted_guids:
             if g in GUID_TO_CHAR_INFO:
                 cid, cname, ename = GUID_TO_CHAR_INFO[g]
                 return cid, cname, ename, sorted_guids, f"MOD_{folder_path.name}"
 
-        # 2. Match character by folder or display name (highest priority and precision)
+        # 2. Match character by folder or display name (longest match first for specificity)
         combined_name = f"{folder_path.name} {display_name}".lower()
-        for cid, cname, ename, pinyin_list, char_guids in CHARACTER_DATABASE:
+        name_hits: List[Tuple[int, str, str, str]] = []
+        for cid, cname, ename, pinyin_list, _ in all_chars_db:
             if cname in folder_path.name or cname in display_name:
-                return cid, cname, ename, sorted_guids, f"MOD_{folder_path.name}"
+                name_hits.append((len(cname) + 100, cid, cname, ename))
+                continue
             check_words = [ename.lower()] + [p.lower() for p in pinyin_list if len(p) >= 3]
             for w in check_words:
-                if re.search(rf'(?i)\b{re.escape(w)}\b', combined_name):
-                    return cid, cname, ename, sorted_guids, f"MOD_{folder_path.name}"
+                if re.search(rf'(?i)(?<![a-z0-9]){re.escape(w)}(?![a-z0-9])', combined_name):
+                    name_hits.append((len(w), cid, cname, ename))
+        if name_hits:
+            _, cid, cname, ename = max(name_hits, key=lambda x: x[0])
+            return cid, cname, ename, sorted_guids, f"MOD_{folder_path.name}"
 
-        # 3. Match character in ini namespaces and corpus with strict word boundaries
+        # 3. Match character via Wuwa_Mod_Fixer hashes if available
+        if hashes:
+            name_map = WuwaCharTranslator.get_name_map_data()
+            en_to_cn = {**name_map.get('characters', {}), **name_map.get('aliases', {})}
+            en_to_cn_low = {k.lower(): (k, v) for k, v in en_to_cn.items()}
+            for c_key, c_def in cls.get_wuwa_fix_config().get('characters', {}).items():
+                char_hashes = {
+                    *(mh.get('new', '').lower() for mh in c_def.get('main_hashes', []) if mh.get('new')),
+                    *(oh.lower() for mh in c_def.get('main_hashes', []) for oh in mh.get('old', [])),
+                    *(th.lower() for vg in c_def.get('vg_remaps', []) for th in vg.get('trigger_hash', [])),
+                }
+                if hashes & char_hashes:
+                    base_key = re.sub(r'(Skin\d+|PeachBlossom|SplashingSummer|LaurelNymph|Hair\w*|Wing|Tail|Sword|Spear|Effect|Skirt|Ultimate)$', '', c_key) or c_key
+                    if base_key.lower() in en_to_cn_low:
+                        en_lbl, cn_lbl = en_to_cn_low[base_key.lower()]
+                        cid_val = re.sub(r'[^a-z0-9]+', '_', en_lbl.lower()).strip('_')
+                        return cid_val, cn_lbl, en_lbl, sorted_guids, f"MOD_{folder_path.name}"
+
+        # 4. Match character in ini namespaces and corpus with strict word boundaries
         corpus_search = (" ".join(namespaces) + " " + " ".join(ini_text_corpus[:3])).lower()
-        for cid, cname, ename, pinyin_list, char_guids in CHARACTER_DATABASE:
+        for cid, cname, ename, pinyin_list, _ in all_chars_db:
             if cname in corpus_search:
                 return cid, cname, ename, sorted_guids, f"MOD_{folder_path.name}"
             check_words = [ename.lower()] + [p.lower() for p in pinyin_list if len(p) >= 3]
             for w in check_words:
-                if re.search(rf'(?i)\b{re.escape(w)}\b', corpus_search):
+                if re.search(rf'(?i)(?<![a-z0-9]){re.escape(w)}(?![a-z0-9])', corpus_search):
                     return cid, cname, ename, sorted_guids, f"MOD_{folder_path.name}"
 
-        # 4. Fallback: Unknown character with GUID or Generic Mod
+        # 5. Fallback: Unknown character with GUID or Generic Mod
         if sorted_guids:
             primary_guid = sorted_guids[0]
             return f"guid_{primary_guid}", f"角色 [ID: {primary_guid}]", f"Character [ID: {primary_guid}]", sorted_guids, f"MOD_{folder_path.name}"
@@ -567,6 +602,7 @@ class ModService:
                 display_name = name[:-9].strip()
 
             cid, cname, ename, guids, conflict_key = cls.analyze_mod_features(entry, display_name)
+            translated_name = WuwaCharTranslator.translate_mod_name(display_name)
 
             thumbnail = cls.find_thumbnail(entry)
             file_count, size_bytes = cls.get_folder_stats(entry)
@@ -582,6 +618,7 @@ class ModService:
                 display_name=display_name,
                 path=entry,
                 enabled=enabled,
+                translated_name=translated_name,
                 thumbnail_path=thumbnail,
                 file_count=file_count,
                 size_bytes=size_bytes,
@@ -623,7 +660,7 @@ class ModService:
             if search_query:
                 q = search_query.strip().lower()
                 matched = False
-                if q in m.display_name.lower() or q in m.name.lower() or q in m.character_name.lower() or q in m.character_en.lower():
+                if q in m.display_name.lower() or q in m.translated_name.lower() or q in m.name.lower() or q in m.character_name.lower() or q in m.character_en.lower():
                     matched = True
                 elif any(q in g for g in m.object_guids):
                     matched = True
@@ -712,11 +749,12 @@ class ModService:
             guids = mods_in_char[0].object_guids
             kws = [cname.lower(), ename.lower(), cid.lower()] + guids
             display_prefix = "👤 " if cid != "other" else "📦 "
+            title_str = f"{display_prefix}{cname} ({ename})" if (cid != "other" and ename and ename != cname and not cname.startswith("角色 [ID:")) else f"{display_prefix}{cname}"
             menu_items.append(CharacterMenuItem(
                 character_id=cid,
                 name_cn=cname,
                 name_en=ename,
-                display_title=f"{display_prefix}{cname}",
+                display_title=title_str,
                 guids=guids,
                 search_keywords=kws,
                 total_count=t_count,
@@ -879,6 +917,7 @@ class ModService:
                 display_name=mod_item.display_name,
                 path=current_path,
                 enabled=enable,
+                translated_name=mod_item.translated_name or WuwaCharTranslator.translate_mod_name(mod_item.display_name),
                 thumbnail_path=cls.find_thumbnail(current_path),
                 file_count=mod_item.file_count,
                 size_bytes=mod_item.size_bytes,
@@ -927,6 +966,7 @@ class ModService:
                 display_name=mod_item.display_name,
                 path=new_path,
                 enabled=enable,
+                translated_name=mod_item.translated_name or WuwaCharTranslator.translate_mod_name(mod_item.display_name),
                 thumbnail_path=cls.find_thumbnail(new_path),
                 file_count=mod_item.file_count,
                 size_bytes=mod_item.size_bytes,
@@ -1025,6 +1065,7 @@ class ModService:
                 display_name=new_display_name,
                 path=new_path,
                 enabled=mod_item.enabled,
+                translated_name=WuwaCharTranslator.translate_mod_name(new_display_name),
                 thumbnail_path=cls.find_thumbnail(new_path),
                 file_count=mod_item.file_count,
                 size_bytes=mod_item.size_bytes,
@@ -1197,12 +1238,22 @@ class ModService:
             return True, msg, current_cfg
 
     @classmethod
+    def update_wuwa_char_names_from_remote(
+        cls,
+        force: bool = False,
+        callback: Optional[Callable[[bool, str], None]] = None
+    ) -> Tuple[bool, str, int]:
+        """Synchronizes latest Wuthering Waves EN-CN character/weapon mapping table."""
+        return WuwaCharTranslator.update_from_remote(force=force, callback=callback)
+
+    @classmethod
     def start_background_rule_updater(cls):
-        """Spawns an asynchronous background worker to check and update Wuwa fix rules on startup."""
+        """Spawns an asynchronous background worker to check and update Wuwa fix rules and char names."""
         def _worker():
             try:
                 time.sleep(2)  # Delay slightly after app startup to avoid CPU contention
                 cls.update_wuwa_fix_config_from_remote()
+                cls.update_wuwa_char_names_from_remote()
             except Exception as e:
                 log.debug(f"Background rule update check error: {e}")
 
