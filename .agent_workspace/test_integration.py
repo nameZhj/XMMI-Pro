@@ -126,6 +126,9 @@ def test_full_launch_integration():
         # 5. Engine.ini / d3dx.ini 优化写入与基线备份
         engine_content = engine_ini.read_text(encoding="utf-8")
         assert "r.Streaming.PoolSize" in engine_content
+        assert "r.Streaming.UsingNewKuroStreaming=0" in engine_content
+        assert "r.Kuro.SkeletalMesh.LODDistanceScale=25" in engine_content
+        assert "r.Streaming.HiddenPrimitiveScale=25" in engine_content
         assert (engine_ini.with_suffix(".ini.orig.bak")).exists()
         d3dx_content = d3dx_ini.read_text(encoding="utf-8")
         assert (d3dx_ini.with_suffix(".ini.orig.bak")).exists()
@@ -134,7 +137,9 @@ def test_full_launch_integration():
         # 6. Mod 语法修复与 Hash 冲突检查 (启动时不破坏用户模组)
         assert not toxic_file.exists()
         assert (mods_dir / "DISABLED_CheckTexture.ini.bak").exists()
-        assert "; [AutoFixed] if $costume_mods == 1" in mod1_ini.read_text(encoding="utf-8")
+        repaired_mod1 = mod1_ini.read_text(encoding="utf-8")
+        assert "\nif 1\n" in repaired_mod1
+        assert "; [AutoFixed]" not in repaired_mod1
         # 启动时不会盲目禁用用户模组
         assert mod2_dir.exists(), "Launch should not silently rename user mods"
         

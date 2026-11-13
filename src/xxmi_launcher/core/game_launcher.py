@@ -313,8 +313,8 @@ class GameLauncher:
                     xxmi_dll_version=xxmi_dll_version,
                 )
 
-            # Optimize ini files in Mods and ShaderFixes folders
-            Events.Fire(Events.ModelImporter.OptimizeMods())
+            # Optimize ini files in Mods and ShaderFixes folders synchronously before game launch
+            Events.Fire(Events.ModelImporter.OptimizeMods(silent=True))
 
         # Configure game settings.
         Events.Fire(Events.Application.StatusUpdate(

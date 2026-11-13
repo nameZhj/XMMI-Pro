@@ -72,8 +72,8 @@ class WWMIConfig(ModelImporterConfig):
         },
     })
     unlock_fps: bool = False
-    force_max_lod_bias: bool = False
-    disable_wounded_fx: bool = False
+    force_max_lod_bias: bool = True
+    disable_wounded_fx: bool = True
     disable_wounded_fx_warned: bool = False
     mesh_lod_distance_lod_base_fov: int = 165
     resource_tier: WuWaResourceTier = WuWaResourceTier.HD
@@ -350,16 +350,17 @@ class WWMIPackage(ModelImporterPackage):
     def optimize_mods(self, event: Events.ModelImporter.OptimizeMods):
         """响应用户触发的‘深度修复 Mod’事件，彻底清空 ShaderCache 编译缓存并深度修复 (异步执行防止UI无响应)"""
         def _worker():
-            try:
-                game_path = Path(Config.Importers.WWMI.Importer.game_folder)
-                wwmi_root = Path(Config.Importers.WWMI.Importer.importer_path)
-                if game_path.exists() and wwmi_root.exists():
-                    from core.packages.model_importers.wwmi_fixer import WWMIRepairAndOptimizer
-                    optimizer = WWMIRepairAndOptimizer(game_path, wwmi_root)
-                    optimizer.scan_and_repair_mods(purge_shader_cache=True, auto_disable_conflicts=False)
-                    log.info("[深度修复] 用户手动触发模组优化，已清空着色器编译缓存")
-            except Exception as e:
-                log.warning(f"Error in WWMIPackage.optimize_mods cache purge: {e}")
+            if not event.silent:
+                try:
+                    game_path = Path(Config.Importers.WWMI.Importer.game_folder)
+                    wwmi_root = Path(Config.Importers.WWMI.Importer.importer_path)
+                    if game_path.exists() and wwmi_root.exists():
+                        from core.packages.model_importers.wwmi_fixer import WWMIRepairAndOptimizer
+                        optimizer = WWMIRepairAndOptimizer(game_path, wwmi_root)
+                        optimizer.scan_and_repair_mods(purge_shader_cache=True, auto_disable_conflicts=False)
+                        log.info("[深度修复] 用户手动触发模组优化，已清空着色器编译缓存")
+                except Exception as e:
+                    log.warning(f"Error in WWMIPackage.optimize_mods cache purge: {e}")
             super(WWMIPackage, self).optimize_mods(event)
 
         if not event.silent:
@@ -448,8 +449,7 @@ class WWMIPackage(ModelImporterPackage):
                     return
 
                 # Set "LOD Bias" to "Ultra High" - required to force high quality textures mods are made for
-                if Config.Importers.WWMI.Importer.force_max_lod_bias:
-                    settings_manager.set_setting('ImageDetail', '3')
+                settings_manager.set_setting('ImageDetail', '3')
 
                 # Force Ray Tracing Off as it doesn't work with DX11 aka WWMI
                 settings_manager.set_setting('RayTracing', '0')
@@ -479,8 +479,6 @@ class WWMIPackage(ModelImporterPackage):
 
                 if Config.Importers.WWMI.Importer.disable_wounded_fx:
                     settings_manager.set_setting('SkinDamageMode', '0')
-                else:
-                    settings_manager.set_setting('SkinDamageMode', '1')
 
 
         except Exception as e:

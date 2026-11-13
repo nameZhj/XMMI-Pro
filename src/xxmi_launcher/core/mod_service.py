@@ -1,5 +1,6 @@
 import os
 import re
+import array
 import shutil
 import zipfile
 import tarfile
@@ -1271,11 +1272,131 @@ class ModService:
         return mapping
 
     @classmethod
-    def _apply_blend_vg_remap(cls, mod_path: Path, remap_str: str) -> int:
-        """Remaps 8-byte stride bone indices in *Blend*.buf files when weights > 0."""
-        mapping = cls._parse_vg_remap_mapping(remap_str)
-        if not mapping:
+    def _collect_drawindexed_recursive(
+        cls,
+        sec_map: Dict[str, List[str]],
+        sec_key: str,
+        out_ranges: List[Tuple[int, int, int]],
+        visited: Set[str],
+        depth: int = 0
+    ) -> None:
+        """Collects static drawindexed (count, start, base) tuples across section and run calls."""
+        if depth > 8 or sec_key in visited:
+            return
+        visited.add(sec_key)
+        for raw_line in sec_map.get(sec_key, []):
+            code = raw_line.split(';', 1)[0].strip()
+            if not code:
+                continue
+            m_draw = re.match(r'(?i)^drawindexed\s*=\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)', code)
+            if m_draw:
+                out_ranges.append((int(m_draw.group(1)), int(m_draw.group(2)), int(m_draw.group(3))))
+                continue
+            m_run = re.match(r'(?i)^run\s*=\s*([^\s;]+)', code)
+            if m_run:
+                cls._collect_drawindexed_recursive(sec_map, m_run.group(1).strip().lower(), out_ranges, visited, depth + 1)
+
+    @classmethod
+    def _extract_component_vertex_sets(
+        cls,
+        mod_path: Path,
+        index_buf_path: Path,
+        total_verts: int
+    ) -> Dict[int, Set[int]]:
+        """Maps each WWMI Component index to the vertex indices referenced by its drawindexed calls."""
+        sec_map: Dict[str, List[str]] = {}
+        comp_sections: Dict[int, List[str]] = {}
+        is_u16_hint = False
+        for ini_p in mod_path.rglob('*.ini'):
+            if ini_p.name.lower().endswith('.bak'):
+                continue
+            try:
+                text = cls._decode_ini_bytes(ini_p.read_bytes()).replace('\r\n', '\n').replace('\r', '\n')
+            except Exception:
+                continue
+            if 'dxgi_format_r16_uint' in text.lower():
+                is_u16_hint = True
+            for hdr, body in cls._parse_ini_sections(text.split('\n')):
+                if not hdr:
+                    continue
+                hdr_name = hdr.strip()[1:-1].strip()
+                hdr_key = hdr_name.lower()
+                sec_map.setdefault(hdr_key, []).extend(body)
+                m_comp = re.match(r'^textureoverride(?:.*?)component[_\s-]*(\d+)$', hdr_key)
+                if m_comp:
+                    comp_sections.setdefault(int(m_comp.group(1)), []).append(hdr_key)
+
+        if not comp_sections or not index_buf_path.is_file():
+            return {}
+
+        idx_bytes = index_buf_path.read_bytes()
+        if is_u16_hint and len(idx_bytes) % 2 == 0:
+            fmt = 'H'
+        elif len(idx_bytes) % 4 == 0:
+            fmt = 'I'
+        elif len(idx_bytes) % 2 == 0:
+            fmt = 'H'
+        else:
+            return {}
+
+        idx_arr = array.array(fmt)
+        idx_arr.frombytes(idx_bytes)
+        if fmt == 'I' and len(idx_arr) > 0 and max(idx_arr[:min(len(idx_arr), 256)]) >= max(total_verts, 1):
+            if len(idx_bytes) % 2 == 0:
+                idx_arr = array.array('H')
+                idx_arr.frombytes(idx_bytes)
+
+        comp_verts: Dict[int, Set[int]] = {}
+        idx_len = len(idx_arr)
+        for comp_idx, sec_keys in comp_sections.items():
+            ranges: List[Tuple[int, int, int]] = []
+            visited: Set[str] = set()
+            for sk in sec_keys:
+                cls._collect_drawindexed_recursive(sec_map, sk, ranges, visited)
+            if not ranges:
+                continue
+            v_set: Set[int] = set()
+            for count, start, base in ranges:
+                end = min(start + count, idx_len)
+                if 0 <= start < end:
+                    v_set.update(v + base for v in idx_arr[start:end] if 0 <= v + base < total_verts)
+            if v_set:
+                comp_verts[comp_idx] = v_set
+        return comp_verts
+
+    @staticmethod
+    def _remap_blend_vertices(buf: bytearray, vertices: Any, mapping: Dict[int, int]) -> bool:
+        """Applies byte-level bone index remapping on selected vertex indices of a Blend.buf."""
+        changed = False
+        buf_len = len(buf)
+        for v_idx in vertices:
+            i = v_idx * 8
+            if i + 8 > buf_len:
+                continue
+            for j in range(4):
+                if buf[i + 4 + j] > 0 and buf[i + j] in mapping:
+                    buf[i + j] = mapping[buf[i + j]]
+                    changed = True
+        return changed
+
+    @classmethod
+    def _apply_blend_vg_remap(
+        cls,
+        mod_path: Path,
+        remap_str: str = '',
+        component_remap: Optional[List[Dict[str, Any]]] = None
+    ) -> int:
+        """Remaps 8-byte stride bone indices in *Blend*.buf files per component (WWMI 0.7+) or globally (0.6x)."""
+        global_map = cls._parse_vg_remap_mapping(remap_str) if remap_str else {}
+        comp_maps: Dict[int, Dict[int, int]] = {}
+        for entry in (component_remap or []):
+            c_idx = entry.get('component_index')
+            c_map = cls._parse_vg_remap_mapping(entry.get('indices', ''))
+            if isinstance(c_idx, int) and c_map:
+                comp_maps[c_idx] = c_map
+        if not global_map and not comp_maps:
             return 0
+
         modified_files = 0
         for buf_path in list(mod_path.rglob('*Blend*.buf')):
             if '.bak' in buf_path.name.lower() or not buf_path.is_file():
@@ -1284,13 +1405,38 @@ class ModService:
                 raw = buf_path.read_bytes()
                 if len(raw) < 8 or len(raw) % 8 != 0:
                     continue
+                total_verts = len(raw) // 8
                 buf = bytearray(raw)
                 changed = False
-                for i in range(0, len(buf), 8):
-                    for j in range(4):
-                        if buf[i + 4 + j] > 0 and buf[i + j] in mapping:
-                            buf[i + j] = mapping[buf[i + j]]
-                            changed = True
+
+                m_comp_file = re.search(r'(?i)component[_\s-]*(\d+)', buf_path.name)
+                if m_comp_file and comp_maps:
+                    c_idx = int(m_comp_file.group(1))
+                    if c_idx in comp_maps:
+                        changed = cls._remap_blend_vertices(buf, range(total_verts), comp_maps[c_idx])
+                elif comp_maps:
+                    expected_idx = buf_path.parent / re.sub(r'(?i)blend', 'Index', buf_path.name)
+                    if expected_idx.is_file():
+                        idx_path = expected_idx
+                    else:
+                        idx_cands = [p for p in buf_path.parent.glob('*Index*.buf') if '.bak' not in p.name.lower() and p.is_file()]
+                        idx_path = idx_cands[0] if idx_cands else None
+                    comp_verts = cls._extract_component_vertex_sets(mod_path, idx_path, total_verts) if idx_path else {}
+                    if comp_verts:
+                        for c_idx, v_set in comp_verts.items():
+                            c_map = comp_maps.get(c_idx)
+                            if not c_map:
+                                continue
+                            used_vgs = {buf[v * 8 + j] for v in v_set for j in range(4) if v * 8 + 8 <= len(buf) and buf[v * 8 + 4 + j] > 0}
+                            if any(vg in c_map for vg in used_vgs):
+                                changed |= cls._remap_blend_vertices(buf, v_set, c_map)
+                            elif global_map and any(vg in global_map for vg in used_vgs):
+                                changed |= cls._remap_blend_vertices(buf, v_set, global_map)
+                    elif global_map:
+                        changed = cls._remap_blend_vertices(buf, range(total_verts), global_map)
+                elif global_map:
+                    changed = cls._remap_blend_vertices(buf, range(total_verts), global_map)
+
                 if changed:
                     bak = buf_path.with_name(f"{buf_path.name}.orig.bak")
                     if not bak.exists():
@@ -1325,17 +1471,23 @@ class ModService:
         target_chars: List[Tuple[str, Dict]],
         present_hashes: Set[str]
     ) -> Tuple[List[str], int]:
-        """Builds derived LOD/state TextureOverride blocks cloning parent 'this = Resource...'."""
+        """Builds derived LOD/state TextureOverride blocks cloning parent texture overrides."""
         sections = cls._parse_ini_sections(lines)
         hash_bodies: Dict[str, List[str]] = {}
+        mesh_markers = ('match_first_index', 'vb0', 'ib', 'handling', 'drawindexed')
         for header, body in sections:
             if not header or 'textureoverride' not in header.strip().lower():
                 continue
             sec_hash = None
-            has_this = False
+            has_tex_action = False
+            is_mesh_sec = False
             clone_lines: List[str] = []
             for bl in body:
                 code = bl.split(';', 1)[0].strip()
+                code_low = code.lower()
+                if any(code_low.startswith(mk) for mk in mesh_markers):
+                    is_mesh_sec = True
+                    break
                 m_hash = re.match(r'(?i)^hash\s*=\s*([0-9a-fA-F]{8})\b', code)
                 if m_hash:
                     sec_hash = m_hash.group(1).lower()
@@ -1343,10 +1495,10 @@ class ModService:
                 if re.match(r'(?i)^checktextureoverride\s*=', code):
                     continue
                 if code:
-                    if re.match(r'(?i)^this\s*=', code):
-                        has_this = True
+                    if re.match(r'(?i)^(this|run|ps-t\d+)\s*=', code):
+                        has_tex_action = True
                     clone_lines.append(bl)
-            if sec_hash and has_this and sec_hash not in hash_bodies:
+            if not is_mesh_sec and sec_hash and has_tex_action and sec_hash not in hash_bodies:
                 hash_bodies[sec_hash] = clone_lines
 
         extra_lines: List[str] = []
@@ -1373,55 +1525,60 @@ class ModService:
     def _apply_safe_ini_section_injections(
         cls,
         lines: List[str],
-        matched_chars: List[Tuple[str, Dict]],
+        target_chars: List[Tuple[str, Dict]],
         fix_stable: bool,
-        fix_resource_override: bool
+        fix_resource_override: bool,
+        present_hashes: Optional[Set[str]] = None
     ) -> Tuple[List[str], bool]:
-        """Applies skip_components and valid CheckTextureOverride = ps-tX without list mutation loops."""
+        """Removes invalid handling=skip and ensures valid CheckTextureOverride slots."""
         if not fix_stable and not fix_resource_override:
             return lines, False
-        skip_comps = {
-            str(sc).strip().lower()
-            for _, c_def in matched_chars
-            for sc in c_def.get('skip_components', [])
-            if str(sc).strip()
-        }
+        tex_type_slot = {'D': 'ps-t0', 'N': 'ps-t1', 'L': 'ps-t2', 'M': 'ps-t3'}
+        comp_slot_map: Dict[int, Set[str]] = {}
+        hashes_low = present_hashes or set()
+        for _, c_def in target_chars:
+            for th, t_node in c_def.get('textures', {}).items():
+                meta = t_node.get('meta', {})
+                c_id = meta.get('id')
+                t_slot = tex_type_slot.get(str(meta.get('type', '')).upper())
+                if isinstance(c_id, int) and t_slot and (th.lower() in hashes_low or not hashes_low):
+                    comp_slot_map.setdefault(c_id, set()).add(t_slot)
+
         sections = cls._parse_ini_sections(lines)
         out_lines: List[str] = []
         changed = False
         for header, body in sections:
             new_body = list(body)
             if header and 'textureoverride' in header.strip().lower():
+                hdr_low = header.strip().lower()
                 body_code = [bl.split(';', 1)[0].strip() for bl in new_body]
                 body_low = '\n'.join(body_code).lower()
 
-                # Step G: handling = skip for configured unstable components
-                if fix_stable and skip_comps and 'handling = skip' not in body_low and 'handling=skip' not in body_low:
-                    for idx, code in enumerate(body_code):
-                        m_comp = re.match(r'(?i)^component\s*=\s*(\S+)', code)
-                        if m_comp and m_comp.group(1).lower() in skip_comps:
-                            new_body.insert(idx + 1, 'handling = skip')
-                            body_code.insert(idx + 1, 'handling = skip')
-                            changed = True
-                            break
+                # Clean destructive handling = skip left on draw components by earlier versions
+                if 'drawindexed' in body_low or 'commandlisttriggerresourceoverrides' in body_low:
+                    filtered_body = [bl for bl in new_body if not re.match(r'(?i)^\s*handling\s*=\s*skip\b', bl.split(';', 1)[0])]
+                    if len(filtered_body) != len(new_body):
+                        new_body = filtered_body
+                        body_code = [bl.split(';', 1)[0].strip() for bl in new_body]
+                        body_low = '\n'.join(body_code).lower()
+                        changed = True
 
-                # Step H: inject CheckTextureOverride = ps-tX on draw sections referencing texture slots
-                if (
-                    fix_resource_override
-                    and 'match_first_index' in body_low
-                    and 'checktextureoverride' not in body_low
-                    and 'commandlisttriggerresourceoverrides' not in body_low
-                ):
-                    slot_match = next(
-                        (m for code in body_code if (m := re.match(r'(?i)^(ps-t\d+)\s*=', code))),
-                        None
-                    )
-                    slot_val = slot_match.group(1).lower() if slot_match else None
-                    if slot_val:
-                        insert_pos = len(new_body)
-                        while insert_pos > 0 and not new_body[insert_pos - 1].strip():
-                            insert_pos -= 1
-                        new_body.insert(insert_pos, f"CheckTextureOverride = {slot_val}")
+                # Step H: inject CheckTextureOverride = ps-tX for bound slots or component textures
+                if fix_resource_override and 'match_first_index' in body_low and 'commandlisttriggerresourceoverrides' not in body_low:
+                    existing_checks = {m.group(1).lower() for code in body_code if (m := re.match(r'(?i)^checktextureoverride\s*=\s*(ps-t\d+)', code))}
+                    needed_slots = [m.group(1).lower() for code in body_code if (m := re.match(r'(?i)^(ps-t\d+)\s*=', code))]
+                    m_comp_hdr = re.match(r'^\[textureoverride(?:.*?)component[_\s-]*(\d+)\]$', hdr_low)
+                    if not needed_slots and not existing_checks and m_comp_hdr:
+                        needed_slots = sorted(comp_slot_map.get(int(m_comp_hdr.group(1)), set()))
+                    missing_slots = list(dict.fromkeys(s for s in needed_slots if s not in existing_checks))
+                    if missing_slots:
+                        match_idx = max(
+                            (i for i, code in enumerate(body_code) if re.match(r'(?i)^(hash|match_\w+)\s*=', code)),
+                            default=-1
+                        )
+                        insert_pos = match_idx + 1
+                        for offset, slot_val in enumerate(missing_slots):
+                            new_body.insert(insert_pos + offset, f"CheckTextureOverride = {slot_val}")
                         changed = True
 
             if header is not None:
@@ -1437,16 +1594,12 @@ class ModService:
         ini_name_lower: str,
         mod_name_lower: str
     ) -> Tuple[List[Tuple[str, Dict]], List[Tuple[str, Dict]]]:
-        """Finds matching character/weapon definitions by name or hash presence."""
+        """Finds all matching character and sub-object entries by hashes or longest exact name."""
         matched_chars: List[Tuple[str, Dict]] = []
         hash_chars: List[Tuple[str, Dict]] = []
-        for c_name, c_def in chars_db.items():
-            name_keys = [c_name.lower()]
-            for extra_key in ('character_en', 'character_id'):
-                if c_def.get(extra_key):
-                    name_keys.append(str(c_def[extra_key]).lower())
-            name_hit = any(k and (k in ini_name_lower or k in mod_name_lower) for k in name_keys)
+        name_candidates: List[Tuple[int, str, Dict]] = []
 
+        for c_name, c_def in chars_db.items():
             main_hit = any(
                 (mh.get('new') and mh['new'].lower() in present_hashes)
                 or any(oh.lower() in present_hashes for oh in mh.get('old', []))
@@ -1462,13 +1615,32 @@ class ModService:
                 for vg in c_def.get('vg_remaps', [])
                 for th in vg.get('trigger_hash', [])
             )
+            sk_hit = any(th.lower() in present_hashes for th in c_def.get('shapekey_fix', {}).get('trigger_hash', []))
+            st_hit = any(th.lower() in present_hashes for th in c_def.get('stride_fix', {}).get('trigger_hash', []))
+            hr_hit = any(th.lower() in present_hashes for th in c_def.get('hair_fix', {}).get('trigger_hash', []))
+            struct_hit = main_hit or vg_hit or sk_hit or st_hit or hr_hit
 
-            if name_hit or main_hit or vg_hit:
+            if struct_hit:
                 matched_chars.append((c_name, c_def))
-            if main_hit or tex_hit or vg_hit:
+            if struct_hit or tex_hit:
                 hash_chars.append((c_name, c_def))
-        target_chars = matched_chars if matched_chars else hash_chars
-        return matched_chars, target_chars
+
+            name_keys = [c_name.lower()]
+            for extra_key in ('character_en', 'character_id'):
+                if c_def.get(extra_key):
+                    name_keys.append(str(c_def[extra_key]).lower())
+            best_len = max((len(k) for k in name_keys if k and (k in ini_name_lower or k in mod_name_lower)), default=0)
+            if best_len > 0:
+                name_candidates.append((best_len, c_name, c_def))
+
+        if hash_chars:
+            return (matched_chars if matched_chars else hash_chars), hash_chars
+
+        if name_candidates:
+            top_len = max(item[0] for item in name_candidates)
+            fallback = [(cn, cd) for ln, cn, cd in name_candidates if ln == top_len]
+            return fallback, fallback
+        return [], []
 
     @classmethod
     def _create_backup_snapshot(cls, mod_item: ModItem, safe_name: str) -> Optional[str]:
@@ -1545,24 +1717,33 @@ class ModService:
         rule_count = 0
         if fix_hashes:
             repl_pairs: List[Tuple[str, str]] = []
+            seen_pairs: Set[Tuple[str, str]] = set()
             for _, c_def in target_chars:
                 for mh in c_def.get('main_hashes', []):
                     new_h = mh.get('new', '')
                     for old_h in mh.get('old', []):
-                        if old_h.lower() != new_h.lower() and old_h.lower() in present_hashes:
+                        pair = (old_h.lower(), new_h.lower())
+                        if pair[0] != pair[1] and pair[0] in present_hashes and pair not in seen_pairs:
+                            seen_pairs.add(pair)
                             repl_pairs.append((old_h, new_h))
                 for new_tex, t_node in c_def.get('textures', {}).items():
                     for old_tex in t_node.get('replace', []):
-                        if old_tex.lower() != new_tex.lower() and old_tex.lower() in present_hashes:
+                        pair = (old_tex.lower(), new_tex.lower())
+                        if pair[0] != pair[1] and pair[0] in present_hashes and pair not in seen_pairs:
+                            seen_pairs.add(pair)
                             repl_pairs.append((old_tex, new_tex))
+            replaced_lines: Set[int] = set()
             for old_h, new_h in repl_pairs:
                 pat = re.compile(rf'\b{re.escape(old_h)}\b', re.IGNORECASE)
                 for idx, l in enumerate(lines):
+                    if idx in replaced_lines:
+                        continue
                     code, sep, comment = l.partition(';')
                     if old_h.lower() in code.lower():
                         new_code = pat.sub(new_h, code)
                         if new_code != code:
                             lines[idx] = f"{new_code}{sep}{comment}"
+                            replaced_lines.add(idx)
                             hash_count += 1
 
         if fix_rules:
@@ -1585,6 +1766,53 @@ class ModService:
                                         lines[idx] = f"{new_code}{sep}{comment}"
                                         rule_count += 1
         return hash_count, rule_count
+
+    @classmethod
+    def _apply_shapekey_and_checksum_fixes(
+        cls,
+        lines: List[str],
+        target_chars: List[Tuple[str, Dict]],
+        present_hashes: Set[str]
+    ) -> Tuple[List[str], int]:
+        """Updates shapekey_checksum and applies shapekey_fix section_rewrites."""
+        updates = 0
+        out_lines = list(lines)
+        for _, c_def in target_chars:
+            new_cs = c_def.get('checksum')
+            if new_cs is not None:
+                cs_str = str(new_cs)
+                for idx, line in enumerate(out_lines):
+                    code, sep, comment = line.partition(';')
+                    m_cs = re.match(r'^(\s*\$\\WWMIv1\\shapekey_checksum\s*=\s*)(\S+)(.*)$', code, re.IGNORECASE)
+                    if m_cs and m_cs.group(2) != cs_str:
+                        out_lines[idx] = f"{m_cs.group(1)}{cs_str}{m_cs.group(3)}{sep}{comment}"
+                        updates += 1
+
+            sk_fix = c_def.get('shapekey_fix', {})
+            sk_triggers = [th.lower() for th in sk_fix.get('trigger_hash', [])]
+            if sk_fix and (not sk_triggers or any(th in present_hashes for th in sk_triggers)):
+                rewrites = sk_fix.get('section_rewrites', [])
+                for rw in rewrites:
+                    old_sec = str(rw.get('old_section', '')).strip().lower()
+                    new_content = str(rw.get('new_content', '')).strip('\r\n')
+                    if not old_sec or not new_content:
+                        continue
+                    new_hdr_line = new_content.splitlines()[0].strip().lower()
+                    existing_low = '\n'.join(l.strip().lower() for l in out_lines)
+                    if f"[{old_sec}]" not in existing_low or new_hdr_line in existing_low:
+                        continue
+                    sections = cls._parse_ini_sections(out_lines)
+                    rebuilt: List[str] = []
+                    for hdr, body in sections:
+                        if hdr and hdr.strip().lower() == f"[{old_sec}]":
+                            rebuilt.extend(new_content.splitlines())
+                            updates += 1
+                        else:
+                            if hdr is not None:
+                                rebuilt.append(hdr)
+                            rebuilt.extend(body)
+                    out_lines = rebuilt
+        return out_lines, updates
 
     @classmethod
     def _apply_rendering_33_and_engine_ini(cls, mod_item: ModItem, options: ModRepairOptions, fixes: List[str]) -> None:
@@ -1633,13 +1861,14 @@ class ModService:
                     ]
                     engine_ini = next((p for p in candidates if p.exists() and p.is_file()), candidates[0])
                     opt_dict = {
+                        "r.Streaming.UsingNewKuroStreaming": "0",
                         "r.Kuro.SkeletalMesh.LODDistanceScale": "25",
                         "r.Streaming.FullyLoadUsedTextures": "1",
                         "r.Streaming.HiddenPrimitiveScale": "25",
                         "r.Streaming.UseAllMips": "1"
                     }
-                    if LosslessIniEditor.update_sections(engine_ini, {"ConsoleVariables": opt_dict}):
-                        fixes.append("已向游戏 Engine.ini 写入高精模型渲染与防破图参数 (4 项)")
+                    if LosslessIniEditor.update_sections(engine_ini, {"SystemSettings": opt_dict, "ConsoleVariables": opt_dict}):
+                        fixes.append("已向游戏 Engine.ini 写入高精模型渲染与防破图参数 (5 项)")
                     else:
                         fixes.append("游戏 Engine.ini 渲染参数更新跳过或受权限保护")
             except Exception as e:
@@ -1719,21 +1948,30 @@ class ModService:
                         counts["hash"] += h_cnt
                         counts["rule"] += r_cnt
 
+                    if options.fix_rules:
+                        lines, sk_cnt = cls._apply_shapekey_and_checksum_fixes(
+                            lines, target_chars, present_hashes_before
+                        )
+                        if sk_cnt:
+                            modified = True
+                            counts["rule"] += sk_cnt
+
                     present_hashes = cls._extract_hashes_no_comments(lines)
 
                     if options.fix_vertex_groups:
                         for c_name, c_def in target_chars:
                             for vg_remap in c_def.get('vg_remaps', []):
                                 remap_str = vg_remap.get('vertex_groups', '')
+                                comp_remap = vg_remap.get('component_remap', [])
                                 trigger_hashes = vg_remap.get('trigger_hash', [])
                                 triggered = (
                                     any(th.lower() in present_hashes_before for th in trigger_hashes)
                                     if trigger_hashes else c_name in {mc[0] for mc in matched_chars}
                                 )
-                                vg_key = (c_name, remap_str)
-                                if triggered and remap_str and vg_key not in applied_vg_keys:
+                                vg_key = (c_name, f"{remap_str}|{len(comp_remap)}")
+                                if triggered and (remap_str or comp_remap) and vg_key not in applied_vg_keys:
                                     applied_vg_keys.add(vg_key)
-                                    counts["vg"] += cls._apply_blend_vg_remap(mod_item.path, remap_str)
+                                    counts["vg"] += cls._apply_blend_vg_remap(mod_item.path, remap_str, comp_remap)
 
                     if options.fix_derive_textures:
                         extra_lines, d_cnt = cls._collect_derived_sections(lines, target_chars, present_hashes)
@@ -1755,7 +1993,7 @@ class ModService:
                                     modified = True
 
                     lines, sec_changed = cls._apply_safe_ini_section_injections(
-                        lines, matched_chars, options.fix_stable_texture, options.fix_resource_override
+                        lines, target_chars, options.fix_stable_texture, options.fix_resource_override, present_hashes
                     )
                     if sec_changed:
                         modified = True

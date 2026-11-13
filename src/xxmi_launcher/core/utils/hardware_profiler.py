@@ -34,8 +34,8 @@ class HardwareSpecs:
 class AdaptiveModConfig:
     # Engine.ini parameters
     streaming_pool_size: int = 2048
-    lod_distance_scale: int = 12
-    hidden_primitive_scale: int = 8
+    lod_distance_scale: int = 25
+    hidden_primitive_scale: int = 25
     frames_for_full_update: int = 0
     amortize_cpu_to_gpu_copy: int = 0
     fully_load_used_textures: int = 1
@@ -247,10 +247,10 @@ class SystemHardwareProfiler:
 
         # 1. 显存档位对应参数 (pool, lod, hidden, fix)
         tier_presets = {
-            "Ultra": (5120, 25, 16, False),
-            "High": (3584, 20, 12, False),
-            "Mid": (2048, 12, 8, True),
-            "Low": (1280, 8, 6, True),
+            "Ultra": (5120, 25, 25, False),
+            "High": (3584, 25, 25, False),
+            "Mid": (2048, 25, 25, True),
+            "Low": (1280, 25, 25, True),
         }
         pool, lod, hidden, fix = tier_presets.get(specs.tier, tier_presets["Mid"])
         cfg.streaming_pool_size, cfg.lod_distance_scale = pool, lod

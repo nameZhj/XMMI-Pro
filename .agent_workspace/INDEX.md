@@ -20,3 +20,4 @@ src/xxmi_launcher/core/utils/hardware_profiler.py | Zero-configuration hardware 
 src/xxmi_launcher/core/packages/model_importers/launch_safety_guard.py | Crash guard, proxy DLL conflict isolation, and automatic rollback monitor for Wuthering Waves | LaunchSafetyGuard
 src/xxmi_launcher/core/packages/model_importers/wwmi_fixer.py | Wuthering Waves mod diagnostic, repair, and hardware-adaptive optimizer | WWMIRepairAndOptimizer, LaunchSafetyGuard, apply_engine_ini_fixes, apply_d3dx_ini_fixes, apply_windows_compat_fixes, scan_and_repair_mods
 src/xxmi_launcher/core/packages/model_importers/wwmi_package.py | Wuthering Waves model importer package with dual-layer path resolution and lossless config writing | WWMIPackage, WWMIConfig, WWMIPackageConfig
+src/xxmi_launcher/core/game_launcher.py | Game launch orchestration, pre-launch synchronous INI optimization, and monitoring | GameLauncher

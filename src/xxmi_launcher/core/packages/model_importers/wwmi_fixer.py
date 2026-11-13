@@ -73,20 +73,26 @@ class WWMIRepairAndOptimizer:
         logs.append(f"[硬件自适应] GPU: {specs.gpu_name} ({specs.vram_mb}MB) | 安全流送池: {safe_pool}MB | 延迟: {safe_delay}ms")
         engine_updates = {
             "SystemSettings": {
-                "r.Kuro.SkeletalMesh.LODDistanceScale": str(cfg.lod_distance_scale),
+                "r.Streaming.UsingNewKuroStreaming": "0",
+                "r.Kuro.SkeletalMesh.LODDistanceScale": "25",
                 "r.Streaming.FullyLoadUsedTextures": "1",
-                "r.Streaming.HiddenPrimitiveScale": str(cfg.hidden_primitive_scale),
+                "r.Streaming.UseAllMips": "1",
+                "r.Streaming.HiddenPrimitiveScale": "25",
                 "r.Streaming.PoolSize": str(cfg.streaming_pool_size),
             },
             "/Script/Engine.RendererSettings": {
-                "r.Streaming.HiddenPrimitiveScale": str(cfg.hidden_primitive_scale),
+                "r.Streaming.UsingNewKuroStreaming": "0",
+                "r.Streaming.HiddenPrimitiveScale": "25",
                 "r.Streaming.FramesForFullUpdate": "0",
                 "r.Streaming.AmortizeCPUToGPUCopy": "0",
                 "r.Streaming.PoolSize": str(cfg.streaming_pool_size),
             },
             "ConsoleVariables": {
-                "r.Kuro.SkeletalMesh.LODDistanceScale": str(cfg.lod_distance_scale),
+                "r.Streaming.UsingNewKuroStreaming": "0",
+                "r.Kuro.SkeletalMesh.LODDistanceScale": "25",
+                "r.Streaming.HiddenPrimitiveScale": "25",
                 "r.Streaming.FullyLoadUsedTextures": "1",
+                "r.Streaming.UseAllMips": "1",
             },
         }
         for ini_path in self.resolve_all_engine_ini_paths():
@@ -202,6 +208,13 @@ class WWMIRepairAndOptimizer:
         sec_re = re.compile(r"^\s*\[([^\]]+)\]")
         hash_re = re.compile(r"^\s*hash\s*=\s*([0-9a-fA-F]{8,16})\s*$")
 
+        costume_re = re.compile(r"^(\s*)(?:;\s*\[AutoFixed\]\s*)?if\s+\$costume_mods\b", re.IGNORECASE)
+        corrupt_strip_res = (
+            re.compile(r"^\s*CheckTextureOverride\s*=\s*0\s*$", re.IGNORECASE),
+            re.compile(r"^\s*\$\\WWMIv1\\vg_remap\s*=", re.IGNORECASE),
+            re.compile(r"^\s*;\s*\[Auto-generated Vertex Group Remap", re.IGNORECASE),
+        )
+
         for line in lines:
             m_sec = sec_re.match(line)
             if m_sec:
@@ -212,8 +225,12 @@ class WWMIRepairAndOptimizer:
                     h_val = m_hash.group(1).lower()
                     if h_val not in {"00000000", "ffffffff", "11111111", "00000001", "00000002"}:
                         hash_registry.setdefault(h_val, []).append((top_mod_folder, ini_path))
-            if "if $costume_mods" in line:
-                new_lines.append(f"; [AutoFixed] {line}")
+            m_costume = costume_re.match(line)
+            if m_costume:
+                new_lines.append(f"{m_costume.group(1)}if 1")
+                modified = True
+                continue
+            if any(rx.match(line) for rx in corrupt_strip_res):
                 modified = True
                 continue
             if line.strip().lower().startswith("filename") and "/" in line:
